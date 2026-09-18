@@ -1,7 +1,3 @@
 dependencies:
   idf:
     version: "5.5.5"
-  m5stack/m5gfx:
-    version: "0.2.29"
-  m5stack/m5unified:
-    version: "0.2.22"
