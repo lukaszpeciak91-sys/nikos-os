@@ -37,4 +37,5 @@ No architectural blocker is known. Compile-time validation and physical device v
 Append concise entries here when the authoritative project state changes.
 
 - 2026-09-18 — Established the initial project documentation foundation and recorded the current architecture, decisions, progress, and workflow.
+- 2026-09-18 — Added the minimal native ESP-IDF scaffold and M5StickC Plus SE hardware sanity application.
 - 2026-09-18 — Implemented the first equal-peer RadioLab foundation for two-device physical ESP-NOW testing.
