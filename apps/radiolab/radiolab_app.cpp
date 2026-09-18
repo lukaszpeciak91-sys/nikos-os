@@ -182,6 +182,10 @@ void RadioLabApp::process_rx(
 
         if (radio::mac_equal(event.source, peer_mac_)) {
             last_discovery_ms_ = now_ms;
+            if (event.has_rssi) {
+                last_rssi_ = event.rssi;
+                last_rssi_valid_ = true;
+            }
         }
         return;
     }
