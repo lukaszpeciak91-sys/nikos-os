@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(IDF_TARGET "esp32" CACHE STRING "ESP-IDF build target")
 set(PROJECT_VER "0.2.0")
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/apps/radiolab")
 
