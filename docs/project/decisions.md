@@ -62,15 +62,15 @@ RadioLab may display both values but must not convert RSSI into metres or anothe
 
 **Rationale:** RSSI is receiver-side signal metadata affected by environment, orientation, obstruction, antenna characteristics, and other variables that make direct distance inference unreliable.
 
-## D-007 — Benchmark radio mode is explicitly selected
+## D-007 — RadioLab v0.1 benchmark radio mode is explicitly selected
 
 **Status:** Accepted
 
-Each RadioLab benchmark run uses an explicitly selected radio mode: `NORMAL` or `LR`. RadioLab does not automatically switch between NORMAL and LR during a benchmark run.
+For RadioLab v0.1 and the current benchmark behavior, each benchmark run uses an explicitly selected radio mode: `NORMAL` or `LR`. RadioLab does not automatically switch between NORMAL and LR during that benchmark run.
 
 NORMAL uses the standard ESP32 802.11 b/g/n protocol bitmap. LR uses the Espressif LR-only protocol bitmap.
 
-**Rationale:** Keeping the radio mode fixed preserves measurement validity and makes benchmark results comparable.
+**Rationale:** Keeping the mode fixed during the current RadioLab v0.1 benchmark preserves measurement validity and comparability. This decision does not establish a permanent platform-wide NORMAL/LR policy.
 
 ## D-008 — RadioLab v0.1 devices are equal peers
 

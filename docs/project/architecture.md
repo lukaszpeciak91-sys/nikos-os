@@ -29,7 +29,7 @@ Owns transport-facing Wi-Fi / ESP-NOW integration and radio hardware behavior:
 
 - Wi-Fi / ESP-NOW initialization
 - peer registration
-- fixed Wi-Fi channel
+- Wi-Fi channel configuration
 - NORMAL / Espressif LR mode
 - raw broadcast and unicast TX/RX
 - RX radio metadata
@@ -39,12 +39,14 @@ ESP-NOW callbacks perform only bounded copying into a queue. Application logic e
 
 ### protocol
 
-Owns the application-independent on-air representation:
+The current component owns the versioned RadioLab v0.1 wire format:
 
-- versioned and identifiable on-air data format
-- message type
+- identifiable on-air format for RadioLab v0.1
+- RadioLab message types
 - identifiers and sequence information
 - explicit encode/decode responsibilities
+
+This is not yet permanent application-independent Nikoś OS protocol infrastructure. Shared protocol infrastructure should be extracted only when a second real application demonstrates a common requirement.
 
 ### storage
 
