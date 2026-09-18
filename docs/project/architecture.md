@@ -25,7 +25,7 @@ Owns M5-specific hardware integration:
 
 ### radio
 
-Owns radio hardware and transport-facing behavior:
+Owns transport-facing Wi-Fi / ESP-NOW integration and radio hardware behavior:
 
 - Wi-Fi / ESP-NOW initialization
 - peer configuration
@@ -70,7 +70,9 @@ Initial and future applications include:
 
 - RadioLab and Nikoś Communicator are sibling applications.
 - Nikoś Communicator must not become a platform dependency.
-- Applications must not directly own or configure ESP-NOW or Wi-Fi hardware.
+- Applications must not call ESP-NOW APIs directly.
+- Applications must not call `esp_wifi` APIs directly.
+- The `radio` layer owns transport-facing Wi-Fi / ESP-NOW integration.
 - ESP-NOW callbacks must perform minimal work and hand data to normal task context. Application logic must not execute directly inside Wi-Fi callbacks.
 - UI state must not become the owner of background communication.
 - Device profile and radio role are separate concepts: `DEV / NIKOS` != `BASE / MOBILE`.
