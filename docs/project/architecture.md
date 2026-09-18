@@ -28,18 +28,20 @@ Owns M5-specific hardware integration:
 Owns transport-facing Wi-Fi / ESP-NOW integration and radio hardware behavior:
 
 - Wi-Fi / ESP-NOW initialization
-- peer configuration
-- Wi-Fi channel
+- peer registration
+- fixed Wi-Fi channel
 - NORMAL / Espressif LR mode
-- raw TX/RX
+- raw broadcast and unicast TX/RX
 - RX radio metadata
 - MAC-level send result
+
+ESP-NOW callbacks perform only bounded copying into a queue. Application logic executes later in normal task context.
 
 ### protocol
 
 Owns the application-independent on-air representation:
 
-- versioned on-air data format
+- versioned and identifiable on-air data format
 - message type
 - identifiers and sequence information
 - explicit encode/decode responsibilities
@@ -47,6 +49,8 @@ Owns the application-independent on-air representation:
 ### storage
 
 Owns versioned persistent configuration when persistence is required.
+
+No storage layer is required by the current RadioLab milestone.
 
 ### power
 
@@ -66,6 +70,8 @@ Initial and future applications include:
 - future Nikoś Communicator
 - future diagnostic, Wi-Fi, BLE, IR, and hardware tools
 
+RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
+
 ## Architectural invariants
 
 - RadioLab and Nikoś Communicator are sibling applications.
@@ -73,9 +79,9 @@ Initial and future applications include:
 - Applications must not call ESP-NOW APIs directly.
 - Applications must not call `esp_wifi` APIs directly.
 - The `radio` layer owns transport-facing Wi-Fi / ESP-NOW integration.
-- ESP-NOW callbacks must perform minimal work and hand data to normal task context. Application logic must not execute directly inside Wi-Fi callbacks.
+- ESP-NOW callbacks must perform minimal work and hand copied data to normal task context. Application logic must not execute directly inside Wi-Fi callbacks.
 - UI state must not become the owner of background communication.
-- Device profile and radio role are separate concepts: `DEV / NIKOS` != `BASE / MOBILE`.
+- RadioLab field placement is not a persistent device role; either peer may remain at home or be carried.
 - ESP-NOW send callback success is not application-level delivery.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
 - Persistent schemas and wire protocols must be versioned once introduced.
