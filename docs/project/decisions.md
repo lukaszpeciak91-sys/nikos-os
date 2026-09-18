@@ -10,7 +10,7 @@ Native ESP-IDF is the primary framework.
 
 **Rationale:** It provides direct control over ESP-NOW, Wi-Fi configuration, RX metadata, Espressif LR mode, power management, NVS, and FreeRTOS.
 
-**Current direction:** Use a stable, pinned ESP-IDF 5.5.x release.
+**Current implementation:** ESP-IDF 5.5.5 is pinned exactly for the initial hardware sanity milestone.
 
 ## D-002 — Use M5Unified/M5GFX for M5 hardware support
 
@@ -19,6 +19,8 @@ Native ESP-IDF is the primary framework.
 Use M5Unified/M5GFX as ESP-IDF components for initial M5 hardware support.
 
 **Rationale:** Existing maintained hardware support should be preferred over custom LCD or AXP192 drivers unless a real limitation later justifies replacement.
+
+**Current implementation:** M5Unified 0.2.22 and M5GFX 0.2.29 are pinned through the ESP-IDF Component Manager.
 
 ## D-003 — RadioLab and Communicator are sibling applications
 
