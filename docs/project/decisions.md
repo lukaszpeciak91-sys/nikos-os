@@ -40,9 +40,9 @@ RadioLab v0.1 assumes two known devices. Peer configuration may initially be exp
 
 **Status:** Accepted
 
-ESP-NOW send callback success must not be interpreted as confirmed application delivery.
+ESP-NOW send callback success is only a MAC-level result. An application ACK confirms peer-side application processing. RadioLab uses the application ACK as its end-to-end delivery signal.
 
-**Rationale:** MAC-level send completion and application-level receipt are different guarantees. End-to-end delivery requires an application-level acknowledgement.
+**Rationale:** MAC-level send completion and peer-side application processing are different guarantees and must be reported separately.
 
 ## D-006 — No physical distance estimation from RSSI
 
@@ -50,21 +50,19 @@ ESP-NOW send callback success must not be interpreted as confirmed application d
 
 RadioLab may display RSSI but must not convert RSSI into metres or another physical distance estimate.
 
-**Rationale:** RSSI is receiver-side radio metadata affected by environment, orientation, obstruction, antenna characteristics, and other variables that make direct distance inference unreliable.
+For RadioLab measurements:
 
-## D-007 — Minimal two-button UI model
+- BASE measures RSSI from packets received from MOBILE.
+- MOBILE measures RSSI from ACK packets received from BASE.
+
+RSSI remains receiver-side signal metadata and must not be interpreted as physical distance.
+
+**Rationale:** RSSI is affected by environment, orientation, obstruction, antenna characteristics, and other variables that make direct distance inference unreliable.
+
+## D-007 — Benchmark radio mode is explicitly selected
 
 **Status:** Accepted
 
-The current proposed global navigation model is:
+Each RadioLab benchmark run uses an explicitly selected radio mode: `NORMAL` or `LR`. RadioLab does not automatically switch between NORMAL and LR during a benchmark run.
 
-- Button B short -> NEXT
-- Button A short -> SELECT / ACTION
-- Button B long -> BACK
-- Button A long -> initially unused / future application-specific action
-
-The power button is reserved for power and sleep semantics rather than ordinary navigation.
-
-**Rationale:** The model fits the two user buttons exposed by the M5StickC Plus SE while keeping navigation simple and leaving one long-press action available for future application needs.
-
-**Verification note:** Actual hardware button mapping must still be verified on physical units before implementation depends on it.
+**Rationale:** Keeping the radio mode fixed preserves measurement validity and makes benchmark results comparable.
