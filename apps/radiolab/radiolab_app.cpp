@@ -78,14 +78,16 @@ void RadioLabApp::begin()
 
 void RadioLabApp::update()
 {
-    const std::uint32_t now = now_ms();
+    const std::uint32_t input_now = now_ms();
 
-    process_input(board_.poll_input(), now);
+    process_input(board_.poll_input(), input_now);
     process_radio_events();
-    process_timers(now);
 
-    if (now - last_render_ms_ >= kRenderIntervalMs) {
-        render(now);
+    const std::uint32_t current_now = now_ms();
+    process_timers(current_now);
+
+    if (current_now - last_render_ms_ >= kRenderIntervalMs) {
+        render(current_now);
     }
 }
 
