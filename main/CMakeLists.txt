@@ -3,6 +3,8 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES
         board
+        log
+        nvs_flash
         radio
         radiolab
 )

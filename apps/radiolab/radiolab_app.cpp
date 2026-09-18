@@ -81,7 +81,7 @@ void RadioLabApp::update()
     const std::uint32_t now = now_ms();
 
     process_input(board_.poll_input(), now);
-    process_radio_events(now);
+    process_radio_events();
     process_timers(now);
 
     if (now - last_render_ms_ >= kRenderIntervalMs) {
@@ -112,7 +112,7 @@ void RadioLabApp::process_input(
 
     switch (action_) {
         case Action::Ping:
-            send_ping(now_ms);
+            send_ping();
             break;
         case Action::Hello:
             send_hello();
@@ -134,21 +134,19 @@ void RadioLabApp::process_input(
     render(now_ms);
 }
 
-void RadioLabApp::process_radio_events(std::uint32_t now_ms)
+void RadioLabApp::process_radio_events()
 {
     radio::Event event;
     while (radio_.poll(event)) {
         if (event.type == radio::EventType::Rx) {
-            process_rx(event.rx, now_ms);
+            process_rx(event.rx);
         } else {
             process_tx(event.tx);
         }
     }
 }
 
-void RadioLabApp::process_rx(
-    const radio::RxEvent& event,
-    std::uint32_t now_ms)
+void RadioLabApp::process_rx(const radio::RxEvent& event)
 {
     if (radio::mac_equal(event.source, radio_.self_mac())) {
         return;
@@ -171,8 +169,8 @@ void RadioLabApp::process_rx(
             peer_known_ = true;
             peer_mac_ = event.source;
             last_valid_rx_ms_ = 0;
-            last_rssi_valid_ = false;
-            peer_reported_rssi_valid_ = false;
+            matching_ack_rssi_valid_ = false;
+            peer_ping_rssi_valid_ = false;
             last_rtt_ms_ = -1;
 
             char mac[18]{};
@@ -181,11 +179,8 @@ void RadioLabApp::process_rx(
         }
 
         if (radio::mac_equal(event.source, peer_mac_)) {
-            last_discovery_ms_ = now_ms;
-            if (event.has_rssi) {
-                last_rssi_ = event.rssi;
-                last_rssi_valid_ = true;
-            }
+            last_discovery_ms_ =
+                static_cast<std::uint32_t>(event.received_time_us / 1000U);
         }
         return;
     }
@@ -194,11 +189,9 @@ void RadioLabApp::process_rx(
         return;
     }
 
-    if (event.has_rssi) {
-        last_rssi_ = event.rssi;
-        last_rssi_valid_ = true;
-    }
-    last_valid_rx_ms_ = now_ms;
+    const std::uint32_t event_received_ms =
+        static_cast<std::uint32_t>(event.received_time_us / 1000U);
+    last_valid_rx_ms_ = event_received_ms;
 
     switch (message.type) {
         case protocol::MessageType::Ping:
@@ -215,12 +208,24 @@ void RadioLabApp::process_rx(
                 && message.reference_sequence == pending_ping_sequence_) {
                 ping_pending_ = false;
                 ++ack_count_;
-                last_rtt_ms_ = static_cast<std::int32_t>(
-                    now_ms - pending_ping_started_ms_);
 
-                if (message.reported_rssi != protocol::kRssiUnavailable) {
-                    peer_reported_rssi_ = message.reported_rssi;
-                    peer_reported_rssi_valid_ = true;
+                if (event.received_time_us >= pending_ping_started_us_) {
+                    last_rtt_ms_ = static_cast<std::int32_t>(
+                        (event.received_time_us - pending_ping_started_us_)
+                        / 1000U);
+                } else {
+                    last_rtt_ms_ = -1;
+                }
+
+                matching_ack_rssi_valid_ = event.has_rssi;
+                if (event.has_rssi) {
+                    matching_ack_rssi_ = event.rssi;
+                }
+
+                peer_ping_rssi_valid_ =
+                    message.reported_rssi != protocol::kRssiUnavailable;
+                if (peer_ping_rssi_valid_) {
+                    peer_ping_rssi_ = message.reported_rssi;
                 }
             }
             break;
@@ -231,7 +236,7 @@ void RadioLabApp::process_rx(
             hello_rssi_ = event.rssi;
             hello_rssi_valid_ = event.has_rssi;
             hello_mode_ = from_wire_mode(message.mode);
-            hello_received_ms_ = now_ms;
+            hello_received_ms_ = event_received_ms;
             board_.tone(2600.0F, 80);
             break;
 
@@ -243,12 +248,9 @@ void RadioLabApp::process_rx(
 
 void RadioLabApp::process_tx(const radio::TxEvent& event)
 {
-    if (!peer_known_ || !radio::mac_equal(event.destination, peer_mac_)) {
-        return;
-    }
-
-    mac_tx_result_valid_ = true;
-    last_mac_tx_success_ = event.success;
+    (void)event.destination;
+    latest_mac_tx_result_valid_ = true;
+    latest_mac_tx_success_ = event.success;
 }
 
 void RadioLabApp::process_timers(std::uint32_t now_ms)
@@ -271,7 +273,8 @@ void RadioLabApp::process_timers(std::uint32_t now_ms)
     }
 
     if (ping_pending_
-        && now_ms - pending_ping_started_ms_ > kPingTimeoutMs) {
+        && now_us() - pending_ping_started_us_
+            > static_cast<std::uint64_t>(kPingTimeoutMs) * 1000U) {
         ping_pending_ = false;
         ++failed_ping_count_;
     }
@@ -281,7 +284,7 @@ void RadioLabApp::process_timers(std::uint32_t now_ms)
         && !ping_pending_
         && (last_live_ping_ms_ == 0
             || now_ms - last_live_ping_ms_ >= kLivePingIntervalMs)) {
-        send_ping(now_ms);
+        send_ping();
         last_live_ping_ms_ = now_ms;
     }
 }
@@ -299,7 +302,7 @@ void RadioLabApp::send_discovery()
     }
 }
 
-void RadioLabApp::send_ping(std::uint32_t now_ms)
+void RadioLabApp::send_ping()
 {
     if (!peer_known_ || ping_pending_) {
         return;
@@ -315,6 +318,7 @@ void RadioLabApp::send_ping(std::uint32_t now_ms)
         return;
     }
 
+    const std::uint64_t ping_send_time_us = now_us();
     if (!radio_.send_peer(wire.data(), wire.size())) {
         ++failed_ping_count_;
         return;
@@ -323,7 +327,7 @@ void RadioLabApp::send_ping(std::uint32_t now_ms)
     ++tx_ping_count_;
     ping_pending_ = true;
     pending_ping_sequence_ = message.sequence;
-    pending_ping_started_ms_ = now_ms;
+    pending_ping_started_us_ = ping_send_time_us;
 }
 
 void RadioLabApp::send_ack(
@@ -388,10 +392,10 @@ void RadioLabApp::clear_active_peer()
     last_discovery_ms_ = 0;
     last_valid_rx_ms_ = 0;
     ping_pending_ = false;
-    last_rssi_valid_ = false;
-    peer_reported_rssi_valid_ = false;
+    matching_ack_rssi_valid_ = false;
+    peer_ping_rssi_valid_ = false;
     last_rtt_ms_ = -1;
-    mac_tx_result_valid_ = false;
+    latest_mac_tx_result_valid_ = false;
 }
 
 void RadioLabApp::render(std::uint32_t now_ms)
@@ -402,18 +406,22 @@ void RadioLabApp::render(std::uint32_t now_ms)
     char self_mac[18]{};
     format_mac(radio_.self_mac(), self_mac, sizeof(self_mac));
 
-    char rssi[12] = "--";
-    if (last_rssi_valid_) {
-        std::snprintf(rssi, sizeof(rssi), "%d", last_rssi_);
+    char ack_rssi[12] = "--";
+    if (matching_ack_rssi_valid_) {
+        std::snprintf(
+            ack_rssi,
+            sizeof(ack_rssi),
+            "%d",
+            matching_ack_rssi_);
     }
 
-    char peer_rssi[12] = "--";
-    if (peer_reported_rssi_valid_) {
+    char peer_ping_rssi[12] = "--";
+    if (peer_ping_rssi_valid_) {
         std::snprintf(
-            peer_rssi,
-            sizeof(peer_rssi),
+            peer_ping_rssi,
+            sizeof(peer_ping_rssi),
             "%d",
-            peer_reported_rssi_);
+            peer_ping_rssi_);
     }
 
     char rtt[12] = "--";
@@ -466,8 +474,8 @@ void RadioLabApp::render(std::uint32_t now_ms)
     }
 
     const char* mac_tx =
-        mac_tx_result_valid_
-            ? (last_mac_tx_success_ ? "OK" : "FAIL")
+        latest_mac_tx_result_valid_
+            ? (latest_mac_tx_success_ ? "OK" : "FAIL")
             : "--";
 
     char body[768]{};
@@ -476,9 +484,10 @@ void RadioLabApp::render(std::uint32_t now_ms)
         sizeof(body),
         "PEER:%s  MODE:%s\n"
         "CH:%u ACT:%s LIVE:%s\n"
-        "RSSI:%s PEER:%s RTT:%sms\n"
+        "ACK RSSI:%s RTT:%sms\n"
+        "PING RSSI@PEER:%s\n"
         "PING TX:%" PRIu32 " RX:%" PRIu32 " ACK:%" PRIu32 " FAIL:%" PRIu32 "\n"
-        "MAC TX:%s\n"
+        "MAC LAST:%s QDROP:%" PRIu32 "\n"
         "BAT:%s\n"
         "ID:%s\n"
         "FW:%s\n"
@@ -489,14 +498,15 @@ void RadioLabApp::render(std::uint32_t now_ms)
         static_cast<unsigned>(radio_.channel()),
         action_name(),
         live_enabled_ ? "ON" : "OFF",
-        rssi,
-        peer_rssi,
+        ack_rssi,
         rtt,
+        peer_ping_rssi,
         tx_ping_count_,
         rx_ping_count_,
         ack_count_,
         failed_ping_count_,
         mac_tx,
+        radio_.dropped_event_count(),
         battery,
         self_mac,
         app != nullptr ? app->version : "unknown",
@@ -534,7 +544,12 @@ std::uint32_t RadioLabApp::next_sequence()
 
 std::uint32_t RadioLabApp::now_ms() const
 {
-    return static_cast<std::uint32_t>(esp_timer_get_time() / 1000);
+    return static_cast<std::uint32_t>(now_us() / 1000U);
+}
+
+std::uint64_t RadioLabApp::now_us() const
+{
+    return static_cast<std::uint64_t>(esp_timer_get_time());
 }
 
 const char* RadioLabApp::action_name() const

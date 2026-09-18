@@ -31,13 +31,13 @@ private:
     };
 
     void process_input(const board::InputState& input, std::uint32_t now_ms);
-    void process_radio_events(std::uint32_t now_ms);
-    void process_rx(const radio::RxEvent& event, std::uint32_t now_ms);
+    void process_radio_events();
+    void process_rx(const radio::RxEvent& event);
     void process_tx(const radio::TxEvent& event);
     void process_timers(std::uint32_t now_ms);
 
     void send_discovery();
-    void send_ping(std::uint32_t now_ms);
+    void send_ping();
     void send_ack(std::uint32_t reference_sequence, std::int8_t measured_rssi);
     void send_hello();
     void toggle_mode();
@@ -48,6 +48,7 @@ private:
 
     std::uint32_t next_sequence();
     std::uint32_t now_ms() const;
+    std::uint64_t now_us() const;
     const char* action_name() const;
     const char* reachability_name(std::uint32_t now_ms) const;
 
@@ -68,12 +69,12 @@ private:
 
     bool ping_pending_ = false;
     std::uint32_t pending_ping_sequence_ = 0;
-    std::uint32_t pending_ping_started_ms_ = 0;
+    std::uint64_t pending_ping_started_us_ = 0;
 
-    std::int16_t last_rssi_ = 0;
-    bool last_rssi_valid_ = false;
-    std::int16_t peer_reported_rssi_ = 0;
-    bool peer_reported_rssi_valid_ = false;
+    std::int16_t matching_ack_rssi_ = 0;
+    bool matching_ack_rssi_valid_ = false;
+    std::int16_t peer_ping_rssi_ = 0;
+    bool peer_ping_rssi_valid_ = false;
     std::int32_t last_rtt_ms_ = -1;
 
     std::uint32_t tx_ping_count_ = 0;
@@ -81,8 +82,8 @@ private:
     std::uint32_t ack_count_ = 0;
     std::uint32_t failed_ping_count_ = 0;
 
-    bool mac_tx_result_valid_ = false;
-    bool last_mac_tx_success_ = false;
+    bool latest_mac_tx_result_valid_ = false;
+    bool latest_mac_tx_success_ = false;
 
     bool hello_received_ = false;
     std::uint32_t hello_sequence_ = 0;

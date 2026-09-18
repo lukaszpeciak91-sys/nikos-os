@@ -1,5 +1,6 @@
 #include "radio/radio.hpp"
 
+#include <atomic>
 #include <cstring>
 
 #include "esp_err.h"
@@ -7,10 +8,10 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_now.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-#include "nvs_flash.h"
 
 namespace {
 
@@ -20,6 +21,7 @@ constexpr nikos::radio::MacAddress kBroadcastMac = {
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 QueueHandle_t s_event_queue = nullptr;
+std::atomic<std::uint32_t> s_dropped_event_count{0};
 
 bool check_ok(esp_err_t result, const char* operation)
 {
@@ -29,6 +31,13 @@ bool check_ok(esp_err_t result, const char* operation)
 
     ESP_LOGE(kTag, "%s failed: %s", operation, esp_err_to_name(result));
     return false;
+}
+
+void queue_event(const nikos::radio::Event& event)
+{
+    if (xQueueSend(s_event_queue, &event, 0) != pdTRUE) {
+        s_dropped_event_count.fetch_add(1, std::memory_order_relaxed);
+    }
 }
 
 void send_callback(
@@ -47,7 +56,7 @@ void send_callback(
         nikos::radio::kMacSize);
     event.tx.success = status == ESP_NOW_SEND_SUCCESS;
 
-    xQueueSend(s_event_queue, &event, 0);
+    queue_event(event);
 }
 
 void receive_callback(
@@ -67,6 +76,8 @@ void receive_callback(
 
     nikos::radio::Event event;
     event.type = nikos::radio::EventType::Rx;
+    event.rx.received_time_us =
+        static_cast<std::uint64_t>(esp_timer_get_time());
     std::memcpy(
         event.rx.source.data(),
         info->src_addr,
@@ -86,7 +97,7 @@ void receive_callback(
         event.rx.has_rssi = true;
     }
 
-    xQueueSend(s_event_queue, &event, 0);
+    queue_event(event);
 }
 
 }  // namespace
@@ -104,17 +115,7 @@ bool RadioService::begin(std::uint8_t channel, Mode mode)
         ESP_LOGE(kTag, "Failed to create ESP-NOW event queue");
         return false;
     }
-
-    esp_err_t result = nvs_flash_init();
-    if (result == ESP_ERR_NVS_NO_FREE_PAGES || result == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        if (!check_ok(nvs_flash_erase(), "nvs_flash_erase")) {
-            return false;
-        }
-        result = nvs_flash_init();
-    }
-    if (!check_ok(result, "nvs_flash_init")) {
-        return false;
-    }
+    s_dropped_event_count.store(0, std::memory_order_relaxed);
 
     if (!check_ok(esp_netif_init(), "esp_netif_init")) {
         return false;
@@ -318,6 +319,11 @@ bool RadioService::poll(Event& event)
 {
     return s_event_queue != nullptr
         && xQueueReceive(s_event_queue, &event, 0) == pdTRUE;
+}
+
+std::uint32_t RadioService::dropped_event_count() const
+{
+    return s_dropped_event_count.load(std::memory_order_relaxed);
 }
 
 bool mac_equal(const MacAddress& left, const MacAddress& right)

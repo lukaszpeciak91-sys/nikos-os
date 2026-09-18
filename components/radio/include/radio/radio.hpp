@@ -26,6 +26,7 @@ struct RxEvent {
     MacAddress destination{};
     std::array<std::uint8_t, kMaxFrameSize> data{};
     std::size_t length = 0;
+    std::uint64_t received_time_us = 0;
     std::int8_t rssi = 0;
     bool has_rssi = false;
 };
@@ -60,6 +61,7 @@ public:
     bool send_peer(const std::uint8_t* data, std::size_t length);
 
     bool poll(Event& event);
+    std::uint32_t dropped_event_count() const;
 
 private:
     bool apply_mode(Mode mode);
