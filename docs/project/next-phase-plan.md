@@ -14,10 +14,13 @@ The first infrastructure phase intentionally supports one known peer and keeps m
 - [x] Add a long-lived `messaging::Service` above `radio`.
 - [x] Support one known peer slot.
 - [x] Track presence/reachability and latest peer RX RSSI.
+- [x] Add small bounded configurable presence jitter to avoid deterministic RX-window aliasing.
 - [x] Use stable logical message IDs across retries.
 - [x] Support PRESET_MESSAGE, PRESET_RESPONSE, ACK, and RING wire types.
 - [x] Retry one outgoing logical message until its matching application ACK.
+- [x] Suspend retransmission while the known peer is stale/unreachable and resume the same logical message ID after recovery.
 - [x] Dedupe received logical messages while ACKing duplicate copies again.
+- [x] Keep dedupe in long-lived RAM state across foreground app changes and RadioLab pause/resume, while documenting that it resets on full reboot.
 - [x] Keep messaging state independent of foreground UI.
 - [x] Pause messaging transport while RadioLab owns the radio and resume it afterwards.
 - [x] Make radio RX wake behavior configurable.
@@ -236,7 +239,9 @@ For games/entertainment on the Nikoś profile:
 - [ ] Verify PRESET_MESSAGE retry continues until application ACK.
 - [ ] Verify PRESET_RESPONSE retry continues until application ACK.
 - [ ] Verify RING retry continues until application ACK.
-- [ ] Verify duplicate logical messages are ACKed but create only one incoming event.
+- [ ] Verify duplicate logical messages are ACKed but create only one incoming event during one boot.
+- [ ] Verify dedupe survives launcher/application changes and RadioLab messaging pause/resume.
+- [ ] Verify/document expected reboot behavior: an outstanding sender retry may surface again after receiver reboot.
 - [ ] Verify messaging remains active in launcher.
 - [ ] Verify entering RadioLab pauses messaging and preserves RadioLab behavior.
 - [ ] Verify exiting RadioLab resumes messaging with retained messaging state.

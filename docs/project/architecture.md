@@ -80,9 +80,10 @@ It currently owns:
 - latest peer RX RSSI
 - stable logical message IDs across retries
 - one outstanding outgoing logical message
-- retry-until-application-ACK behavior
-- receiver-side dedupe
+- retry-until-application-ACK behavior, with retransmission suspended while the known peer is stale/unreachable
+- receiver-side in-memory dedupe
 - duplicate ACK behavior without duplicate notification
+- bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
 - a small volatile queue of incoming logical message notifications
 - delivery receipts for matching application ACKs
 - foreground/background experimental RX profile selection
@@ -90,6 +91,8 @@ It currently owns:
 The service has no dedicated FreeRTOS task. It is advanced from the normal main loop.
 
 Messaging state is independent of foreground UI. While RadioLab owns the radio for its field-test session, messaging transport is paused but messaging state remains alive. When RadioLab exits, messaging transport resumes.
+
+Receiver dedupe state is part of that long-lived in-memory service state, so it survives foreground application changes and the RadioLab pause/resume handoff. It is intentionally volatile across a full device reboot. In this first infrastructure version, if a sender is still retrying an outstanding logical message when the receiver reboots, that message may be surfaced again after the receiver restarts.
 
 ### storage
 

@@ -78,15 +78,17 @@ bool Service::begin(const Config& config)
 
     config_ = config;
     rx_profile_ = RxProfile::Background;
-    next_message_id_ = esp_random();
-    if (next_message_id_ == 0) {
-        next_message_id_ = 1;
-    }
 
     started_ = true;
     if (!start_transport()) {
         started_ = false;
         return false;
+    }
+
+    // Seed logical IDs only after Wi-Fi/radio startup, when RF entropy is available.
+    next_message_id_ = esp_random();
+    if (next_message_id_ == 0) {
+        next_message_id_ = 1;
     }
 
     return true;
@@ -102,11 +104,12 @@ void Service::update()
 
     const std::uint32_t now = now_ms();
     if (last_presence_tx_ms_ == 0
-        || now - last_presence_tx_ms_ >= config_.presence_interval_ms) {
+        || now - last_presence_tx_ms_ >= current_presence_delay_ms_) {
         send_presence(now);
     }
 
     if (outgoing_.active
+        && peer_reachable()
         && (outgoing_.last_send_ms == 0
             || now - outgoing_.last_send_ms >= config_.retry_interval_ms)) {
         send_outgoing(now);
@@ -267,6 +270,7 @@ bool Service::start_transport()
 
     transport_active_ = true;
     last_presence_tx_ms_ = 0;
+    current_presence_delay_ms_ = 0;
     outgoing_.last_send_ms = 0;
     return true;
 }
@@ -386,6 +390,12 @@ void Service::send_presence(std::uint32_t now_ms)
         radio_.send_broadcast(wire.data(), wire.size());
     }
 
+    const std::uint32_t jitter =
+        config_.presence_jitter_ms == 0
+            ? 0
+            : esp_random()
+                % (static_cast<std::uint32_t>(config_.presence_jitter_ms) + 1U);
+    current_presence_delay_ms_ = config_.presence_interval_ms + jitter;
     last_presence_tx_ms_ = now_ms;
 }
 
@@ -431,7 +441,10 @@ bool Service::start_outgoing(
 
 void Service::send_outgoing(std::uint32_t now_ms)
 {
-    if (!transport_active_ || !outgoing_.active || !peer_known_) {
+    if (!transport_active_
+        || !outgoing_.active
+        || !peer_known_
+        || !peer_reachable()) {
         return;
     }
 

@@ -48,6 +48,7 @@ nikos::messaging::Config make_messaging_config()
     config.channel = kRadioChannel;
     config.mode = nikos::radio::Mode::Normal;
     config.presence_interval_ms = 2000;
+    config.presence_jitter_ms = 250;
     config.reachability_timeout_ms = 7000;
     config.retry_interval_ms = 500;
 

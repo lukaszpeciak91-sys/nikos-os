@@ -23,6 +23,7 @@ struct Config {
     std::uint8_t channel = 6;
     radio::Mode mode = radio::Mode::Normal;
     std::uint32_t presence_interval_ms = 2000;
+    std::uint16_t presence_jitter_ms = 250;
     std::uint32_t reachability_timeout_ms = 7000;
     std::uint32_t retry_interval_ms = 500;
     RxSchedule foreground_rx{1000, 500};
@@ -130,6 +131,7 @@ private:
     std::int8_t latest_peer_rssi_ = 0;
     bool latest_peer_rssi_valid_ = false;
     std::uint32_t last_presence_tx_ms_ = 0;
+    std::uint32_t current_presence_delay_ms_ = 0;
 
     std::uint32_t next_message_id_ = 1;
     OutgoingState outgoing_{};
