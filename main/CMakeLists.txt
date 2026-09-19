@@ -5,6 +5,7 @@ idf_component_register(
         board
         launcher
         log
+        messaging
         nvs_flash
         radio
         radiolab

@@ -16,6 +16,17 @@ enum class Mode : std::uint8_t {
     Lr,
 };
 
+enum class RxPowerMode : std::uint8_t {
+    Continuous,
+    DutyCycled,
+};
+
+struct RxPowerConfig {
+    RxPowerMode mode = RxPowerMode::Continuous;
+    std::uint16_t wake_interval_ms = 0;
+    std::uint16_t wake_window_ms = 0;
+};
+
 enum class EventType : std::uint8_t {
     Rx,
     TxResult,
@@ -44,12 +55,18 @@ struct Event {
 
 class RadioService final {
 public:
-    bool begin(std::uint8_t channel, Mode mode);
+    bool begin(
+        std::uint8_t channel,
+        Mode mode,
+        const RxPowerConfig& rx_power = RxPowerConfig{});
     bool stop();
 
     bool set_mode(Mode mode);
     Mode mode() const;
     std::uint8_t channel() const;
+
+    bool set_rx_power(const RxPowerConfig& config);
+    const RxPowerConfig& rx_power() const;
 
     const MacAddress& self_mac() const;
 
@@ -67,6 +84,7 @@ public:
 private:
     bool initialize_network_platform();
     bool apply_mode(Mode mode);
+    bool apply_rx_power(const RxPowerConfig& config);
     bool add_broadcast_peer();
 
     bool network_platform_initialized_ = false;
@@ -77,6 +95,7 @@ private:
     bool has_peer_ = false;
     std::uint8_t channel_ = 0;
     Mode mode_ = Mode::Normal;
+    RxPowerConfig rx_power_{};
     MacAddress self_mac_{};
     MacAddress peer_mac_{};
 };

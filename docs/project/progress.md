@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-First Nikoś OS launcher skeleton with lifecycle-managed RadioLab.
+First Communicator messaging infrastructure above the existing Nikoś OS shell and RadioLab.
 
 ## Current state
 
@@ -18,15 +18,17 @@ First Nikoś OS launcher skeleton with lifecycle-managed RadioLab.
 - RadioLab controls use secondary short = PING, primary short = HELLO, primary long = NORMAL/LR, and secondary long = return to launcher.
 - The separate power button is not part of launcher or application navigation.
 - ESP-NOW callback-owned RX data and metadata are copied into a FreeRTOS queue before callback return.
-- Entering RadioLab starts Wi-Fi/ESP-NOW and discovery; exiting stops ESP-NOW/Wi-Fi and clears transient RadioLab session state; re-entering starts cleanly.
+- A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, retry/ACK delivery, dedupe, and experimental RX profiles above `radio`.
+- Messaging transport is active outside RadioLab; entering RadioLab pauses messaging transport and gives RadioLab temporary radio ownership, then messaging resumes on exit.
 - The two RadioLab user-button positions are physically verified on the M5StickC Plus SE; remaining hardware and radio behavior still requires field verification.
+- The Communicator infrastructure has not yet been physically validated on the two M5StickC Plus SE units.
 - A local ESP-IDF build has not yet been executed in the available implementation environment.
 
 ## Next planned implementation step
 
 The current near-term implementation plan and checklist is tracked in [next-phase-plan.md](next-phase-plan.md).
 
-- Build with ESP-IDF 5.5.5.
+- Build the Communicator infrastructure with ESP-IDF 5.5.5.
 - Verify boot -> splash -> launcher -> RadioLab -> launcher -> RadioLab lifecycle on hardware.
 - Flash the same firmware to both M5StickC Plus SE devices.
 - Verify LCD behavior with the physically mapped primary/secondary controls.
@@ -51,3 +53,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-19 — Simplified RadioLab for immediate outdoor field testing with direct PING/HELLO controls and incremental screen rendering.
 - 2026-09-19 — Added the first static Nikoś OS launcher skeleton and minimal RadioLab start/stop lifecycle.
 - 2026-09-19 — Added the first branded shell pass for the boot splash and launcher visuals.
+- 2026-09-20 — Added the first Communicator protocol/messaging infrastructure with one-peer presence, application-ACK retry/dedupe, RadioLab transport handoff, and configurable experimental RX schedules.
