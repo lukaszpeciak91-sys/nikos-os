@@ -1,10 +1,8 @@
 #include "radiolab/radiolab_app.hpp"
 
 #include <array>
-#include <cinttypes>
 #include <cstdio>
 
-#include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "protocol/protocol.hpp"
@@ -14,12 +12,13 @@ namespace {
 constexpr char kTag[] = "radiolab";
 
 constexpr std::uint32_t kDiscoveryIntervalMs = 2000;
-constexpr std::uint32_t kLivePingIntervalMs = 1500;
 constexpr std::uint32_t kPingTimeoutMs = 1200;
 constexpr std::uint32_t kPeerLostMs = 7000;
-constexpr std::uint32_t kReachableMs = 4000;
-constexpr std::uint32_t kStaleMs = 12000;
-constexpr std::uint32_t kRenderIntervalMs = 250;
+constexpr std::uint32_t kLinkFreshMs = 4000;
+
+constexpr std::int16_t kIndicatorX = 24;
+constexpr std::int16_t kIndicatorY = 38;
+constexpr std::int16_t kIndicatorRadius = 17;
 
 nikos::protocol::RadioMode to_wire_mode(nikos::radio::Mode mode)
 {
@@ -73,7 +72,7 @@ void RadioLabApp::begin()
     send_discovery();
     const std::uint32_t now = now_ms();
     last_discovery_tx_ms_ = now;
-    render(now);
+    show_main_screen(now);
 }
 
 void RadioLabApp::update()
@@ -86,8 +85,8 @@ void RadioLabApp::update()
     const std::uint32_t current_now = now_ms();
     process_timers(current_now);
 
-    if (current_now - last_render_ms_ >= kRenderIntervalMs) {
-        render(current_now);
+    if (!hello_screen_active_) {
+        render_main_if_changed(current_now);
     }
 }
 
@@ -95,45 +94,29 @@ void RadioLabApp::process_input(
     const board::InputState& input,
     std::uint32_t now_ms)
 {
-    if (input.b_short) {
-        const auto next =
-            (static_cast<std::uint8_t>(action_) + 1U)
-            % static_cast<std::uint8_t>(Action::Count);
-        action_ = static_cast<Action>(next);
-        render(now_ms);
-    }
+    const bool any_button_event =
+        input.a_short || input.a_long || input.b_short || input.b_long;
 
-    if (input.b_long) {
-        action_ = Action::Ping;
-        render(now_ms);
-    }
-
-    if (!input.a_short) {
+    if (hello_screen_active_) {
+        if (any_button_event) {
+            hello_screen_active_ = false;
+            show_main_screen(now_ms);
+        }
         return;
     }
 
-    switch (action_) {
-        case Action::Ping:
-            send_ping();
-            break;
-        case Action::Hello:
-            send_hello();
-            break;
-        case Action::Live:
-            live_enabled_ = !live_enabled_;
-            if (live_enabled_) {
-                last_live_ping_ms_ = 0;
-            }
-            break;
-        case Action::Mode:
-            toggle_mode();
-            break;
-        case Action::Count:
-        default:
-            break;
+    if (input.b_long) {
+        toggle_mode();
+        return;
     }
 
-    render(now_ms);
+    if (input.a_short) {
+        send_ping();
+    }
+
+    if (input.b_short) {
+        send_hello();
+    }
 }
 
 void RadioLabApp::process_radio_events()
@@ -168,6 +151,7 @@ void RadioLabApp::process_rx(const radio::RxEvent& event)
             if (!radio_.set_peer(event.source)) {
                 return;
             }
+
             peer_known_ = true;
             peer_mac_ = event.source;
             last_valid_rx_ms_ = 0;
@@ -183,6 +167,7 @@ void RadioLabApp::process_rx(const radio::RxEvent& event)
         if (radio::mac_equal(event.source, peer_mac_)) {
             last_discovery_ms_ =
                 static_cast<std::uint32_t>(event.received_time_us / 1000U);
+            record_peer_rx(event);
         }
         return;
     }
@@ -194,10 +179,12 @@ void RadioLabApp::process_rx(const radio::RxEvent& event)
     const std::uint32_t event_received_ms =
         static_cast<std::uint32_t>(event.received_time_us / 1000U);
     last_valid_rx_ms_ = event_received_ms;
+    record_peer_rx(event);
 
     switch (message.type) {
         case protocol::MessageType::Ping:
             ++rx_ping_count_;
+            board_.tone(2200.0F, 60);
             send_ack(
                 message.sequence,
                 event.has_rssi
@@ -239,7 +226,8 @@ void RadioLabApp::process_rx(const radio::RxEvent& event)
             hello_rssi_valid_ = event.has_rssi;
             hello_mode_ = from_wire_mode(message.mode);
             hello_received_ms_ = event_received_ms;
-            board_.tone(2600.0F, 80);
+            board_.tone(2600.0F, 90);
+            show_hello_screen();
             break;
 
         case protocol::MessageType::Discovery:
@@ -264,7 +252,8 @@ void RadioLabApp::process_timers(std::uint32_t now_ms)
 
     if (peer_known_) {
         const bool discovery_stale =
-            now_ms - last_discovery_ms_ > kPeerLostMs;
+            last_discovery_ms_ == 0
+            || now_ms - last_discovery_ms_ > kPeerLostMs;
         const bool traffic_stale =
             last_valid_rx_ms_ == 0
             || now_ms - last_valid_rx_ms_ > kPeerLostMs;
@@ -280,14 +269,17 @@ void RadioLabApp::process_timers(std::uint32_t now_ms)
         ping_pending_ = false;
         ++failed_ping_count_;
     }
+}
 
-    if (live_enabled_
-        && peer_known_
-        && !ping_pending_
-        && (last_live_ping_ms_ == 0
-            || now_ms - last_live_ping_ms_ >= kLivePingIntervalMs)) {
-        send_ping();
-        last_live_ping_ms_ = now_ms;
+void RadioLabApp::record_peer_rx(const radio::RxEvent& event)
+{
+    latest_peer_rx_seen_ = true;
+    latest_peer_rx_ms_ =
+        static_cast<std::uint32_t>(event.received_time_us / 1000U);
+    latest_peer_rx_rssi_valid_ = event.has_rssi;
+
+    if (event.has_rssi) {
+        latest_peer_rx_rssi_ = event.rssi;
     }
 }
 
@@ -393,6 +385,9 @@ void RadioLabApp::clear_active_peer()
     peer_mac_.fill(0);
     last_discovery_ms_ = 0;
     last_valid_rx_ms_ = 0;
+    latest_peer_rx_seen_ = false;
+    latest_peer_rx_ms_ = 0;
+    latest_peer_rx_rssi_valid_ = false;
     ping_pending_ = false;
     matching_ack_rssi_valid_ = false;
     peer_ping_rssi_valid_ = false;
@@ -400,143 +395,98 @@ void RadioLabApp::clear_active_peer()
     latest_mac_tx_result_valid_ = false;
 }
 
-void RadioLabApp::render(std::uint32_t now_ms)
+bool RadioLabApp::link_is_fresh(std::uint32_t now_ms) const
 {
-    const board::PowerStatus power = board_.power_status();
-    const esp_app_desc_t* app = esp_app_get_description();
-
-    char self_mac[18]{};
-    format_mac(radio_.self_mac(), self_mac, sizeof(self_mac));
-
-    char ack_rssi[12] = "--";
-    if (matching_ack_rssi_valid_) {
-        std::snprintf(
-            ack_rssi,
-            sizeof(ack_rssi),
-            "%d",
-            matching_ack_rssi_);
-    }
-
-    char peer_ping_rssi[12] = "--";
-    if (peer_ping_rssi_valid_) {
-        std::snprintf(
-            peer_ping_rssi,
-            sizeof(peer_ping_rssi),
-            "%d",
-            peer_ping_rssi_);
-    }
-
-    char rtt[12] = "--";
-    if (last_rtt_ms_ >= 0) {
-        std::snprintf(rtt, sizeof(rtt), "%" PRId32, last_rtt_ms_);
-    }
-
-    char battery[32] = "unavailable";
-    if (power.voltage_mv >= 0) {
-        if (power.level_percent >= 0) {
-            std::snprintf(
-                battery,
-                sizeof(battery),
-                "%dmV %ld%% %s",
-                power.voltage_mv,
-                static_cast<long>(power.level_percent),
-                board::charge_state_name(power.charge_state));
-        } else {
-            std::snprintf(
-                battery,
-                sizeof(battery),
-                "%dmV %s",
-                power.voltage_mv,
-                board::charge_state_name(power.charge_state));
-        }
-    }
-
-    char hello[64] = "none";
-    if (hello_received_) {
-        const std::uint32_t age_seconds =
-            (now_ms - hello_received_ms_) / 1000U;
-        if (hello_rssi_valid_) {
-            std::snprintf(
-                hello,
-                sizeof(hello),
-                "#%" PRIu32 " %ddBm %s %" PRIu32 "s",
-                hello_sequence_,
-                hello_rssi_,
-                radio::mode_name(hello_mode_),
-                age_seconds);
-        } else {
-            std::snprintf(
-                hello,
-                sizeof(hello),
-                "#%" PRIu32 " -- %s %" PRIu32 "s",
-                hello_sequence_,
-                radio::mode_name(hello_mode_),
-                age_seconds);
-        }
-    }
-
-    const char* mac_tx =
-        latest_mac_tx_result_valid_
-            ? (latest_mac_tx_success_ ? "OK" : "FAIL")
-            : "--";
-
-    char body[768]{};
-    std::snprintf(
-        body,
-        sizeof(body),
-        "PEER:%s  MODE:%s\n"
-        "CH:%u ACT:%s LIVE:%s\n"
-        "ACK RSSI:%s RTT:%sms\n"
-        "PING RSSI@PEER:%s\n"
-        "PING TX:%" PRIu32 " RX:%" PRIu32 " ACK:%" PRIu32 " FAIL:%" PRIu32 "\n"
-        "MAC LAST:%s QDROP:%" PRIu32 "\n"
-        "BAT:%s\n"
-        "ID:%s\n"
-        "FW:%s\n"
-        "HELLO:%s\n"
-        "A:run B:next B-hold:back",
-        reachability_name(now_ms),
-        radio::mode_name(radio_.mode()),
-        static_cast<unsigned>(radio_.channel()),
-        action_name(),
-        live_enabled_ ? "ON" : "OFF",
-        ack_rssi,
-        rtt,
-        peer_ping_rssi,
-        tx_ping_count_,
-        rx_ping_count_,
-        ack_count_,
-        failed_ping_count_,
-        mac_tx,
-        radio_.dropped_event_count(),
-        battery,
-        self_mac,
-        app != nullptr ? app->version : "unknown",
-        hello);
-
-    board_.draw_screen("RADIO LAB", body);
-    last_render_ms_ = now_ms;
+    return peer_known_
+        && latest_peer_rx_seen_
+        && now_ms - latest_peer_rx_ms_ <= kLinkFreshMs;
 }
 
-RadioLabApp::Reachability RadioLabApp::reachability(
-    std::uint32_t now_ms) const
+void RadioLabApp::show_main_screen(std::uint32_t now_ms)
 {
-    if (!peer_known_) {
-        return Reachability::Lost;
+    board_.clear_screen();
+    board_.draw_text_region(10, 108, 90, 22, "A PING", 2);
+    board_.draw_text_region(130, 108, 100, 22, "B HELLO", 2);
+
+    main_render_state_valid_ = false;
+    render_main_if_changed(now_ms);
+}
+
+void RadioLabApp::render_main_if_changed(std::uint32_t now_ms)
+{
+    const bool fresh = link_is_fresh(now_ms);
+    const bool rssi_valid = fresh && latest_peer_rx_rssi_valid_;
+    const std::int16_t rssi = latest_peer_rx_rssi_;
+
+    const board::PowerStatus power = board_.power_status();
+    const std::int32_t battery_percent =
+        power.level_percent >= 0 ? power.level_percent : -1;
+    const radio::Mode mode = radio_.mode();
+
+    if (!main_render_state_valid_ || fresh != rendered_link_fresh_) {
+        board_.fill_circle(
+            kIndicatorX,
+            kIndicatorY,
+            kIndicatorRadius,
+            fresh ? board::DisplayColor::Green : board::DisplayColor::Red);
     }
 
-    if (last_valid_rx_ms_ == 0) {
-        return Reachability::Found;
+    if (!main_render_state_valid_
+        || rssi_valid != rendered_rssi_valid_
+        || (rssi_valid && rssi != rendered_rssi_)) {
+        char rssi_text[24]{};
+        if (rssi_valid) {
+            std::snprintf(rssi_text, sizeof(rssi_text), "RSSI: %d", rssi);
+        } else {
+            std::snprintf(rssi_text, sizeof(rssi_text), "RSSI: --");
+        }
+
+        board_.draw_text_region(50, 23, 185, 34, rssi_text, 3);
     }
 
-    const std::uint32_t age = now_ms - last_valid_rx_ms_;
-    if (age <= kReachableMs) {
-        return Reachability::Reachable;
+    if (!main_render_state_valid_
+        || battery_percent != rendered_battery_percent_) {
+        char battery_text[20]{};
+        if (battery_percent >= 0) {
+            std::snprintf(
+                battery_text,
+                sizeof(battery_text),
+                "BAT %ld%%",
+                static_cast<long>(battery_percent));
+        } else {
+            std::snprintf(battery_text, sizeof(battery_text), "BAT --%%");
+        }
+
+        board_.draw_text_region(8, 72, 100, 20, battery_text, 2);
     }
-    if (age <= kStaleMs) {
-        return Reachability::Stale;
+
+    if (!main_render_state_valid_ || mode != rendered_mode_) {
+        board_.draw_text_region(
+            182,
+            4,
+            54,
+            12,
+            radio::mode_name(mode),
+            1);
     }
-    return Reachability::Found;
+
+    rendered_link_fresh_ = fresh;
+    rendered_rssi_valid_ = rssi_valid;
+    rendered_rssi_ = rssi;
+    rendered_battery_percent_ = battery_percent;
+    rendered_mode_ = mode;
+    main_render_state_valid_ = true;
+}
+
+void RadioLabApp::show_hello_screen()
+{
+    if (hello_screen_active_) {
+        return;
+    }
+
+    hello_screen_active_ = true;
+    board_.clear_screen();
+    board_.draw_text_region(58, 47, 130, 38, "HELLO", 4);
 }
 
 std::uint32_t RadioLabApp::next_sequence()
@@ -552,38 +502,6 @@ std::uint32_t RadioLabApp::now_ms() const
 std::uint64_t RadioLabApp::now_us() const
 {
     return static_cast<std::uint64_t>(esp_timer_get_time());
-}
-
-const char* RadioLabApp::action_name() const
-{
-    switch (action_) {
-        case Action::Ping:
-            return "PING";
-        case Action::Hello:
-            return "HELLO";
-        case Action::Live:
-            return "LIVE";
-        case Action::Mode:
-            return "MODE";
-        case Action::Count:
-        default:
-            return "?";
-    }
-}
-
-const char* RadioLabApp::reachability_name(std::uint32_t now_ms) const
-{
-    switch (reachability(now_ms)) {
-        case Reachability::Found:
-            return "FOUND";
-        case Reachability::Reachable:
-            return "REACH";
-        case Reachability::Stale:
-            return "STALE";
-        case Reachability::Lost:
-        default:
-            return "LOST";
-    }
 }
 
 }  // namespace nikos::radiolab

@@ -8,6 +8,21 @@ namespace {
 constexpr char kTag[] = "board";
 constexpr std::uint32_t kHoldThresholdMs = 600;
 
+std::uint32_t to_display_color(nikos::board::DisplayColor color)
+{
+    switch (color) {
+        case nikos::board::DisplayColor::White:
+            return TFT_WHITE;
+        case nikos::board::DisplayColor::Red:
+            return TFT_RED;
+        case nikos::board::DisplayColor::Green:
+            return TFT_GREEN;
+        case nikos::board::DisplayColor::Black:
+        default:
+            return TFT_BLACK;
+    }
+}
+
 }  // namespace
 
 namespace nikos::board {
@@ -44,10 +59,12 @@ InputState Board::poll_input()
     M5.update();
 
     InputState state;
-    state.a_short = M5.BtnA.wasClicked();
     state.a_long = M5.BtnA.wasHold();
-    state.b_short = M5.BtnB.wasClicked();
     state.b_long = M5.BtnB.wasHold();
+    state.a_short =
+        M5.BtnA.wasClicked() && !M5.BtnA.wasReleasedAfterHold();
+    state.b_short =
+        M5.BtnB.wasClicked() && !M5.BtnB.wasReleasedAfterHold();
     return state;
 }
 
@@ -78,6 +95,41 @@ void Board::tone(float frequency_hz, std::uint32_t duration_ms)
     if (!M5.Speaker.tone(frequency_hz, duration_ms)) {
         ESP_LOGW(kTag, "Buzzer tone request was not accepted");
     }
+}
+
+void Board::clear_screen()
+{
+    M5.Display.fillScreen(TFT_BLACK);
+}
+
+void Board::fill_circle(
+    std::int16_t x,
+    std::int16_t y,
+    std::int16_t radius,
+    DisplayColor color)
+{
+    M5.Display.fillCircle(x, y, radius, to_display_color(color));
+}
+
+void Board::draw_text_region(
+    std::int16_t x,
+    std::int16_t y,
+    std::int16_t width,
+    std::int16_t height,
+    const char* text,
+    std::uint8_t text_size,
+    DisplayColor foreground,
+    DisplayColor background)
+{
+    auto& display = M5.Display;
+    const std::uint32_t foreground_color = to_display_color(foreground);
+    const std::uint32_t background_color = to_display_color(background);
+
+    display.fillRect(x, y, width, height, background_color);
+    display.setTextColor(foreground_color, background_color);
+    display.setTextSize(text_size);
+    display.setCursor(x, y);
+    display.print(text);
 }
 
 void Board::draw_screen(const char* title, const char* body)

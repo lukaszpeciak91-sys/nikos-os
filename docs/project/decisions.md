@@ -76,6 +76,6 @@ NORMAL uses the standard ESP32 802.11 b/g/n protocol bitmap. LR uses the Espress
 
 **Status:** Accepted
 
-Both physical test devices run the same firmware and expose the same discovery, PING, ACK, HELLO, LIVE, and mode-selection behavior.
+Both physical test devices run the same firmware and expose the same discovery, PING, ACK, HELLO, and mode-selection behavior.
 
 **Rationale:** Home/carried placement is a test circumstance, not a permanent radio role. Either unit must be usable in either position.
