@@ -20,7 +20,7 @@ Launcher entries:
 2. Minutnik
 3. Rozrywka
 
-Only RadioLab opens in this milestone. Minutnik and Rozrywka are visible placeholders. The splash and launcher use a dark navy shell, light typography, and a restrained green accent.
+Only RadioLab opens in this milestone. Minutnik and Rozrywka are visible placeholders. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
 
 Launcher controls:
 

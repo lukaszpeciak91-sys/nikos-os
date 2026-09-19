@@ -17,6 +17,13 @@ constexpr std::array<const char*, 3> kEntries = {
 constexpr std::uint32_t kSignalFrameMs = 110;
 constexpr std::uint32_t kSyncFrameMs = 140;
 constexpr std::uint32_t kFormFrameMs = 170;
+constexpr std::uint32_t kBatterySampleIntervalMs = 1000;
+
+std::uint32_t now_ms()
+{
+    return static_cast<std::uint32_t>(
+        pdTICKS_TO_MS(xTaskGetTickCount()));
+}
 
 void clear_shell(nikos::board::Board& board)
 {
@@ -147,11 +154,17 @@ void Launcher::show_splash()
 void Launcher::begin()
 {
     selected_index_ = 0;
+    const std::uint32_t now = now_ms();
+    update_battery_sample(now);
     render();
 }
 
 Action Launcher::update()
 {
+    const std::uint32_t now = now_ms();
+    update_battery_sample(now);
+    render_battery_if_changed();
+
     const board::InputState input = board_.poll_input();
 
     if (input.secondary_long) {
@@ -172,9 +185,24 @@ Action Launcher::update()
     return Action::None;
 }
 
+void Launcher::update_battery_sample(std::uint32_t now_ms)
+{
+    if (battery_sample_valid_
+        && now_ms - last_battery_sample_ms_ < kBatterySampleIntervalMs) {
+        return;
+    }
+
+    const board::PowerStatus power = board_.power_status();
+    cached_battery_percent_ =
+        power.level_percent >= 0 ? power.level_percent : -1;
+    last_battery_sample_ms_ = now_ms;
+    battery_sample_valid_ = true;
+}
+
 void Launcher::render()
 {
     clear_shell(board_);
+    rendered_battery_valid_ = false;
 
     board_.draw_text_region(
         10,
@@ -200,6 +228,8 @@ void Launcher::render()
         229,
         26,
         board::DisplayColor::MutedBlue);
+
+    render_battery_if_changed();
 
     for (std::size_t index = 0; index < kEntries.size(); ++index) {
         const bool selected = index == selected_index_;
@@ -254,6 +284,38 @@ void Launcher::render()
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
+}
+
+void Launcher::render_battery_if_changed()
+{
+    if (rendered_battery_valid_
+        && rendered_battery_percent_ == cached_battery_percent_) {
+        return;
+    }
+
+    char battery_text[16]{};
+    if (cached_battery_percent_ >= 0) {
+        std::snprintf(
+            battery_text,
+            sizeof(battery_text),
+            "BAT %ld%%",
+            static_cast<long>(cached_battery_percent_));
+    } else {
+        std::snprintf(battery_text, sizeof(battery_text), "BAT --%%");
+    }
+
+    board_.draw_text_region(
+        178,
+        8,
+        54,
+        12,
+        battery_text,
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+
+    rendered_battery_percent_ = cached_battery_percent_;
+    rendered_battery_valid_ = true;
 }
 
 }  // namespace nikos::launcher
