@@ -24,6 +24,8 @@ First Nikoś OS launcher skeleton with lifecycle-managed RadioLab.
 
 ## Next planned implementation step
 
+The current near-term implementation plan and checklist is tracked in [next-phase-plan.md](next-phase-plan.md).
+
 - Build with ESP-IDF 5.5.5.
 - Verify boot -> splash -> launcher -> RadioLab -> launcher -> RadioLab lifecycle on hardware.
 - Flash the same firmware to both M5StickC Plus SE devices.
