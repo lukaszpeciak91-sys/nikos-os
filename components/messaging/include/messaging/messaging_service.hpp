@@ -17,6 +17,7 @@ enum class RxProfile : std::uint8_t {
 struct RxSchedule {
     std::uint16_t interval_ms = 0;
     std::uint16_t wake_window_ms = 0;
+    std::uint32_t reachability_timeout_ms = 0;
 };
 
 struct Config {
@@ -24,10 +25,9 @@ struct Config {
     radio::Mode mode = radio::Mode::Normal;
     std::uint32_t presence_interval_ms = 2000;
     std::uint16_t presence_jitter_ms = 250;
-    std::uint32_t reachability_timeout_ms = 7000;
     std::uint32_t retry_interval_ms = 500;
-    RxSchedule foreground_rx{1000, 500};
-    RxSchedule background_rx{3000, 500};
+    RxSchedule foreground_rx{1000, 500, 7000};
+    RxSchedule background_rx{3000, 500, 20000};
 };
 
 enum class IncomingKind : std::uint8_t {

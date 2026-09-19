@@ -64,14 +64,15 @@ bool Service::begin(const Config& config)
     }
 
     if (config.presence_interval_ms == 0
-        || config.reachability_timeout_ms == 0
         || config.retry_interval_ms == 0
         || config.foreground_rx.interval_ms == 0
         || config.foreground_rx.wake_window_ms == 0
         || config.foreground_rx.wake_window_ms > config.foreground_rx.interval_ms
+        || config.foreground_rx.reachability_timeout_ms == 0
         || config.background_rx.interval_ms == 0
         || config.background_rx.wake_window_ms == 0
-        || config.background_rx.wake_window_ms > config.background_rx.interval_ms) {
+        || config.background_rx.wake_window_ms > config.background_rx.interval_ms
+        || config.background_rx.reachability_timeout_ms == 0) {
         ESP_LOGE(kTag, "Invalid messaging configuration");
         return false;
     }
@@ -214,9 +215,15 @@ bool Service::peer_known() const
 
 bool Service::peer_reachable() const
 {
+    const RxSchedule& schedule =
+        rx_profile_ == RxProfile::Foreground
+            ? config_.foreground_rx
+            : config_.background_rx;
+
     return peer_known_
         && last_peer_rx_ms_ != 0
-        && now_ms() - last_peer_rx_ms_ <= config_.reachability_timeout_ms;
+        && now_ms() - last_peer_rx_ms_
+            <= schedule.reachability_timeout_ms;
 }
 
 const radio::MacAddress& Service::peer_mac() const

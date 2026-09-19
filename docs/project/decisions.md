@@ -110,7 +110,11 @@ Long-lived messaging normally owns the active radio transport. Entering RadioLab
 
 **Status:** Accepted
 
-The first messaging foundation provides configurable foreground/background ESP-NOW RX schedules. Current experimental starting values are approximately 1000/500 ms and 3000/500 ms respectively.
+The first messaging foundation provides configurable foreground/background ESP-NOW RX schedules with profile-aware reachability timeouts.
+
+Current experimental starting values are:
+- foreground: approximately 1000/500 ms RX schedule with approximately 7000 ms reachability timeout;
+- background: approximately 3000/500 ms RX schedule with approximately 20000 ms reachability timeout.
 
 These values are not permanent product or platform policy.
 

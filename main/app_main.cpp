@@ -49,13 +49,12 @@ nikos::messaging::Config make_messaging_config()
     config.mode = nikos::radio::Mode::Normal;
     config.presence_interval_ms = 2000;
     config.presence_jitter_ms = 250;
-    config.reachability_timeout_ms = 7000;
     config.retry_interval_ms = 500;
 
-    // Experimental receive profiles. These are configuration values for
-    // validation, not permanent platform timing policy.
-    config.foreground_rx = {1000, 500};
-    config.background_rx = {3000, 500};
+    // Experimental receive/reachability profiles. These are configuration
+    // values for validation, not permanent platform timing policy.
+    config.foreground_rx = {1000, 500, 7000};
+    config.background_rx = {3000, 500, 20000};
     return config;
 }
 

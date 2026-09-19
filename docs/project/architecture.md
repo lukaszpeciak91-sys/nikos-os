@@ -86,7 +86,7 @@ It currently owns:
 - bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
 - a small volatile queue of incoming logical message notifications
 - delivery receipts for matching application ACKs
-- foreground/background experimental RX profile selection
+- foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
 The service has no dedicated FreeRTOS task. It is advanced from the normal main loop.
 
@@ -146,5 +146,5 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Communicator delivery confirmation requires a matching application ACK.
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
-- Experimental RX timing values are configuration, not platform invariants.
+- Experimental RX and reachability timing values are configuration, not platform invariants. The current foreground profile uses an approximately 7 s reachability timeout, while the background 3000/500 ms RX profile uses a more conservative approximately 20 s timeout to tolerate legitimately missed PRESENCE packets.
 - Persistent schemas and wire protocols must be versioned once introduced.

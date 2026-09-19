@@ -139,16 +139,19 @@ Current experimental messaging profiles:
 **FOREGROUND**
 - interval: approximately 1000 ms
 - wake window: approximately 500 ms
+- reachability timeout: approximately 7000 ms
 
 **BACKGROUND**
 - interval: approximately 3000 ms
 - wake window: approximately 500 ms
+- reachability timeout: approximately 20000 ms
 
 These values are configuration, not permanent product settings.
 
 - [x] Make ESP-NOW RX power behavior configurable in `radio`.
 - [x] Add the foreground 1000/500 messaging profile.
 - [x] Add the background 3000/500 messaging profile.
+- [x] Use configurable profile-aware reachability timeouts: approximately 7000 ms foreground and 20000 ms background.
 - [x] Enable disconnected-STA connectionless power saving in project configuration.
 - [ ] Compare the messaging profiles against the continuous-RX field baseline on hardware.
 - [ ] Consider reducing wake window toward approximately 300 ms only if reliability remains acceptable.
