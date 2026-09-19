@@ -33,12 +33,13 @@ There is no automatic mode switching. Both devices must be configured to the sam
 
 ### Field-test controls
 
-- Button A short: send PING immediately.
-- Button B short: send HELLO immediately.
-- Button B long: toggle NORMAL/LR.
-- Button A long: unused.
+- Primary user button (marked M5) short: send PING immediately.
+- Secondary user button (opposite side) short: send HELLO immediately.
+- Secondary user button long: toggle NORMAL/LR.
+- Primary user button long: unused.
+- Separate power button: power only; no RadioLab action.
 
-A long Button B action does not also send HELLO.
+A long secondary-button action does not also send HELLO.
 
 The main field screen shows only:
 
@@ -46,13 +47,13 @@ The main field screen shows only:
 - the latest valid RX RSSI from the active peer while the link is fresh;
 - battery percentage;
 - the active NORMAL/LR mode;
-- `A PING` and `B HELLO` hints.
+- `M5 PING` and `SIDE HELLO` hints.
 
 Received PING messages produce a short beep and retain the existing application ACK behavior.
 
 Received HELLO messages produce a beep and switch to a latched large `HELLO` screen. Any user button event dismisses that screen and is consumed without triggering another action. Radio processing continues while the HELLO screen is visible.
 
-The actual physical A/B mapping on the M5StickC Plus SE must still be verified on the real units.
+The two user-button positions above were physically verified on the M5StickC Plus SE. The separate power button remains outside RadioLab controls.
 
 ### Build and flash
 
@@ -65,7 +66,7 @@ idf.py -p <PORT> flash monitor
 
 Flash the same firmware to both devices.
 
-Physical verification is still required for LCD orientation, physical A/B mapping, passive buzzer output, battery/AXP192 readings, ESP-NOW exchange, RSSI metadata, RTT behavior, and Espressif LR behavior.
+Physical verification is still required for LCD orientation, passive buzzer output, battery/AXP192 readings, ESP-NOW exchange, RSSI metadata, RTT behavior, and Espressif LR behavior.
 
 ## Project documentation
 

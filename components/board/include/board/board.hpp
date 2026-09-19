@@ -24,10 +24,10 @@ struct PowerStatus {
 };
 
 struct InputState {
-    bool a_short = false;
-    bool a_long = false;
-    bool b_short = false;
-    bool b_long = false;
+    bool primary_short = false;
+    bool primary_long = false;
+    bool secondary_short = false;
+    bool secondary_long = false;
 };
 
 class Board final {
