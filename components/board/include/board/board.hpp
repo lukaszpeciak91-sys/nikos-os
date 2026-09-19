@@ -15,6 +15,11 @@ enum class DisplayColor : std::uint8_t {
     White,
     Red,
     Green,
+    Navy,
+    PanelNavy,
+    Ivory,
+    AccentGreen,
+    MutedBlue,
 };
 
 struct PowerStatus {

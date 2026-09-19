@@ -17,6 +17,16 @@ std::uint32_t to_display_color(nikos::board::DisplayColor color)
             return TFT_RED;
         case nikos::board::DisplayColor::Green:
             return TFT_GREEN;
+        case nikos::board::DisplayColor::Navy:
+            return 0x08C4;
+        case nikos::board::DisplayColor::PanelNavy:
+            return 0x0927;
+        case nikos::board::DisplayColor::Ivory:
+            return 0xF75B;
+        case nikos::board::DisplayColor::AccentGreen:
+            return 0x9E91;
+        case nikos::board::DisplayColor::MutedBlue:
+            return 0x7C95;
         case nikos::board::DisplayColor::Black:
         default:
             return TFT_BLACK;

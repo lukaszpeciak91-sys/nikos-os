@@ -3,6 +3,9 @@
 #include <array>
 #include <cstdio>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 namespace {
 
 constexpr std::array<const char*, 3> kEntries = {
@@ -10,6 +13,94 @@ constexpr std::array<const char*, 3> kEntries = {
     "Minutnik",
     "Rozrywka",
 };
+
+constexpr std::uint32_t kSignalFrameMs = 110;
+constexpr std::uint32_t kSyncFrameMs = 140;
+constexpr std::uint32_t kFormFrameMs = 170;
+
+void clear_shell(nikos::board::Board& board)
+{
+    board.draw_text_region(
+        0,
+        0,
+        240,
+        135,
+        "",
+        1,
+        nikos::board::DisplayColor::Ivory,
+        nikos::board::DisplayColor::Navy);
+}
+
+void clear_logo_area(nikos::board::Board& board)
+{
+    board.draw_text_region(
+        18,
+        28,
+        208,
+        74,
+        "",
+        1,
+        nikos::board::DisplayColor::Ivory,
+        nikos::board::DisplayColor::Navy);
+}
+
+void draw_fragment(
+    nikos::board::Board& board,
+    std::int16_t x,
+    std::int16_t y,
+    std::int16_t width,
+    nikos::board::DisplayColor color)
+{
+    board.draw_line(x, y, static_cast<std::int16_t>(x + width), y, color);
+    board.draw_line(
+        x,
+        static_cast<std::int16_t>(y + 1),
+        static_cast<std::int16_t>(x + width),
+        static_cast<std::int16_t>(y + 1),
+        color);
+}
+
+void draw_sliced_logo(nikos::board::Board& board, bool show_os)
+{
+    clear_logo_area(board);
+
+    board.draw_text_region(
+        39,
+        34,
+        174,
+        46,
+        "NIKOS",
+        4,
+        nikos::board::DisplayColor::Ivory,
+        nikos::board::DisplayColor::Navy);
+
+    for (std::int16_t y : {58, 64, 70}) {
+        board.draw_line(
+            39,
+            y,
+            184,
+            y,
+            nikos::board::DisplayColor::Navy);
+        board.draw_line(
+            39,
+            static_cast<std::int16_t>(y + 1),
+            184,
+            static_cast<std::int16_t>(y + 1),
+            nikos::board::DisplayColor::Navy);
+    }
+
+    if (show_os) {
+        board.draw_text_region(
+            173,
+            78,
+            52,
+            24,
+            "OS",
+            2,
+            nikos::board::DisplayColor::AccentGreen,
+            nikos::board::DisplayColor::Navy);
+    }
+}
 
 }  // namespace
 
@@ -22,8 +113,35 @@ Launcher::Launcher(board::Board& board)
 
 void Launcher::show_splash()
 {
-    board_.clear_screen();
-    board_.draw_text_region(42, 48, 160, 32, "Nikoś OS", 3);
+    clear_shell(board_);
+
+    // SIGNAL: sparse fragments arrive first.
+    draw_fragment(board_, 30, 61, 18, board::DisplayColor::Ivory);
+    draw_fragment(board_, 58, 48, 12, board::DisplayColor::MutedBlue);
+    draw_fragment(board_, 78, 70, 19, board::DisplayColor::Ivory);
+    draw_fragment(board_, 108, 55, 14, board::DisplayColor::MutedBlue);
+    draw_fragment(board_, 137, 67, 22, board::DisplayColor::Ivory);
+    draw_fragment(board_, 171, 51, 16, board::DisplayColor::MutedBlue);
+    draw_fragment(board_, 194, 73, 18, board::DisplayColor::Ivory);
+    vTaskDelay(pdMS_TO_TICKS(kSignalFrameMs));
+
+    // SYNCHRONIZING: fragments settle onto shared scan bands.
+    clear_logo_area(board_);
+    for (std::int16_t x : {40, 70, 100, 130, 160}) {
+        draw_fragment(board_, x, 51, 20, board::DisplayColor::MutedBlue);
+        draw_fragment(board_, x, 61, 24, board::DisplayColor::Ivory);
+        draw_fragment(board_, x, 71, 18, board::DisplayColor::MutedBlue);
+    }
+    draw_fragment(board_, 55, 81, 13, board::DisplayColor::Ivory);
+    draw_fragment(board_, 151, 81, 16, board::DisplayColor::Ivory);
+    vTaskDelay(pdMS_TO_TICKS(kSyncFrameMs));
+
+    // FORMING: the wordmark resolves before the secondary OS mark appears.
+    draw_sliced_logo(board_, false);
+    vTaskDelay(pdMS_TO_TICKS(kFormFrameMs));
+
+    // READY: final clean branded mark. app_main keeps this frame visible ~750 ms.
+    draw_sliced_logo(board_, true);
 }
 
 void Launcher::begin()
@@ -56,31 +174,86 @@ Action Launcher::update()
 
 void Launcher::render()
 {
-    board_.clear_screen();
-    board_.draw_text_region(4, 3, 232, 20, "Nikoś OS", 2);
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        10,
+        6,
+        118,
+        18,
+        "NIKOS",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+    board_.draw_text_region(
+        117,
+        6,
+        34,
+        18,
+        "OS",
+        2,
+        board::DisplayColor::AccentGreen,
+        board::DisplayColor::Navy);
+    board_.draw_line(
+        10,
+        26,
+        229,
+        26,
+        board::DisplayColor::MutedBlue);
 
     for (std::size_t index = 0; index < kEntries.size(); ++index) {
-        char line[24]{};
-        std::snprintf(
-            line,
-            sizeof(line),
-            "%c %s",
-            index == selected_index_ ? '>' : ' ',
-            kEntries[index]);
+        const bool selected = index == selected_index_;
+        const std::int16_t row_y =
+            static_cast<std::int16_t>(35 + index * 24);
+
+        if (selected) {
+            board_.draw_text_region(
+                8,
+                static_cast<std::int16_t>(row_y - 2),
+                224,
+                22,
+                "",
+                1,
+                board::DisplayColor::Ivory,
+                board::DisplayColor::PanelNavy);
+            board_.draw_line(
+                8,
+                static_cast<std::int16_t>(row_y - 1),
+                8,
+                static_cast<std::int16_t>(row_y + 17),
+                board::DisplayColor::AccentGreen);
+            board_.draw_line(
+                9,
+                static_cast<std::int16_t>(row_y - 1),
+                9,
+                static_cast<std::int16_t>(row_y + 17),
+                board::DisplayColor::AccentGreen);
+        }
 
         board_.draw_text_region(
-            12,
-            static_cast<std::int16_t>(30 + index * 24),
-            216,
-            20,
-            line,
+            18,
+            row_y,
+            205,
+            18,
+            kEntries[index],
             2,
-            index == selected_index_
-                ? board::DisplayColor::Green
-                : board::DisplayColor::White);
+            selected
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            selected
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy);
     }
 
-    board_.draw_text_region(8, 112, 224, 14, "M5 OPEN   SIDE NEXT", 1);
+    board_.draw_text_region(
+        10,
+        112,
+        220,
+        12,
+        "M5 OPEN  |  SIDE NEXT",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
 }
 
 }  // namespace nikos::launcher
