@@ -13,6 +13,8 @@ constexpr char kTag[] = "radiolab";
 
 constexpr std::uint32_t kDiscoveryIntervalMs = 2000;
 constexpr std::uint32_t kPingTimeoutMs = 1200;
+constexpr std::uint32_t kHelloAckTimeoutMs = 1200;
+constexpr std::uint32_t kDeliveryFeedbackMs = 1000;
 constexpr std::uint32_t kPeerLostMs = 7000;
 constexpr std::uint32_t kLinkFreshMs = 4000;
 constexpr std::uint32_t kBatterySampleIntervalMs = 1000;
@@ -90,6 +92,7 @@ void RadioLabApp::update()
 
     if (!hello_screen_active_) {
         render_main_if_changed(current_now);
+        render_action_area_if_changed(current_now);
     }
 }
 
@@ -219,6 +222,17 @@ void RadioLabApp::process_rx(const radio::RxEvent& event)
                 if (peer_ping_rssi_valid_) {
                     peer_ping_rssi_ = message.reported_rssi;
                 }
+
+                show_delivery_feedback(
+                    DeliveryFeedback::PingOk,
+                    event_received_ms);
+            } else if (
+                hello_pending_
+                && message.reference_sequence == pending_hello_sequence_) {
+                hello_pending_ = false;
+                show_delivery_feedback(
+                    DeliveryFeedback::HelloOk,
+                    event_received_ms);
             }
             break;
 
@@ -229,6 +243,11 @@ void RadioLabApp::process_rx(const radio::RxEvent& event)
             hello_rssi_valid_ = event.has_rssi;
             hello_mode_ = from_wire_mode(message.mode);
             hello_received_ms_ = event_received_ms;
+            send_ack(
+                message.sequence,
+                event.has_rssi
+                    ? event.rssi
+                    : protocol::kRssiUnavailable);
             board_.tone(2600.0F, 90);
             show_hello_screen();
             break;
@@ -271,6 +290,12 @@ void RadioLabApp::process_timers(std::uint32_t now_ms)
             > static_cast<std::uint64_t>(kPingTimeoutMs) * 1000U) {
         ping_pending_ = false;
         ++failed_ping_count_;
+    }
+
+    if (hello_pending_
+        && now_us() - pending_hello_started_us_
+            > static_cast<std::uint64_t>(kHelloAckTimeoutMs) * 1000U) {
+        hello_pending_ = false;
     }
 }
 
@@ -350,7 +375,7 @@ void RadioLabApp::send_ack(
 
 void RadioLabApp::send_hello()
 {
-    if (!peer_known_) {
+    if (!peer_known_ || hello_pending_) {
         return;
     }
 
@@ -360,9 +385,18 @@ void RadioLabApp::send_hello()
     message.sequence = next_sequence();
 
     std::array<std::uint8_t, protocol::kWireSize> wire{};
-    if (protocol::encode(message, wire.data(), wire.size())) {
-        radio_.send_peer(wire.data(), wire.size());
+    if (!protocol::encode(message, wire.data(), wire.size())) {
+        return;
     }
+
+    const std::uint64_t hello_send_time_us = now_us();
+    if (!radio_.send_peer(wire.data(), wire.size())) {
+        return;
+    }
+
+    hello_pending_ = true;
+    pending_hello_sequence_ = message.sequence;
+    pending_hello_started_us_ = hello_send_time_us;
 }
 
 void RadioLabApp::toggle_mode()
@@ -392,6 +426,9 @@ void RadioLabApp::clear_active_peer()
     latest_peer_rx_ms_ = 0;
     latest_peer_rx_rssi_valid_ = false;
     ping_pending_ = false;
+    hello_pending_ = false;
+    delivery_feedback_ = DeliveryFeedback::None;
+    action_area_render_valid_ = false;
     matching_ack_rssi_valid_ = false;
     peer_ping_rssi_valid_ = false;
     last_rtt_ms_ = -1;
@@ -422,11 +459,11 @@ void RadioLabApp::update_battery_sample(std::uint32_t now_ms)
 void RadioLabApp::show_main_screen(std::uint32_t now_ms)
 {
     board_.clear_screen();
-    board_.draw_text_region(10, 108, 90, 22, "M5 PING", 2);
-    board_.draw_text_region(120, 108, 115, 22, "SIDE HELLO", 2);
 
     main_render_state_valid_ = false;
+    action_area_render_valid_ = false;
     render_main_if_changed(now_ms);
+    render_action_area_if_changed(now_ms);
 }
 
 void RadioLabApp::render_main_if_changed(std::uint32_t now_ms)
@@ -491,6 +528,54 @@ void RadioLabApp::render_main_if_changed(std::uint32_t now_ms)
     rendered_battery_percent_ = battery_percent;
     rendered_mode_ = mode;
     main_render_state_valid_ = true;
+}
+
+void RadioLabApp::render_action_area_if_changed(std::uint32_t now_ms)
+{
+    DeliveryFeedback visible_feedback = delivery_feedback_;
+    if (visible_feedback != DeliveryFeedback::None
+        && now_ms - delivery_feedback_started_ms_ >= kDeliveryFeedbackMs) {
+        delivery_feedback_ = DeliveryFeedback::None;
+        visible_feedback = DeliveryFeedback::None;
+    }
+
+    if (action_area_render_valid_
+        && visible_feedback == rendered_delivery_feedback_) {
+        return;
+    }
+
+    board_.draw_text_region(0, 106, 240, 29, "", 1);
+
+    if (visible_feedback == DeliveryFeedback::PingOk
+        || visible_feedback == DeliveryFeedback::HelloOk) {
+        board_.draw_line(22, 119, 29, 126, board::DisplayColor::Green);
+        board_.draw_line(29, 126, 40, 111, board::DisplayColor::Green);
+        board_.draw_text_region(
+            50,
+            109,
+            175,
+            22,
+            visible_feedback == DeliveryFeedback::PingOk
+                ? "PING OK"
+                : "HELLO OK",
+            2,
+            board::DisplayColor::Green);
+    } else {
+        board_.draw_text_region(10, 108, 90, 22, "M5 PING", 2);
+        board_.draw_text_region(120, 108, 115, 22, "SIDE HELLO", 2);
+    }
+
+    rendered_delivery_feedback_ = visible_feedback;
+    action_area_render_valid_ = true;
+}
+
+void RadioLabApp::show_delivery_feedback(
+    DeliveryFeedback feedback,
+    std::uint32_t now_ms)
+{
+    delivery_feedback_ = feedback;
+    delivery_feedback_started_ms_ = now_ms;
+    action_area_render_valid_ = false;
 }
 
 void RadioLabApp::show_hello_screen()
