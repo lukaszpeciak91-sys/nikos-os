@@ -64,6 +64,16 @@ public:
         std::uint8_t text_size,
         DisplayColor foreground = DisplayColor::White,
         DisplayColor background = DisplayColor::Black);
+    void draw_polish_ui_text_region(
+        std::int16_t x,
+        std::int16_t y,
+        std::int16_t width,
+        std::int16_t height,
+        const char* utf8_text,
+        std::uint8_t text_scale = 1,
+        DisplayColor foreground = DisplayColor::White,
+        DisplayColor background = DisplayColor::Black);
+    void draw_polish_ui_font_sanity_demo();
 
     void draw_screen(const char* title, const char* body);
     const char* detected_board_name() const;

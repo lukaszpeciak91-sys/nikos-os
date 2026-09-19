@@ -1,5 +1,7 @@
 #include "board/board.hpp"
 
+#include "polish_ui_font.hpp"
+
 #include "M5Unified.h"
 #include "esp_log.h"
 
@@ -7,6 +9,8 @@ namespace {
 
 constexpr char kTag[] = "board";
 constexpr std::uint32_t kHoldThresholdMs = 600;
+constexpr char kPolishFontSanityText[] =
+    u8"ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
 
 std::uint32_t to_display_color(nikos::board::DisplayColor color)
 {
@@ -155,6 +159,52 @@ void Board::draw_text_region(
     display.setTextSize(text_size);
     display.setCursor(x, y);
     display.print(text);
+}
+
+void Board::draw_polish_ui_text_region(
+    std::int16_t x,
+    std::int16_t y,
+    std::int16_t width,
+    std::int16_t height,
+    const char* utf8_text,
+    std::uint8_t text_scale,
+    DisplayColor foreground,
+    DisplayColor background)
+{
+    auto& display = M5.Display;
+
+    const lgfx::IFont* previous_font = display.getFont();
+    const lgfx::TextStyle previous_style = display.getTextStyle();
+    const std::int32_t previous_cursor_x = display.getCursorX();
+    const std::int32_t previous_cursor_y = display.getCursorY();
+
+    const std::uint32_t foreground_color = to_display_color(foreground);
+    const std::uint32_t background_color = to_display_color(background);
+
+    display.fillRect(x, y, width, height, background_color);
+    display.setFont(&detail::kPolishUiFont);
+    display.setTextColor(foreground_color, background_color);
+    display.setTextSize(text_scale == 0 ? 1 : text_scale);
+    display.setCursor(x, y);
+    display.print(utf8_text == nullptr ? "" : utf8_text);
+
+    display.setFont(previous_font);
+    display.setTextStyle(previous_style);
+    display.setCursor(previous_cursor_x, previous_cursor_y);
+}
+
+void Board::draw_polish_ui_font_sanity_demo()
+{
+    M5.Display.fillScreen(to_display_color(DisplayColor::Navy));
+    draw_polish_ui_text_region(
+        4,
+        58,
+        232,
+        16,
+        kPolishFontSanityText,
+        1,
+        DisplayColor::Ivory,
+        DisplayColor::Navy);
 }
 
 void Board::draw_screen(const char* title, const char* body)
