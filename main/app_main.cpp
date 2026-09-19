@@ -1,4 +1,5 @@
 #include "board/board.hpp"
+#include "launcher/launcher.hpp"
 #include "radiolab/radiolab_app.hpp"
 #include "radio/radio.hpp"
 
@@ -12,6 +13,14 @@ namespace {
 
 constexpr char kTag[] = "main";
 constexpr std::uint8_t kRadioChannel = 6;
+constexpr std::uint32_t kSplashDurationMs = 750;
+constexpr std::uint32_t kLoopDelayMs = 20;
+constexpr std::uint32_t kRadioErrorDisplayMs = 1200;
+
+enum class RuntimeState : std::uint8_t {
+    Launcher,
+    RadioLab,
+};
 
 bool initialize_nvs()
 {
@@ -39,9 +48,13 @@ extern "C" void app_main(void)
     nikos::board::Board board;
     board.begin();
 
+    nikos::launcher::Launcher launcher(board);
+    launcher.show_splash();
+    vTaskDelay(pdMS_TO_TICKS(kSplashDurationMs));
+
     if (!initialize_nvs()) {
         board.draw_screen(
-            "RADIO LAB",
+            "Nikoś OS",
             "NVS INIT FAILED\n"
             "Check serial log for the failing step.");
         while (true) {
@@ -51,22 +64,40 @@ extern "C" void app_main(void)
     }
 
     nikos::radio::RadioService radio;
-    if (!radio.begin(kRadioChannel, nikos::radio::Mode::Normal)) {
-        board.draw_screen(
-            "RADIO LAB",
-            "RADIO INIT FAILED\n"
-            "Check serial log for the failing step.");
-        while (true) {
-            board.poll_input();
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-    }
+    nikos::radiolab::RadioLabApp radiolab(board, radio);
 
-    nikos::radiolab::RadioLabApp app(board, radio);
-    app.begin();
+    RuntimeState state = RuntimeState::Launcher;
+    launcher.begin();
 
     while (true) {
-        app.update();
-        vTaskDelay(pdMS_TO_TICKS(20));
+        if (state == RuntimeState::Launcher) {
+            if (launcher.update() == nikos::launcher::Action::OpenRadioLab) {
+                if (radio.begin(kRadioChannel, nikos::radio::Mode::Normal)) {
+                    radiolab.begin();
+                    state = RuntimeState::RadioLab;
+                } else {
+                    board.draw_screen(
+                        "RADIO LAB",
+                        "RADIO INIT FAILED\n"
+                        "Check serial log.");
+                    vTaskDelay(pdMS_TO_TICKS(kRadioErrorDisplayMs));
+                    launcher.begin();
+                }
+            }
+        } else {
+            if (radiolab.update()
+                == nikos::radiolab::RadioLabApp::UpdateResult::ExitRequested) {
+                radiolab.end();
+
+                if (!radio.stop()) {
+                    ESP_LOGW(kTag, "Radio stop completed with cleanup errors");
+                }
+
+                launcher.begin();
+                state = RuntimeState::Launcher;
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
     }
 }

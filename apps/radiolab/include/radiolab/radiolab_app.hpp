@@ -9,10 +9,16 @@ namespace nikos::radiolab {
 
 class RadioLabApp final {
 public:
+    enum class UpdateResult : std::uint8_t {
+        Continue,
+        ExitRequested,
+    };
+
     RadioLabApp(board::Board& board, radio::RadioService& radio);
 
     void begin();
-    void update();
+    void end();
+    UpdateResult update();
 
 private:
     enum class DeliveryFeedback : std::uint8_t {
@@ -34,6 +40,7 @@ private:
     void send_hello();
     void toggle_mode();
     void clear_active_peer();
+    void reset_session_state();
 
     bool link_is_fresh(std::uint32_t now_ms) const;
     void update_battery_sample(std::uint32_t now_ms);
@@ -108,6 +115,7 @@ private:
     std::int16_t rendered_rssi_ = 0;
     std::int32_t rendered_battery_percent_ = -2;
     radio::Mode rendered_mode_ = radio::Mode::Normal;
+    bool exit_requested_ = false;
 };
 
 }  // namespace nikos::radiolab

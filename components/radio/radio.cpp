@@ -33,8 +33,19 @@ bool check_ok(esp_err_t result, const char* operation)
     return false;
 }
 
+void log_cleanup_error(esp_err_t result, const char* operation)
+{
+    if (result != ESP_OK) {
+        ESP_LOGW(kTag, "%s failed during stop: %s", operation, esp_err_to_name(result));
+    }
+}
+
 void queue_event(const nikos::radio::Event& event)
 {
+    if (s_event_queue == nullptr) {
+        return;
+    }
+
     if (xQueueSend(s_event_queue, &event, 0) != pdTRUE) {
         s_dropped_event_count.fetch_add(1, std::memory_order_relaxed);
     }
@@ -104,10 +115,33 @@ void receive_callback(
 
 namespace nikos::radio {
 
+bool RadioService::initialize_network_platform()
+{
+    if (network_platform_initialized_) {
+        return true;
+    }
+
+    if (!check_ok(esp_netif_init(), "esp_netif_init")) {
+        return false;
+    }
+
+    const esp_err_t event_result = esp_event_loop_create_default();
+    if (event_result != ESP_OK && event_result != ESP_ERR_INVALID_STATE) {
+        return check_ok(event_result, "esp_event_loop_create_default");
+    }
+
+    network_platform_initialized_ = true;
+    return true;
+}
+
 bool RadioService::begin(std::uint8_t channel, Mode mode)
 {
     if (initialized_) {
         return true;
+    }
+
+    if (!initialize_network_platform()) {
+        return false;
     }
 
     s_event_queue = xQueueCreate(kEventQueueDepth, sizeof(Event));
@@ -117,37 +151,48 @@ bool RadioService::begin(std::uint8_t channel, Mode mode)
     }
     s_dropped_event_count.store(0, std::memory_order_relaxed);
 
-    if (!check_ok(esp_netif_init(), "esp_netif_init")) {
-        return false;
-    }
-    if (!check_ok(esp_event_loop_create_default(), "esp_event_loop_create_default")) {
-        return false;
-    }
-
     wifi_init_config_t wifi_config = WIFI_INIT_CONFIG_DEFAULT();
-    if (!check_ok(esp_wifi_init(&wifi_config), "esp_wifi_init")
-        || !check_ok(esp_wifi_set_storage(WIFI_STORAGE_RAM), "esp_wifi_set_storage")
+    if (!check_ok(esp_wifi_init(&wifi_config), "esp_wifi_init")) {
+        stop();
+        return false;
+    }
+    wifi_initialized_ = true;
+
+    if (!check_ok(esp_wifi_set_storage(WIFI_STORAGE_RAM), "esp_wifi_set_storage")
         || !check_ok(esp_wifi_set_mode(WIFI_MODE_STA), "esp_wifi_set_mode")
-        || !check_ok(esp_wifi_start(), "esp_wifi_start")
-        || !check_ok(esp_wifi_set_ps(WIFI_PS_NONE), "esp_wifi_set_ps")
+        || !check_ok(esp_wifi_start(), "esp_wifi_start")) {
+        stop();
+        return false;
+    }
+    wifi_started_ = true;
+
+    if (!check_ok(esp_wifi_set_ps(WIFI_PS_NONE), "esp_wifi_set_ps")
         || !check_ok(
             esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE),
             "esp_wifi_set_channel")) {
+        stop();
         return false;
     }
 
     channel_ = channel;
     if (!apply_mode(mode)) {
+        stop();
         return false;
     }
 
-    if (!check_ok(esp_now_init(), "esp_now_init")
-        || !check_ok(esp_now_register_send_cb(send_callback), "esp_now_register_send_cb")
+    if (!check_ok(esp_now_init(), "esp_now_init")) {
+        stop();
+        return false;
+    }
+    esp_now_initialized_ = true;
+
+    if (!check_ok(esp_now_register_send_cb(send_callback), "esp_now_register_send_cb")
         || !check_ok(esp_now_register_recv_cb(receive_callback), "esp_now_register_recv_cb")
         || !add_broadcast_peer()
         || !check_ok(
             esp_wifi_get_mac(WIFI_IF_STA, self_mac_.data()),
             "esp_wifi_get_mac")) {
+        stop();
         return false;
     }
 
@@ -158,6 +203,65 @@ bool RadioService::begin(std::uint8_t channel, Mode mode)
         static_cast<unsigned>(channel_),
         mode_name(mode_));
     return true;
+}
+
+bool RadioService::stop()
+{
+    bool success = true;
+
+    if (esp_now_initialized_) {
+        const esp_err_t send_result = esp_now_unregister_send_cb();
+        if (send_result != ESP_OK) {
+            success = false;
+            log_cleanup_error(send_result, "esp_now_unregister_send_cb");
+        }
+
+        const esp_err_t receive_result = esp_now_unregister_recv_cb();
+        if (receive_result != ESP_OK) {
+            success = false;
+            log_cleanup_error(receive_result, "esp_now_unregister_recv_cb");
+        }
+
+        const esp_err_t deinit_result = esp_now_deinit();
+        if (deinit_result != ESP_OK) {
+            success = false;
+            log_cleanup_error(deinit_result, "esp_now_deinit");
+        }
+        esp_now_initialized_ = false;
+    }
+
+    if (wifi_started_) {
+        const esp_err_t stop_result = esp_wifi_stop();
+        if (stop_result != ESP_OK) {
+            success = false;
+            log_cleanup_error(stop_result, "esp_wifi_stop");
+        }
+        wifi_started_ = false;
+    }
+
+    if (wifi_initialized_) {
+        const esp_err_t deinit_result = esp_wifi_deinit();
+        if (deinit_result != ESP_OK) {
+            success = false;
+            log_cleanup_error(deinit_result, "esp_wifi_deinit");
+        }
+        wifi_initialized_ = false;
+    }
+
+    if (s_event_queue != nullptr) {
+        vQueueDelete(s_event_queue);
+        s_event_queue = nullptr;
+    }
+
+    initialized_ = false;
+    has_peer_ = false;
+    channel_ = 0;
+    mode_ = Mode::Normal;
+    self_mac_.fill(0);
+    peer_mac_.fill(0);
+    s_dropped_event_count.store(0, std::memory_order_relaxed);
+
+    return success;
 }
 
 bool RadioService::apply_mode(Mode mode)

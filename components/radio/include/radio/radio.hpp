@@ -45,6 +45,7 @@ struct Event {
 class RadioService final {
 public:
     bool begin(std::uint8_t channel, Mode mode);
+    bool stop();
 
     bool set_mode(Mode mode);
     Mode mode() const;
@@ -64,9 +65,14 @@ public:
     std::uint32_t dropped_event_count() const;
 
 private:
+    bool initialize_network_platform();
     bool apply_mode(Mode mode);
     bool add_broadcast_peer();
 
+    bool network_platform_initialized_ = false;
+    bool wifi_initialized_ = false;
+    bool wifi_started_ = false;
+    bool esp_now_initialized_ = false;
     bool initialized_ = false;
     bool has_peer_ = false;
     std::uint8_t channel_ = 0;

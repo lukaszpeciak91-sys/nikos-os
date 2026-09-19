@@ -10,6 +10,25 @@ The conceptual architecture is:
 
 The first real application is RadioLab. RadioLab and the future Nikoś Communicator are sibling applications built on reusable platform services rather than defining the platform itself.
 
+## Launcher
+
+Boot now shows a temporary `Nikoś OS` text splash for about 0.75 s and then opens a small launcher.
+
+Launcher entries:
+
+1. RadioLab
+2. Minutnik
+3. Rozrywka
+
+Only RadioLab opens in this milestone. Minutnik and Rozrywka are visible placeholders.
+
+Launcher controls:
+
+- Primary short: open/confirm the selected item.
+- Secondary short: move to the next item.
+- Secondary long: back where applicable; the top-level launcher has no parent screen.
+- The separate power button remains outside application navigation.
+
 ## RadioLab v0.1 foundation
 
 This firmware is intentionally identical on both test devices. RadioLab v0.1 does not assign permanent BASE or MOBILE roles: either device can stay at home or be carried during a range test.
@@ -33,13 +52,15 @@ There is no automatic mode switching. Both devices must be configured to the sam
 
 ### Field-test controls
 
-- Primary user button (marked M5) short: send PING immediately.
-- Secondary user button (opposite side) short: send HELLO immediately.
-- Secondary user button long: toggle NORMAL/LR.
-- Primary user button long: unused.
-- Separate power button: power only; no RadioLab action.
+Inside RadioLab:
 
-A long secondary-button action does not also send HELLO.
+- Secondary short: send PING immediately.
+- Primary short: send HELLO immediately.
+- Primary long: toggle NORMAL/LR.
+- Secondary long: exit RadioLab and return to the launcher.
+- Separate power button: power only; no application-navigation action.
+
+A long press is handled as its own action and does not also trigger the corresponding short action.
 
 The main field screen shows only:
 
@@ -47,13 +68,17 @@ The main field screen shows only:
 - the latest valid RX RSSI from the active peer while the link is fresh;
 - battery percentage;
 - the active NORMAL/LR mode;
-- `M5 PING` and `SIDE HELLO` hints.
+- `SIDE PING` and `M5 HELLO` hints.
 
 Received PING messages produce a short beep and retain the existing application ACK behavior. A matching application ACK briefly shows a green `✓ PING OK` confirmation on the sender.
 
 Received HELLO messages produce a beep, send an application ACK referencing the HELLO sequence, and switch to a latched large `HELLO` screen. A matching HELLO ACK briefly shows a green `✓ HELLO OK` confirmation on the sender. Any user button event dismisses the received HELLO screen and is consumed without triggering another action. Radio processing continues while the HELLO screen is visible, and outgoing delivery feedback does not interrupt that latched screen.
 
-The two user-button positions above were physically verified on the M5StickC Plus SE. The separate power button remains outside RadioLab controls.
+The two user-button positions were physically verified on the M5StickC Plus SE. The separate power button remains outside launcher and RadioLab navigation.
+
+### RadioLab lifecycle
+
+RadioLab no longer owns the whole firmware runtime. Entering it starts Wi-Fi/ESP-NOW and discovery. Exiting it stops ESP-NOW/Wi-Fi activity and clears transient RadioLab peer/session state. Re-entering starts a clean RadioLab session.
 
 ### Build and flash
 
