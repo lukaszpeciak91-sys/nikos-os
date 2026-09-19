@@ -134,7 +134,10 @@ bool RadioService::initialize_network_platform()
     return true;
 }
 
-bool RadioService::begin(std::uint8_t channel, Mode mode)
+bool RadioService::begin(
+    std::uint8_t channel,
+    Mode mode,
+    const RxPowerConfig& rx_power)
 {
     if (initialized_) {
         return true;
@@ -166,8 +169,7 @@ bool RadioService::begin(std::uint8_t channel, Mode mode)
     }
     wifi_started_ = true;
 
-    if (!check_ok(esp_wifi_set_ps(WIFI_PS_NONE), "esp_wifi_set_ps")
-        || !check_ok(
+    if (!check_ok(
             esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE),
             "esp_wifi_set_channel")) {
         stop();
@@ -186,7 +188,8 @@ bool RadioService::begin(std::uint8_t channel, Mode mode)
     }
     esp_now_initialized_ = true;
 
-    if (!check_ok(esp_now_register_send_cb(send_callback), "esp_now_register_send_cb")
+    if (!apply_rx_power(rx_power)
+        || !check_ok(esp_now_register_send_cb(send_callback), "esp_now_register_send_cb")
         || !check_ok(esp_now_register_recv_cb(receive_callback), "esp_now_register_recv_cb")
         || !add_broadcast_peer()
         || !check_ok(
@@ -257,6 +260,7 @@ bool RadioService::stop()
     has_peer_ = false;
     channel_ = 0;
     mode_ = Mode::Normal;
+    rx_power_ = RxPowerConfig{};
     self_mac_.fill(0);
     peer_mac_.fill(0);
     s_dropped_event_count.store(0, std::memory_order_relaxed);
@@ -282,6 +286,43 @@ bool RadioService::apply_mode(Mode mode)
     return true;
 }
 
+bool RadioService::apply_rx_power(const RxPowerConfig& config)
+{
+    if (config.mode == RxPowerMode::Continuous) {
+        if (!check_ok(esp_wifi_set_ps(WIFI_PS_NONE), "esp_wifi_set_ps(continuous)")) {
+            return false;
+        }
+
+        rx_power_ = config;
+        return true;
+    }
+
+    if (config.wake_interval_ms == 0
+        || config.wake_window_ms == 0
+        || config.wake_window_ms > config.wake_interval_ms) {
+        ESP_LOGE(
+            kTag,
+            "Invalid duty RX profile interval=%u window=%u",
+            static_cast<unsigned>(config.wake_interval_ms),
+            static_cast<unsigned>(config.wake_window_ms));
+        return false;
+    }
+
+    if (!check_ok(esp_wifi_set_ps(WIFI_PS_MIN_MODEM), "esp_wifi_set_ps(duty)")
+        || !check_ok(
+            esp_wifi_connectionless_module_set_wake_interval(
+                config.wake_interval_ms),
+            "esp_wifi_connectionless_module_set_wake_interval")
+        || !check_ok(
+            esp_now_set_wake_window(config.wake_window_ms),
+            "esp_now_set_wake_window")) {
+        return false;
+    }
+
+    rx_power_ = config;
+    return true;
+}
+
 bool RadioService::set_mode(Mode mode)
 {
     if (!initialized_ || mode == mode_) {
@@ -304,6 +345,16 @@ Mode RadioService::mode() const
 std::uint8_t RadioService::channel() const
 {
     return channel_;
+}
+
+bool RadioService::set_rx_power(const RxPowerConfig& config)
+{
+    return initialized_ && apply_rx_power(config);
+}
+
+const RxPowerConfig& RadioService::rx_power() const
+{
+    return rx_power_;
 }
 
 const MacAddress& RadioService::self_mac() const

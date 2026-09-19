@@ -26,9 +26,9 @@ Use M5Unified/M5GFX as ESP-IDF components for initial M5 hardware support.
 
 **Status:** Accepted
 
-RadioLab proves and diagnoses platform capabilities. The future Nikoś Communicator uses the same platform services.
+RadioLab proves and diagnoses platform capabilities. The future Nikoś Communicator UI uses the same lower-level platform services.
 
-**Rationale:** The communicator must not define the platform or become a dependency of platform services.
+**Rationale:** The communicator UI must not define the platform or become a dependency of platform services.
 
 ## D-004 — Automatic bootstrap discovery without pairing UX
 
@@ -36,7 +36,7 @@ RadioLab proves and diagnoses platform capabilities. The future Nikoś Communica
 
 RadioLab v0.1 devices periodically broadcast a versioned DISCOVERY packet on a fixed channel. A compatible device may learn one peer MAC from that packet and register it for unicast ESP-NOW traffic.
 
-There is no pairing screen, device list, account/name system, or persistent peer database. Rediscovery after reboot is expected.
+There is no pairing screen, device list, account/name system, or persistent peer database in RadioLab. Rediscovery after reboot is expected.
 
 **Rationale:** The first field test uses two equal devices and should not require manual MAC entry, while avoiding a general-purpose pairing framework.
 
@@ -44,7 +44,9 @@ There is no pairing screen, device list, account/name system, or persistent peer
 
 **Status:** Accepted
 
-ESP-NOW send callback success is only a MAC-level result. An application ACK confirms peer-side application processing. RadioLab uses the application ACK as its end-to-end delivery signal.
+ESP-NOW send callback success is only a MAC-level result. An application ACK confirms peer-side application processing.
+
+RadioLab uses application ACK for its field diagnostics. Communicator messaging uses a matching ACK reference ID as the completion condition for an outgoing logical message.
 
 **Rationale:** MAC-level send completion and peer-side application processing are different guarantees and must be reported separately.
 
@@ -52,15 +54,9 @@ ESP-NOW send callback success is only a MAC-level result. An application ACK con
 
 **Status:** Accepted
 
-For a RadioLab PING exchange:
+RSSI is receiver-side signal metadata. It may be exposed as context but must not be converted into metres or another physical distance estimate.
 
-- the device receiving PING measures that packet's RX RSSI;
-- the ACK may report that measured RSSI to the initiating peer;
-- the device receiving ACK independently measures the ACK packet's RX RSSI.
-
-RadioLab may display both values but must not convert RSSI into metres or another physical distance estimate.
-
-**Rationale:** RSSI is receiver-side signal metadata affected by environment, orientation, obstruction, antenna characteristics, and other variables that make direct distance inference unreliable.
+**Rationale:** RSSI is affected by environment, orientation, obstruction, antenna characteristics, and other variables that make direct distance inference unreliable.
 
 ## D-007 — RadioLab v0.1 benchmark radio mode is explicitly selected
 
@@ -76,6 +72,50 @@ NORMAL uses the standard ESP32 802.11 b/g/n protocol bitmap. LR uses the Espress
 
 **Status:** Accepted
 
-Both physical test devices run the same firmware and expose the same discovery, PING, ACK, HELLO, and mode-selection behavior.
+Both physical test devices run the same firmware and expose the same RadioLab discovery, PING, ACK, HELLO, and mode-selection behavior.
 
 **Rationale:** Home/carried placement is a test circumstance, not a permanent radio role. Either unit must be usable in either position.
+
+## D-009 — Communicator protocol is separate from RadioLab protocol
+
+**Status:** Accepted
+
+The first Communicator infrastructure uses a separate versioned `communicator_protocol` with PRESENCE, PRESET_MESSAGE, PRESET_RESPONSE, ACK, and RING message types.
+
+**Rationale:** RadioLab v0.1 is a measurement/diagnostic protocol. Communicator delivery semantics are different enough that prematurely generalizing both into one shared protocol would create unnecessary coupling.
+
+## D-010 — Long-lived messaging service owns Communicator delivery semantics
+
+**Status:** Accepted
+
+A small `messaging::Service` lives above `radio` and independently of foreground UI.
+
+For the first implementation it supports one known peer, presence/reachability, latest peer RSSI, one outstanding outgoing logical message, retry until matching application ACK, and receiver dedupe. Retransmission is suspended while the known peer is stale/unreachable and resumes with the same logical message ID after valid peer traffic restores reachability. Duplicate copies are ACKed again but do not produce duplicate notification events.
+
+Presence cadence includes small bounded configurable jitter so deterministic schedules do not repeatedly alias with duty-cycled receive windows.
+
+The service is advanced by the main loop and does not own a separate FreeRTOS task. Its dedupe state is in memory: it survives foreground application changes and RadioLab messaging pause/resume, but not a full device reboot. A sender still retrying across a receiver reboot may therefore cause that logical message to be surfaced again in this first infrastructure version.
+
+**Rationale:** Background communication needs persistent delivery state without tying it to a particular screen or introducing a generic messaging framework.
+
+## D-011 — RadioLab temporarily owns radio during its session
+
+**Status:** Accepted
+
+Long-lived messaging normally owns the active radio transport. Entering RadioLab pauses messaging transport; RadioLab then starts its own continuous-RX session. Exiting RadioLab stops that session and resumes messaging transport.
+
+**Rationale:** This preserves the existing field-test behavior while allowing messaging state to remain alive across foreground application changes.
+
+## D-012 — Messaging RX duty profiles are experimental configuration
+
+**Status:** Accepted
+
+The first messaging foundation provides configurable foreground/background ESP-NOW RX schedules with profile-aware reachability timeouts.
+
+Current experimental starting values are:
+- foreground: approximately 1000/500 ms RX schedule with approximately 7000 ms reachability timeout;
+- background: approximately 3000/500 ms RX schedule with approximately 20000 ms reachability timeout.
+
+These values are not permanent product or platform policy.
+
+**Rationale:** Connectionless RX interval/window behavior must be validated on hardware before final background power policy is chosen.

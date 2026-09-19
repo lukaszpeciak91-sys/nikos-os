@@ -36,35 +36,79 @@ Owns transport-facing Wi-Fi / ESP-NOW integration and radio hardware behavior:
 - raw broadcast and unicast TX/RX
 - RX radio metadata
 - MAC-level send result
+- configurable ESP-NOW connectionless RX wake interval/window behavior
 
-ESP-NOW callbacks perform only bounded copying into a queue. Application logic executes later in normal task context.
+The radio layer exposes RX power behavior as transport configuration. It does not decide permanent product power policy.
+
+ESP-NOW callbacks perform only bounded copying into a queue. Application and messaging logic executes later in normal task context.
 
 ### protocol
 
-The current component owns the versioned RadioLab v0.1 wire format:
+The existing `protocol` component owns the versioned RadioLab v0.1 wire format:
 
 - identifiable on-air format for RadioLab v0.1
 - RadioLab message types
 - identifiers and sequence information
 - explicit encode/decode responsibilities
 
-This is not yet permanent application-independent Nikoś OS protocol infrastructure. Shared protocol infrastructure should be extracted only when a second real application demonstrates a common requirement.
+This remains RadioLab-specific. It is not shared Communicator infrastructure.
+
+### communicator_protocol
+
+Owns the first versioned Communicator wire format.
+
+Current technical message types are:
+
+- PRESENCE
+- PRESET_MESSAGE
+- PRESET_RESPONSE
+- ACK
+- RING
+
+Logical message IDs and ACK reference IDs are part of the Communicator wire format. The protocol carries compact preset/response IDs rather than user-visible strings.
+
+This component is intentionally separate from RadioLab protocol. It does not establish a generic messaging protocol framework and does not prevent future message types such as free text.
+
+### messaging
+
+`messaging::Service` is the long-lived Communicator transport/delivery service above `radio`.
+
+It currently owns:
+
+- one known peer slot
+- presence/reachability state
+- latest peer RX RSSI
+- stable logical message IDs across retries
+- one outstanding outgoing logical message
+- retry-until-application-ACK behavior, with retransmission suspended while the known peer is stale/unreachable
+- receiver-side in-memory dedupe
+- duplicate ACK behavior without duplicate notification
+- bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
+- a small volatile queue of incoming logical message notifications
+- delivery receipts for matching application ACKs
+- foreground/background experimental RX profile selection, including profile-aware reachability timeout
+
+The service has no dedicated FreeRTOS task. It is advanced from the normal main loop.
+
+Messaging state is independent of foreground UI. While RadioLab owns the radio for its field-test session, messaging transport is paused but messaging state remains alive. When RadioLab exits, messaging transport resumes.
+
+Receiver dedupe state is part of that long-lived in-memory service state, so it survives foreground application changes and the RadioLab pause/resume handoff. It is intentionally volatile across a full device reboot. In this first infrastructure version, if a sender is still retrying an outstanding logical message when the receiver reboots, that message may be surfaced again after the receiver restarts.
 
 ### storage
 
 Owns versioned persistent configuration when persistence is required.
 
-No storage layer is required by the current RadioLab milestone.
+No persistent contact database or chat history is introduced by the first Communicator infrastructure phase.
 
 ### power
 
-Future owner of:
+Future owner of product-level:
 
 - sleep policy
 - display and backlight power policy
 - radio power policy
 
-Do not implement this layer yet.
+The current messaging RX schedules are experimental transport configuration, not permanent power architecture.
 
 ### launcher
 
@@ -77,25 +121,30 @@ It does not own radio lifecycle internals, application registries, persistence, 
 Initial and future applications include:
 
 - RadioLab
-- future Nikoś Communicator
+- future Nikoś Communicator UI
 - future diagnostic, Wi-Fi, BLE, IR, and hardware tools
 
 RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
 
-RadioLab has a minimal lifecycle: entering starts its radio/discovery activity; exiting clears transient RadioLab state and stops ESP-NOW/Wi-Fi through the radio layer. Re-entry starts a clean session.
+RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
 
 ## Architectural invariants
 
 - RadioLab and Nikoś Communicator are sibling applications.
-- Nikoś Communicator must not become a platform dependency.
+- Nikoś Communicator UI must not become a platform dependency.
 - Applications must not call ESP-NOW APIs directly.
 - Applications must not call `esp_wifi` APIs directly.
 - The `radio` layer owns transport-facing Wi-Fi / ESP-NOW integration.
-- ESP-NOW callbacks must perform minimal work and hand copied data to normal task context. Application logic must not execute directly inside Wi-Fi callbacks.
-- UI state must not become the owner of background communication.
+- `messaging::Service` owns Communicator delivery semantics above `radio`.
+- RadioLab protocol and Communicator protocol remain separate while their requirements are materially different.
+- ESP-NOW callbacks must perform minimal work and hand copied data to normal task context.
+- UI state must not own background communication.
+- Background messaging must remain independent of the foreground screen/application.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
-- RadioLab lifecycle transitions may start/stop radio activity only through the `radio` layer.
-- RadioLab field placement is not a persistent device role; either peer may remain at home or be carried.
-- ESP-NOW send callback success is not application-level delivery.
+- RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
+- ESP-NOW MAC send success is not application-level delivery.
+- Communicator delivery confirmation requires a matching application ACK.
+- Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
+- Experimental RX and reachability timing values are configuration, not platform invariants. The current foreground profile uses an approximately 7 s reachability timeout, while the background 3000/500 ms RX profile uses a more conservative approximately 20 s timeout to tolerate legitimately missed PRESENCE packets.
 - Persistent schemas and wire protocols must be versioned once introduced.

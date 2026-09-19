@@ -1,5 +1,6 @@
 #include "board/board.hpp"
 #include "launcher/launcher.hpp"
+#include "messaging/messaging_service.hpp"
 #include "radiolab/radiolab_app.hpp"
 #include "radio/radio.hpp"
 
@@ -41,6 +42,22 @@ bool initialize_nvs()
     return true;
 }
 
+nikos::messaging::Config make_messaging_config()
+{
+    nikos::messaging::Config config;
+    config.channel = kRadioChannel;
+    config.mode = nikos::radio::Mode::Normal;
+    config.presence_interval_ms = 2000;
+    config.presence_jitter_ms = 250;
+    config.retry_interval_ms = 500;
+
+    // Experimental receive/reachability profiles. These are configuration
+    // values for validation, not permanent platform timing policy.
+    config.foreground_rx = {1000, 500, 7000};
+    config.background_rx = {3000, 500, 20000};
+    return config;
+}
+
 }  // namespace
 
 extern "C" void app_main(void)
@@ -64,14 +81,31 @@ extern "C" void app_main(void)
     }
 
     nikos::radio::RadioService radio;
+    nikos::messaging::Service messaging(radio);
     nikos::radiolab::RadioLabApp radiolab(board, radio);
+
+    if (!messaging.begin(make_messaging_config())) {
+        ESP_LOGW(
+            kTag,
+            "Messaging transport failed to start; shell remains available");
+    }
 
     RuntimeState state = RuntimeState::Launcher;
     launcher.begin();
 
     while (true) {
+        // Long-lived messaging state is independent of foreground UI.
+        // update() becomes a no-op while RadioLab has transport ownership.
+        messaging.update();
+
         if (state == RuntimeState::Launcher) {
             if (launcher.update() == nikos::launcher::Action::OpenRadioLab) {
+                if (!messaging.pause_transport()) {
+                    ESP_LOGW(
+                        kTag,
+                        "Messaging transport pause completed with cleanup errors");
+                }
+
                 if (radio.begin(kRadioChannel, nikos::radio::Mode::Normal)) {
                     radiolab.begin();
                     state = RuntimeState::RadioLab;
@@ -81,6 +115,13 @@ extern "C" void app_main(void)
                         "RADIO INIT FAILED\n"
                         "Check serial log.");
                     vTaskDelay(pdMS_TO_TICKS(kRadioErrorDisplayMs));
+
+                    if (!messaging.resume_transport()) {
+                        ESP_LOGW(
+                            kTag,
+                            "Messaging transport failed to resume after RadioLab error");
+                    }
+
                     launcher.begin();
                 }
             }
@@ -91,6 +132,12 @@ extern "C" void app_main(void)
 
                 if (!radio.stop()) {
                     ESP_LOGW(kTag, "Radio stop completed with cleanup errors");
+                }
+
+                if (!messaging.resume_transport()) {
+                    ESP_LOGW(
+                        kTag,
+                        "Messaging transport failed to resume after RadioLab");
                 }
 
                 launcher.begin();
