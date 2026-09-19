@@ -15,27 +15,13 @@ public:
     void update();
 
 private:
-    enum class Action : std::uint8_t {
-        Ping,
-        Hello,
-        Live,
-        Mode,
-        Count,
-    };
-
-    enum class Reachability : std::uint8_t {
-        Lost,
-        Found,
-        Reachable,
-        Stale,
-    };
-
     void process_input(const board::InputState& input, std::uint32_t now_ms);
     void process_radio_events();
     void process_rx(const radio::RxEvent& event);
     void process_tx(const radio::TxEvent& event);
     void process_timers(std::uint32_t now_ms);
 
+    void record_peer_rx(const radio::RxEvent& event);
     void send_discovery();
     void send_ping();
     void send_ack(std::uint32_t reference_sequence, std::int8_t measured_rssi);
@@ -43,29 +29,31 @@ private:
     void toggle_mode();
     void clear_active_peer();
 
-    void render(std::uint32_t now_ms);
-    Reachability reachability(std::uint32_t now_ms) const;
+    bool link_is_fresh(std::uint32_t now_ms) const;
+    void update_battery_sample(std::uint32_t now_ms);
+    void show_main_screen(std::uint32_t now_ms);
+    void render_main_if_changed(std::uint32_t now_ms);
+    void show_hello_screen();
 
     std::uint32_t next_sequence();
     std::uint32_t now_ms() const;
     std::uint64_t now_us() const;
-    const char* action_name() const;
-    const char* reachability_name(std::uint32_t now_ms) const;
 
     board::Board& board_;
     radio::RadioService& radio_;
 
-    Action action_ = Action::Ping;
     std::uint32_t sequence_ = 1;
 
     bool peer_known_ = false;
     radio::MacAddress peer_mac_{};
     std::uint32_t last_discovery_ms_ = 0;
     std::uint32_t last_valid_rx_ms_ = 0;
-
-    bool live_enabled_ = false;
-    std::uint32_t last_live_ping_ms_ = 0;
     std::uint32_t last_discovery_tx_ms_ = 0;
+
+    bool latest_peer_rx_seen_ = false;
+    std::uint32_t latest_peer_rx_ms_ = 0;
+    std::int16_t latest_peer_rx_rssi_ = 0;
+    bool latest_peer_rx_rssi_valid_ = false;
 
     bool ping_pending_ = false;
     std::uint32_t pending_ping_sequence_ = 0;
@@ -91,8 +79,18 @@ private:
     bool hello_rssi_valid_ = false;
     radio::Mode hello_mode_ = radio::Mode::Normal;
     std::uint32_t hello_received_ms_ = 0;
+    bool hello_screen_active_ = false;
 
-    std::uint32_t last_render_ms_ = 0;
+    bool battery_sample_valid_ = false;
+    std::uint32_t last_battery_sample_ms_ = 0;
+    std::int32_t cached_battery_percent_ = -1;
+
+    bool main_render_state_valid_ = false;
+    bool rendered_link_fresh_ = false;
+    bool rendered_rssi_valid_ = false;
+    std::int16_t rendered_rssi_ = 0;
+    std::int32_t rendered_battery_percent_ = -2;
+    radio::Mode rendered_mode_ = radio::Mode::Normal;
 };
 
 }  // namespace nikos::radiolab

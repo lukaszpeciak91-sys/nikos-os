@@ -31,18 +31,28 @@ Radio modes are selected explicitly:
 
 There is no automatic mode switching. Both devices must be configured to the same mode for a benchmark.
 
-### Controls
+### Field-test controls
 
-The current logical controls are:
+- Button A short: send PING immediately.
+- Button B short: send HELLO immediately.
+- Button B long: toggle NORMAL/LR.
+- Button A long: unused.
 
-- Button A short: execute the selected action
-- Button B short: cycle `PING -> HELLO -> LIVE -> MODE`
-- Button B long: return selection to `PING`
-- Button A long: unused
+A long Button B action does not also send HELLO.
+
+The main field screen shows only:
+
+- a green/red recent-link indicator;
+- the latest valid RX RSSI from the active peer while the link is fresh;
+- battery percentage;
+- the active NORMAL/LR mode;
+- `A PING` and `B HELLO` hints.
+
+Received PING messages produce a short beep and retain the existing application ACK behavior.
+
+Received HELLO messages produce a beep and switch to a latched large `HELLO` screen. Any user button event dismisses that screen and is consumed without triggering another action. Radio processing continues while the HELLO screen is visible.
 
 The actual physical A/B mapping on the M5StickC Plus SE must still be verified on the real units.
-
-`LIVE` sends periodic PING messages. `MODE` toggles NORMAL/LR and clears the active peer so discovery restarts in the new mode.
 
 ### Build and flash
 
