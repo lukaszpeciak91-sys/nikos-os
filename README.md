@@ -12,7 +12,7 @@ The first real application is RadioLab. RadioLab and the future Nikoś Communica
 
 ## Launcher
 
-Boot now shows a temporary `Nikoś OS` text splash for about 0.75 s and then opens a small launcher.
+Boot now shows a short deterministic branded splash: sparse signal fragments align into the `NIKOS` wordmark, the small green `OS` mark appears last, and the final logo holds for about 0.75 s before the launcher.
 
 Launcher entries:
 
@@ -20,7 +20,7 @@ Launcher entries:
 2. Minutnik
 3. Rozrywka
 
-Only RadioLab opens in this milestone. Minutnik and Rozrywka are visible placeholders.
+Only RadioLab opens in this milestone. Minutnik and Rozrywka are visible placeholders. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
 
 Launcher controls:
 

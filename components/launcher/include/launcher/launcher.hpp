@@ -20,10 +20,18 @@ public:
     Action update();
 
 private:
+    void update_battery_sample(std::uint32_t now_ms);
     void render();
+    void render_battery_if_changed();
 
     board::Board& board_;
     std::uint8_t selected_index_ = 0;
+
+    bool battery_sample_valid_ = false;
+    std::uint32_t last_battery_sample_ms_ = 0;
+    std::int32_t cached_battery_percent_ = -1;
+    bool rendered_battery_valid_ = false;
+    std::int32_t rendered_battery_percent_ = -2;
 };
 
 }  // namespace nikos::launcher

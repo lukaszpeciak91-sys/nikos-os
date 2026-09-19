@@ -10,7 +10,7 @@ First Nikoś OS launcher skeleton with lifecycle-managed RadioLab.
 - Native ESP-IDF scaffold implemented for classic ESP32 / ESP32-PICO-D4.
 - ESP-IDF 5.5.5, M5Unified 0.2.22, and M5GFX 0.2.29 are pinned.
 - Minimal `board`, `radio`, and `protocol` boundaries implemented.
-- Boot shows a temporary Nikoś OS text splash and enters a static three-item launcher: RadioLab, Minutnik, Rozrywka.
+- Boot shows a short deterministic branded signal-synchronization splash and enters a dark navy three-item launcher: RadioLab, Minutnik, Rozrywka. The launcher shows a small cached battery percentage sampled about once per second.
 - Minutnik and Rozrywka are visible placeholders only.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
@@ -48,3 +48,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-18 — Implemented the first equal-peer RadioLab foundation for two-device physical ESP-NOW testing.
 - 2026-09-19 — Simplified RadioLab for immediate outdoor field testing with direct PING/HELLO controls and incremental screen rendering.
 - 2026-09-19 — Added the first static Nikoś OS launcher skeleton and minimal RadioLab start/stop lifecycle.
+- 2026-09-19 — Added the first branded shell pass for the boot splash and launcher visuals.
