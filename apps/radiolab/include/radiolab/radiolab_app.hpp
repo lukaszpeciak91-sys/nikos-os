@@ -30,6 +30,7 @@ private:
     void clear_active_peer();
 
     bool link_is_fresh(std::uint32_t now_ms) const;
+    void update_battery_sample(std::uint32_t now_ms);
     void show_main_screen(std::uint32_t now_ms);
     void render_main_if_changed(std::uint32_t now_ms);
     void show_hello_screen();
@@ -79,6 +80,10 @@ private:
     radio::Mode hello_mode_ = radio::Mode::Normal;
     std::uint32_t hello_received_ms_ = 0;
     bool hello_screen_active_ = false;
+
+    bool battery_sample_valid_ = false;
+    std::uint32_t last_battery_sample_ms_ = 0;
+    std::int32_t cached_battery_percent_ = -1;
 
     bool main_render_state_valid_ = false;
     bool rendered_link_fresh_ = false;

@@ -15,6 +15,7 @@ constexpr std::uint32_t kDiscoveryIntervalMs = 2000;
 constexpr std::uint32_t kPingTimeoutMs = 1200;
 constexpr std::uint32_t kPeerLostMs = 7000;
 constexpr std::uint32_t kLinkFreshMs = 4000;
+constexpr std::uint32_t kBatterySampleIntervalMs = 1000;
 
 constexpr std::int16_t kIndicatorX = 24;
 constexpr std::int16_t kIndicatorY = 38;
@@ -72,6 +73,7 @@ void RadioLabApp::begin()
     send_discovery();
     const std::uint32_t now = now_ms();
     last_discovery_tx_ms_ = now;
+    update_battery_sample(now);
     show_main_screen(now);
 }
 
@@ -84,6 +86,7 @@ void RadioLabApp::update()
 
     const std::uint32_t current_now = now_ms();
     process_timers(current_now);
+    update_battery_sample(current_now);
 
     if (!hello_screen_active_) {
         render_main_if_changed(current_now);
@@ -402,6 +405,20 @@ bool RadioLabApp::link_is_fresh(std::uint32_t now_ms) const
         && now_ms - latest_peer_rx_ms_ <= kLinkFreshMs;
 }
 
+void RadioLabApp::update_battery_sample(std::uint32_t now_ms)
+{
+    if (battery_sample_valid_
+        && now_ms - last_battery_sample_ms_ < kBatterySampleIntervalMs) {
+        return;
+    }
+
+    const board::PowerStatus power = board_.power_status();
+    cached_battery_percent_ =
+        power.level_percent >= 0 ? power.level_percent : -1;
+    last_battery_sample_ms_ = now_ms;
+    battery_sample_valid_ = true;
+}
+
 void RadioLabApp::show_main_screen(std::uint32_t now_ms)
 {
     board_.clear_screen();
@@ -418,9 +435,7 @@ void RadioLabApp::render_main_if_changed(std::uint32_t now_ms)
     const bool rssi_valid = fresh && latest_peer_rx_rssi_valid_;
     const std::int16_t rssi = latest_peer_rx_rssi_;
 
-    const board::PowerStatus power = board_.power_status();
-    const std::int32_t battery_percent =
-        power.level_percent >= 0 ? power.level_percent : -1;
+    const std::int32_t battery_percent = cached_battery_percent_;
     const radio::Mode mode = radio_.mode();
 
     if (!main_render_state_valid_ || fresh != rendered_link_fresh_) {
