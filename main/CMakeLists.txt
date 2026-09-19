@@ -3,6 +3,7 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES
         board
+        launcher
         log
         nvs_flash
         radio

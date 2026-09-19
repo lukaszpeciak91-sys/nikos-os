@@ -62,6 +62,8 @@ RadioLabApp::RadioLabApp(board::Board& board, radio::RadioService& radio)
 
 void RadioLabApp::begin()
 {
+    reset_session_state();
+
     char mac[18]{};
     format_mac(radio_.self_mac(), mac, sizeof(mac));
 
@@ -79,11 +81,20 @@ void RadioLabApp::begin()
     show_main_screen(now);
 }
 
-void RadioLabApp::update()
+void RadioLabApp::end()
+{
+    reset_session_state();
+}
+
+RadioLabApp::UpdateResult RadioLabApp::update()
 {
     const std::uint32_t input_now = now_ms();
 
     process_input(board_.poll_input(), input_now);
+    if (exit_requested_) {
+        return UpdateResult::ExitRequested;
+    }
+
     process_radio_events();
 
     const std::uint32_t current_now = now_ms();
@@ -94,6 +105,8 @@ void RadioLabApp::update()
         render_main_if_changed(current_now);
         render_action_area_if_changed(current_now);
     }
+
+    return UpdateResult::Continue;
 }
 
 void RadioLabApp::process_input(
@@ -112,15 +125,20 @@ void RadioLabApp::process_input(
     }
 
     if (input.secondary_long) {
+        exit_requested_ = true;
+        return;
+    }
+
+    if (input.primary_long) {
         toggle_mode();
         return;
     }
 
-    if (input.primary_short) {
+    if (input.secondary_short) {
         send_ping();
     }
 
-    if (input.secondary_short) {
+    if (input.primary_short) {
         send_hello();
     }
 }
@@ -435,6 +453,69 @@ void RadioLabApp::clear_active_peer()
     latest_mac_tx_result_valid_ = false;
 }
 
+void RadioLabApp::reset_session_state()
+{
+    radio_.clear_peer();
+
+    sequence_ = 1;
+    peer_known_ = false;
+    peer_mac_.fill(0);
+    last_discovery_ms_ = 0;
+    last_valid_rx_ms_ = 0;
+    last_discovery_tx_ms_ = 0;
+
+    latest_peer_rx_seen_ = false;
+    latest_peer_rx_ms_ = 0;
+    latest_peer_rx_rssi_ = 0;
+    latest_peer_rx_rssi_valid_ = false;
+
+    ping_pending_ = false;
+    pending_ping_sequence_ = 0;
+    pending_ping_started_us_ = 0;
+    hello_pending_ = false;
+    pending_hello_sequence_ = 0;
+    pending_hello_started_us_ = 0;
+
+    matching_ack_rssi_ = 0;
+    matching_ack_rssi_valid_ = false;
+    peer_ping_rssi_ = 0;
+    peer_ping_rssi_valid_ = false;
+    last_rtt_ms_ = -1;
+
+    tx_ping_count_ = 0;
+    rx_ping_count_ = 0;
+    ack_count_ = 0;
+    failed_ping_count_ = 0;
+
+    latest_mac_tx_result_valid_ = false;
+    latest_mac_tx_success_ = false;
+
+    hello_received_ = false;
+    hello_sequence_ = 0;
+    hello_rssi_ = 0;
+    hello_rssi_valid_ = false;
+    hello_mode_ = radio::Mode::Normal;
+    hello_received_ms_ = 0;
+    hello_screen_active_ = false;
+
+    battery_sample_valid_ = false;
+    last_battery_sample_ms_ = 0;
+    cached_battery_percent_ = -1;
+
+    delivery_feedback_ = DeliveryFeedback::None;
+    delivery_feedback_started_ms_ = 0;
+    action_area_render_valid_ = false;
+    rendered_delivery_feedback_ = DeliveryFeedback::None;
+
+    main_render_state_valid_ = false;
+    rendered_link_fresh_ = false;
+    rendered_rssi_valid_ = false;
+    rendered_rssi_ = 0;
+    rendered_battery_percent_ = -2;
+    rendered_mode_ = radio::Mode::Normal;
+    exit_requested_ = false;
+}
+
 bool RadioLabApp::link_is_fresh(std::uint32_t now_ms) const
 {
     return peer_known_
@@ -561,8 +642,8 @@ void RadioLabApp::render_action_area_if_changed(std::uint32_t now_ms)
             2,
             board::DisplayColor::Green);
     } else {
-        board_.draw_text_region(10, 108, 90, 22, "M5 PING", 2);
-        board_.draw_text_region(120, 108, 115, 22, "SIDE HELLO", 2);
+        board_.draw_text_region(10, 108, 90, 22, "SIDE PING", 2);
+        board_.draw_text_region(120, 108, 115, 22, "M5 HELLO", 2);
     }
 
     rendered_delivery_feedback_ = visible_feedback;

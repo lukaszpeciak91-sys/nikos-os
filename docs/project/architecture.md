@@ -10,6 +10,8 @@ The conceptual model is:
 
 Applications may initially be compiled into a single firmware image. No dynamic APK-style or plugin system is required.
 
+The current runtime starts with a lightweight launcher. The launcher has three fixed entries: RadioLab, Minutnik, and Rozrywka. Only RadioLab is active; the other two are placeholders. This is a static skeleton, not an application registry or plugin framework.
+
 ## Initial ownership boundaries
 
 ### board
@@ -64,6 +66,12 @@ Future owner of:
 
 Do not implement this layer yet.
 
+### launcher
+
+Owns only the current top-level selection UI and fixed launcher navigation.
+
+It does not own radio lifecycle internals, application registries, persistence, profiles, or plugin loading.
+
 ### applications
 
 Initial and future applications include:
@@ -74,6 +82,8 @@ Initial and future applications include:
 
 RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
 
+RadioLab has a minimal lifecycle: entering starts its radio/discovery activity; exiting clears transient RadioLab state and stops ESP-NOW/Wi-Fi through the radio layer. Re-entry starts a clean session.
+
 ## Architectural invariants
 
 - RadioLab and Nikoś Communicator are sibling applications.
@@ -83,6 +93,8 @@ RadioLab v0.1 uses equal peers running the same firmware. It does not assign per
 - The `radio` layer owns transport-facing Wi-Fi / ESP-NOW integration.
 - ESP-NOW callbacks must perform minimal work and hand copied data to normal task context. Application logic must not execute directly inside Wi-Fi callbacks.
 - UI state must not become the owner of background communication.
+- The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
+- RadioLab lifecycle transitions may start/stop radio activity only through the `radio` layer.
 - RadioLab field placement is not a persistent device role; either peer may remain at home or be carried.
 - ESP-NOW send callback success is not application-level delivery.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
