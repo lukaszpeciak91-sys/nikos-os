@@ -98,7 +98,7 @@ void RadioLabApp::process_input(
     std::uint32_t now_ms)
 {
     const bool any_button_event =
-        input.a_short || input.a_long || input.b_short || input.b_long;
+        input.primary_short || input.primary_long || input.secondary_short || input.secondary_long;
 
     if (hello_screen_active_) {
         if (any_button_event) {
@@ -108,16 +108,16 @@ void RadioLabApp::process_input(
         return;
     }
 
-    if (input.b_long) {
+    if (input.secondary_long) {
         toggle_mode();
         return;
     }
 
-    if (input.a_short) {
+    if (input.primary_short) {
         send_ping();
     }
 
-    if (input.b_short) {
+    if (input.secondary_short) {
         send_hello();
     }
 }
@@ -422,8 +422,8 @@ void RadioLabApp::update_battery_sample(std::uint32_t now_ms)
 void RadioLabApp::show_main_screen(std::uint32_t now_ms)
 {
     board_.clear_screen();
-    board_.draw_text_region(10, 108, 90, 22, "A PING", 2);
-    board_.draw_text_region(130, 108, 100, 22, "B HELLO", 2);
+    board_.draw_text_region(10, 108, 90, 22, "M5 PING", 2);
+    board_.draw_text_region(120, 108, 115, 22, "SIDE HELLO", 2);
 
     main_render_state_valid_ = false;
     render_main_if_changed(now_ms);

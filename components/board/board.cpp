@@ -59,11 +59,16 @@ InputState Board::poll_input()
     M5.update();
 
     InputState state;
-    state.a_long = M5.BtnA.wasHold();
-    state.b_long = M5.BtnB.wasHold();
-    state.a_short =
+
+    // Physical mapping verified on M5StickC Plus SE:
+    // - M5-marked user button -> primary
+    // - opposite-side user button -> secondary
+    // The separate power button is intentionally not exposed through InputState.
+    state.primary_long = M5.BtnA.wasHold();
+    state.secondary_long = M5.BtnB.wasHold();
+    state.primary_short =
         M5.BtnA.wasClicked() && !M5.BtnA.wasReleasedAfterHold();
-    state.b_short =
+    state.secondary_short =
         M5.BtnB.wasClicked() && !M5.BtnB.wasReleasedAfterHold();
     return state;
 }

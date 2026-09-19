@@ -12,20 +12,20 @@ Physically testable RadioLab v0.1 foundation.
 - Minimal `board`, `radio`, and `protocol` boundaries implemented.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
-- The field-test UI provides direct A=PING, B=HELLO, long-B NORMAL/LR switching, a recent-link indicator, current peer RX RSSI, battery percentage, and a latched HELLO screen.
+- The field-test UI uses the physically verified user-button mapping: primary (M5-marked) = PING, secondary (opposite side) = HELLO, secondary long = NORMAL/LR; the separate power button is not an application control.
 - ESP-NOW callback-owned RX data and metadata are copied into a FreeRTOS queue before callback return.
-- Hardware and radio behavior have not yet been physically verified on the two M5StickC Plus SE units.
+- The two RadioLab user-button positions are physically verified on the M5StickC Plus SE; remaining hardware and radio behavior still requires field verification.
 - A local ESP-IDF build has not yet been executed in the available implementation environment.
 
 ## Next planned implementation step
 
 - Build with ESP-IDF 5.5.5.
 - Flash the same firmware to both M5StickC Plus SE devices.
-- Verify LCD and the actual physical Button A/B mapping.
+- Verify LCD behavior with the physically mapped primary/secondary controls.
 - Verify buzzer and battery/AXP192 information.
 - Verify automatic peer discovery on channel 6.
 - Verify PING -> application ACK, local ACK RSSI, peer-reported PING RSSI, and RTT.
-- Verify the simplified field screen, HELLO latch/dismiss behavior, and long-B mode switching.
+- Verify the simplified field screen, HELLO latch/dismiss behavior, and secondary-long mode switching.
 - Walk with either unit and verify link freshness loss/recovery.
 - Verify NORMAL and Espressif LR separately on physical hardware.
 
