@@ -15,6 +15,12 @@ public:
     void update();
 
 private:
+    enum class DeliveryFeedback : std::uint8_t {
+        None,
+        PingOk,
+        HelloOk,
+    };
+
     void process_input(const board::InputState& input, std::uint32_t now_ms);
     void process_radio_events();
     void process_rx(const radio::RxEvent& event);
@@ -33,6 +39,8 @@ private:
     void update_battery_sample(std::uint32_t now_ms);
     void show_main_screen(std::uint32_t now_ms);
     void render_main_if_changed(std::uint32_t now_ms);
+    void render_action_area_if_changed(std::uint32_t now_ms);
+    void show_delivery_feedback(DeliveryFeedback feedback, std::uint32_t now_ms);
     void show_hello_screen();
 
     std::uint32_t next_sequence();
@@ -59,6 +67,10 @@ private:
     std::uint32_t pending_ping_sequence_ = 0;
     std::uint64_t pending_ping_started_us_ = 0;
 
+    bool hello_pending_ = false;
+    std::uint32_t pending_hello_sequence_ = 0;
+    std::uint64_t pending_hello_started_us_ = 0;
+
     std::int16_t matching_ack_rssi_ = 0;
     bool matching_ack_rssi_valid_ = false;
     std::int16_t peer_ping_rssi_ = 0;
@@ -84,6 +96,11 @@ private:
     bool battery_sample_valid_ = false;
     std::uint32_t last_battery_sample_ms_ = 0;
     std::int32_t cached_battery_percent_ = -1;
+
+    DeliveryFeedback delivery_feedback_ = DeliveryFeedback::None;
+    std::uint32_t delivery_feedback_started_ms_ = 0;
+    bool action_area_render_valid_ = false;
+    DeliveryFeedback rendered_delivery_feedback_ = DeliveryFeedback::None;
 
     bool main_render_state_valid_ = false;
     bool rendered_link_fresh_ = false;

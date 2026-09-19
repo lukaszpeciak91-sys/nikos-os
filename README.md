@@ -49,9 +49,9 @@ The main field screen shows only:
 - the active NORMAL/LR mode;
 - `M5 PING` and `SIDE HELLO` hints.
 
-Received PING messages produce a short beep and retain the existing application ACK behavior.
+Received PING messages produce a short beep and retain the existing application ACK behavior. A matching application ACK briefly shows a green `✓ PING OK` confirmation on the sender.
 
-Received HELLO messages produce a beep and switch to a latched large `HELLO` screen. Any user button event dismisses that screen and is consumed without triggering another action. Radio processing continues while the HELLO screen is visible.
+Received HELLO messages produce a beep, send an application ACK referencing the HELLO sequence, and switch to a latched large `HELLO` screen. A matching HELLO ACK briefly shows a green `✓ HELLO OK` confirmation on the sender. Any user button event dismisses the received HELLO screen and is consumed without triggering another action. Radio processing continues while the HELLO screen is visible, and outgoing delivery feedback does not interrupt that latched screen.
 
 The two user-button positions above were physically verified on the M5StickC Plus SE. The separate power button remains outside RadioLab controls.
 

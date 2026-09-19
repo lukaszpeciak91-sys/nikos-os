@@ -116,6 +116,16 @@ void Board::fill_circle(
     M5.Display.fillCircle(x, y, radius, to_display_color(color));
 }
 
+void Board::draw_line(
+    std::int16_t x0,
+    std::int16_t y0,
+    std::int16_t x1,
+    std::int16_t y1,
+    DisplayColor color)
+{
+    M5.Display.drawLine(x0, y0, x1, y1, to_display_color(color));
+}
+
 void Board::draw_text_region(
     std::int16_t x,
     std::int16_t y,

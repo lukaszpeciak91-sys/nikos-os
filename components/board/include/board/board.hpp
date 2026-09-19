@@ -44,6 +44,12 @@ public:
         std::int16_t y,
         std::int16_t radius,
         DisplayColor color);
+    void draw_line(
+        std::int16_t x0,
+        std::int16_t y0,
+        std::int16_t x1,
+        std::int16_t y1,
+        DisplayColor color);
     void draw_text_region(
         std::int16_t x,
         std::int16_t y,
