@@ -10,6 +10,27 @@ namespace {
 
 constexpr char kTag[] = "messaging";
 
+const char* delivery_kind_name(nikos::messaging::DeliveryKind kind)
+{
+    using nikos::messaging::DeliveryKind;
+    switch (kind) {
+        case DeliveryKind::PresetResponse:
+            return "preset_response";
+        case DeliveryKind::Ring:
+            return "ring";
+        case DeliveryKind::PresetMessage:
+        default:
+            return "preset_message";
+    }
+}
+
+const char* delivery_outcome_name(nikos::messaging::DeliveryOutcome outcome)
+{
+    return outcome == nikos::messaging::DeliveryOutcome::Delivered
+        ? "delivered"
+        : "failed";
+}
+
 bool is_notifiable(nikos::communicator_protocol::MessageType type)
 {
     using nikos::communicator_protocol::MessageType;
@@ -65,6 +86,8 @@ bool Service::begin(const Config& config)
 
     if (config.presence_interval_ms == 0
         || config.retry_interval_ms == 0
+        || config.max_send_attempts == 0
+        || config.delivery_timeout_ms == 0
         || config.foreground_rx.interval_ms == 0
         || config.foreground_rx.wake_window_ms == 0
         || config.foreground_rx.wake_window_ms > config.foreground_rx.interval_ms
@@ -79,6 +102,14 @@ bool Service::begin(const Config& config)
 
     config_ = config;
     rx_profile_ = RxProfile::Background;
+
+    ESP_LOGI(
+        kTag,
+        "Delivery policy retry=%lums jitter<=%ums max_attempts=%u timeout=%lums",
+        static_cast<unsigned long>(config_.retry_interval_ms),
+        static_cast<unsigned>(config_.retry_jitter_ms),
+        static_cast<unsigned>(config_.max_send_attempts),
+        static_cast<unsigned long>(config_.delivery_timeout_ms));
 
     started_ = true;
     if (!start_transport()) {
@@ -116,6 +147,7 @@ bool Service::stop()
 
     next_message_id_ = 1;
     outgoing_ = OutgoingState{};
+    traffic_ = TrafficCounters{};
 
     recent_received_ids_ = {};
     recent_received_count_ = 0;
@@ -133,22 +165,47 @@ bool Service::stop()
 
 void Service::update()
 {
-    if (!started_ || !transport_active_) {
+    if (!started_) {
         return;
     }
 
-    process_radio_events();
+    if (transport_active_) {
+        process_radio_events();
+    }
 
     const std::uint32_t now = now_ms();
+
+    if (outgoing_.active
+        && now - outgoing_.started_ms >= config_.delivery_timeout_ms) {
+        finish_outgoing(DeliveryOutcome::Failed, now);
+    }
+
+    if (!transport_active_) {
+        return;
+    }
+
     if (last_presence_tx_ms_ == 0
         || now - last_presence_tx_ms_ >= current_presence_delay_ms_) {
         send_presence(now);
     }
 
-    if (outgoing_.active
-        && peer_reachable()
-        && (outgoing_.last_send_ms == 0
-            || now - outgoing_.last_send_ms >= config_.retry_interval_ms)) {
+    if (!outgoing_.active) {
+        return;
+    }
+
+    const bool retry_due =
+        outgoing_.last_send_ms == 0
+        || now - outgoing_.last_send_ms >= outgoing_.retry_delay_ms;
+    if (!retry_due) {
+        return;
+    }
+
+    if (outgoing_.attempts >= config_.max_send_attempts) {
+        finish_outgoing(DeliveryOutcome::Failed, now);
+        return;
+    }
+
+    if (peer_reachable()) {
         send_outgoing(now);
     }
 }
@@ -456,8 +513,15 @@ void Service::process_rx(const radio::RxEvent& event)
     if (message.type == communicator_protocol::MessageType::Ack) {
         if (outgoing_.active
             && message.reference_id == outgoing_.message.message_id) {
-            publish_delivery();
-            outgoing_ = OutgoingState{};
+            const std::uint32_t completed_ms =
+                static_cast<std::uint32_t>(
+                    event.received_time_us / 1000U);
+            const DeliveryOutcome outcome =
+                completed_ms - outgoing_.started_ms
+                    < config_.delivery_timeout_ms
+                ? DeliveryOutcome::Delivered
+                : DeliveryOutcome::Failed;
+            finish_outgoing(outcome, completed_ms);
         }
         return;
     }
@@ -505,8 +569,9 @@ void Service::send_presence(std::uint32_t now_ms)
     message.type = communicator_protocol::MessageType::Presence;
 
     std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
-    if (communicator_protocol::encode(message, wire.data(), wire.size())) {
-        radio_.send_broadcast(wire.data(), wire.size());
+    if (communicator_protocol::encode(message, wire.data(), wire.size())
+        && radio_.send_broadcast(wire.data(), wire.size())) {
+        ++traffic_.presence_tx_submissions;
     }
 
     const std::uint32_t jitter =
@@ -530,8 +595,9 @@ void Service::send_ack(std::uint32_t reference_message_id)
     message.reference_id = reference_message_id;
 
     std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
-    if (communicator_protocol::encode(message, wire.data(), wire.size())) {
-        radio_.send_peer(wire.data(), wire.size());
+    if (communicator_protocol::encode(message, wire.data(), wire.size())
+        && radio_.send_peer(wire.data(), wire.size())) {
+        ++traffic_.ack_tx_submissions;
     }
 }
 
@@ -550,9 +616,10 @@ bool Service::start_outgoing(
     outgoing_.message.message_id = next_logical_message_id();
     outgoing_.message.reference_id = reference_message_id;
     outgoing_.message.value_id = value_id;
+    outgoing_.started_ms = now_ms();
 
     if (transport_active_) {
-        send_outgoing(now_ms());
+        send_outgoing(outgoing_.started_ms);
     }
 
     return true;
@@ -572,12 +639,81 @@ void Service::send_outgoing(std::uint32_t now_ms)
             outgoing_.message,
             wire.data(),
             wire.size())) {
+        ESP_LOGE(
+            kTag,
+            "Failed to encode logical delivery id=%lu",
+            static_cast<unsigned long>(outgoing_.message.message_id));
+        finish_outgoing(DeliveryOutcome::Failed, now_ms);
         return;
     }
 
-    radio_.send_peer(wire.data(), wire.size());
-    outgoing_.last_send_ms = now_ms;
     ++outgoing_.attempts;
+    if (radio_.send_peer(wire.data(), wire.size())) {
+        ++traffic_.logical_payload_tx_submissions;
+    } else {
+        ++outgoing_.send_request_failures;
+    }
+
+    outgoing_.last_send_ms = now_ms;
+    outgoing_.retry_delay_ms = next_retry_delay_ms();
+}
+
+std::uint32_t Service::next_retry_delay_ms() const
+{
+    const std::uint32_t jitter =
+        config_.retry_jitter_ms == 0
+            ? 0
+            : esp_random()
+                % (static_cast<std::uint32_t>(config_.retry_jitter_ms) + 1U);
+    return config_.retry_interval_ms + jitter;
+}
+
+void Service::finish_outgoing(
+    DeliveryOutcome outcome,
+    std::uint32_t completed_ms)
+{
+    if (!outgoing_.active) {
+        return;
+    }
+
+    delivery_receipt_.kind = to_delivery_kind(outgoing_.message.type);
+    delivery_receipt_.outcome = outcome;
+    delivery_receipt_.logical_message_id = outgoing_.message.message_id;
+    delivery_receipt_.send_attempt_count = outgoing_.attempts;
+    delivery_receipt_.send_request_failure_count =
+        outgoing_.send_request_failures;
+    delivery_receipt_.latency_ms =
+        completed_ms - outgoing_.started_ms;
+    delivery_ready_ = true;
+
+    if (outcome == DeliveryOutcome::Delivered) {
+        ++traffic_.delivered_logical_messages;
+    } else {
+        ++traffic_.failed_logical_messages;
+    }
+
+    ESP_LOGI(
+        kTag,
+        "Logical delivery id=%lu kind=%s outcome=%s attempts=%lu send_request_failures=%lu latency_ms=%lu",
+        static_cast<unsigned long>(delivery_receipt_.logical_message_id),
+        delivery_kind_name(delivery_receipt_.kind),
+        delivery_outcome_name(delivery_receipt_.outcome),
+        static_cast<unsigned long>(delivery_receipt_.send_attempt_count),
+        static_cast<unsigned long>(
+            delivery_receipt_.send_request_failure_count),
+        static_cast<unsigned long>(delivery_receipt_.latency_ms));
+    ESP_LOGI(
+        kTag,
+        "Traffic submissions logical=%lu ack=%lu presence=%lu delivered=%lu failed=%lu",
+        static_cast<unsigned long>(
+            traffic_.logical_payload_tx_submissions),
+        static_cast<unsigned long>(traffic_.ack_tx_submissions),
+        static_cast<unsigned long>(traffic_.presence_tx_submissions),
+        static_cast<unsigned long>(
+            traffic_.delivered_logical_messages),
+        static_cast<unsigned long>(traffic_.failed_logical_messages));
+
+    outgoing_ = OutgoingState{};
 }
 
 bool Service::is_duplicate(std::uint32_t logical_message_id) const
@@ -619,13 +755,6 @@ bool Service::enqueue_incoming(const IncomingMessage& message)
     incoming_queue_[tail] = message;
     ++incoming_count_;
     return true;
-}
-
-void Service::publish_delivery()
-{
-    delivery_receipt_.kind = to_delivery_kind(outgoing_.message.type);
-    delivery_receipt_.logical_message_id = outgoing_.message.message_id;
-    delivery_ready_ = true;
 }
 
 std::uint32_t Service::next_logical_message_id()
