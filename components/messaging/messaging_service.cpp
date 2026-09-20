@@ -180,6 +180,16 @@ void Service::update()
         finish_outgoing(DeliveryOutcome::Failed, now);
     }
 
+    const bool retry_due =
+        outgoing_.active
+        && (outgoing_.last_send_ms == 0
+            || now - outgoing_.last_send_ms >= outgoing_.retry_delay_ms);
+
+    if (retry_due
+        && outgoing_.attempts >= config_.max_send_attempts) {
+        finish_outgoing(DeliveryOutcome::Failed, now);
+    }
+
     if (!transport_active_) {
         return;
     }
@@ -189,23 +199,7 @@ void Service::update()
         send_presence(now);
     }
 
-    if (!outgoing_.active) {
-        return;
-    }
-
-    const bool retry_due =
-        outgoing_.last_send_ms == 0
-        || now - outgoing_.last_send_ms >= outgoing_.retry_delay_ms;
-    if (!retry_due) {
-        return;
-    }
-
-    if (outgoing_.attempts >= config_.max_send_attempts) {
-        finish_outgoing(DeliveryOutcome::Failed, now);
-        return;
-    }
-
-    if (peer_reachable()) {
+    if (outgoing_.active && retry_due && peer_reachable()) {
         send_outgoing(now);
     }
 }
