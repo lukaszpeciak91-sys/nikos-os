@@ -13,12 +13,12 @@ struct Entry {
 };
 
 constexpr std::array<Entry, 6> kEntries = {{
-    {u8"Komunikator"},
-    {u8"Narzędzia"},
-    {u8"Rozrywka"},
-    {u8"Zegar"},
-    {u8"Ustawienia"},
-    {u8"Wyłącz"},
+    {"Komunikator"},
+    {"Narzędzia"},
+    {"Rozrywka"},
+    {"Zegar"},
+    {"Ustawienia"},
+    {"Wyłącz"},
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
@@ -486,7 +486,7 @@ void Launcher::render_main()
         6,
         60,
         18,
-        u8"NIKOŚ",
+        "NIKOŚ",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
@@ -606,14 +606,14 @@ void Launcher::render_tools()
         14,
         212,
         20,
-        u8"NARZĘDZIA",
+        "NARZĘDZIA",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
 
     constexpr const char* kTools[2] = {
         "RadioLab",
-        u8"Powrót",
+        "Powrót",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
@@ -650,7 +650,7 @@ void Launcher::render_tools()
         112,
         212,
         14,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -665,7 +665,7 @@ void Launcher::render_entertainment()
         18,
         212,
         20,
-        u8"ROZRYWKA",
+        "ROZRYWKA",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
@@ -675,7 +675,7 @@ void Launcher::render_entertainment()
         58,
         196,
         22,
-        u8"Powrót",
+        "Powrót",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::PanelNavy);
@@ -691,7 +691,7 @@ void Launcher::render_entertainment()
         112,
         212,
         14,
-        u8"M5 POWRÓT",
+        "M5 POWRÓT",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -706,7 +706,7 @@ void Launcher::render_clock()
         18,
         212,
         20,
-        u8"ZEGAR",
+        "ZEGAR",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
@@ -716,7 +716,7 @@ void Launcher::render_clock()
         58,
         196,
         22,
-        u8"Powrót",
+        "Powrót",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::PanelNavy);
@@ -732,7 +732,7 @@ void Launcher::render_clock()
         112,
         212,
         14,
-        u8"M5 POWRÓT",
+        "M5 POWRÓT",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -747,14 +747,14 @@ void Launcher::render_settings()
         18,
         212,
         20,
-        u8"USTAWIENIA",
+        "USTAWIENIA",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
 
     constexpr const char* kItems[2] = {
-        u8"Dźwięk",
-        u8"Powrót",
+        "Dźwięk",
+        "Powrót",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
@@ -791,7 +791,7 @@ void Launcher::render_settings()
         112,
         212,
         14,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -806,16 +806,16 @@ void Launcher::render_signal_sound()
         12,
         212,
         18,
-        u8"DŹWIĘK SYGNAŁU",
+        "DŹWIĘK SYGNAŁU",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
 
     constexpr const char* kItems[4] = {
-        u8"Łagodny",
-        u8"Klasyczny",
+        "Łagodny",
+        "Klasyczny",
         "Pager",
-        u8"Powrót",
+        "Powrót",
     };
 
     for (std::uint8_t index = 0; index < 4; ++index) {
@@ -863,7 +863,7 @@ void Launcher::render_signal_sound()
         116,
         212,
         14,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -878,7 +878,7 @@ void Launcher::render_enable_communicator()
         26,
         212,
         22,
-        u8"WŁĄCZYĆ KOMUNIKATOR?",
+        "WŁĄCZYĆ KOMUNIKATOR?",
         1,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
@@ -919,8 +919,8 @@ void Launcher::render_active_communicator()
         board::DisplayColor::Navy);
 
     constexpr const char* kChoices[2] = {
-        u8"WEJDŹ",
-        u8"WYŁĄCZ",
+        "WEJDŹ",
+        "WYŁĄCZ",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
@@ -958,7 +958,7 @@ void Launcher::render_active_communicator()
         112,
         212,
         14,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -973,7 +973,7 @@ void Launcher::render_shutdown_confirm()
         20,
         200,
         20,
-        u8"WYŁĄCZYĆ NIKOŚ OS?",
+        "WYŁĄCZYĆ NIKOŚ OS?",
         1,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
