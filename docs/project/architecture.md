@@ -10,7 +10,7 @@ The conceptual model is:
 
 Applications may initially be compiled into a single firmware image. No dynamic APK-style or plugin system is required.
 
-The current runtime starts with a lightweight launcher. The launcher has three fixed entries: RadioLab, Minutnik, and Rozrywka. Only RadioLab is active; the other two are placeholders. This is a static skeleton, not an application registry or plugin framework.
+The current runtime starts with a lightweight launcher. The launcher has four fixed entries: Communicator, RadioLab, Minutnik, and Rozrywka. Communicator and RadioLab are real applications; Minutnik and Rozrywka remain placeholders. This is still a static shape, not an application registry or plugin framework.
 
 ## Initial ownership boundaries
 
@@ -23,6 +23,7 @@ Owns M5-specific hardware integration:
 - buzzer
 - AXP192 / PMU
 - battery information
+- display wake/activation
 - M5-specific hardware integration
 
 ### radio
@@ -118,13 +119,15 @@ It does not own radio lifecycle internals, application registries, persistence, 
 
 ### applications
 
-Initial and future applications include:
+Current and future applications include:
 
+- Communicator v0.1
 - RadioLab
-- future Nikoś Communicator UI
 - future diagnostic, Wi-Fi, BLE, IR, and hardware tools
 
 RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
+
+Communicator is a foreground UI over the long-lived `messaging::Service`. Entering Communicator selects the experimental foreground messaging RX profile; exiting restores the background profile. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state.
 
 RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
 
@@ -140,6 +143,8 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - ESP-NOW callbacks must perform minimal work and hand copied data to normal task context.
 - UI state must not own background communication.
 - Background messaging must remain independent of the foreground screen/application.
+- Communicator conversation state is small, volatile, and limited to the current deterministic exchange; it is not chat history.
+- Human-visible conversation `OK` remains distinct from transport/application ACK.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - ESP-NOW MAC send success is not application-level delivery.

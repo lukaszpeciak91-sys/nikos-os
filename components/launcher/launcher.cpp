@@ -8,11 +8,17 @@
 
 namespace {
 
-constexpr std::array<const char*, 3> kEntries = {
-    "RadioLab",
-    "Minutnik",
-    "Rozrywka",
+struct Entry {
+    const char* label;
+    nikos::launcher::Action action;
 };
+
+constexpr std::array<Entry, 4> kEntries = {{
+    {"Communicator", nikos::launcher::Action::OpenCommunicator},
+    {"RadioLab", nikos::launcher::Action::OpenRadioLab},
+    {"Minutnik", nikos::launcher::Action::None},
+    {"Rozrywka", nikos::launcher::Action::None},
+}};
 
 constexpr std::uint32_t kSignalFrameMs = 110;
 constexpr std::uint32_t kSyncFrameMs = 140;
@@ -178,8 +184,8 @@ Action Launcher::update()
         return Action::None;
     }
 
-    if (input.primary_short && selected_index_ == 0) {
-        return Action::OpenRadioLab;
+    if (input.primary_short) {
+        return kEntries[selected_index_].action;
     }
 
     return Action::None;
@@ -234,14 +240,14 @@ void Launcher::render()
     for (std::size_t index = 0; index < kEntries.size(); ++index) {
         const bool selected = index == selected_index_;
         const std::int16_t row_y =
-            static_cast<std::int16_t>(35 + index * 24);
+            static_cast<std::int16_t>(32 + index * 19);
 
         if (selected) {
             board_.draw_text_region(
                 8,
                 static_cast<std::int16_t>(row_y - 2),
                 224,
-                22,
+                18,
                 "",
                 1,
                 board::DisplayColor::Ivory,
@@ -250,13 +256,13 @@ void Launcher::render()
                 8,
                 static_cast<std::int16_t>(row_y - 1),
                 8,
-                static_cast<std::int16_t>(row_y + 17),
+                static_cast<std::int16_t>(row_y + 14),
                 board::DisplayColor::AccentGreen);
             board_.draw_line(
                 9,
                 static_cast<std::int16_t>(row_y - 1),
                 9,
-                static_cast<std::int16_t>(row_y + 17),
+                static_cast<std::int16_t>(row_y + 14),
                 board::DisplayColor::AccentGreen);
         }
 
@@ -265,7 +271,7 @@ void Launcher::render()
             row_y,
             205,
             18,
-            kEntries[index],
+            kEntries[index].label,
             2,
             selected
                 ? board::DisplayColor::Ivory

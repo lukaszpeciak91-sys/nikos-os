@@ -42,6 +42,7 @@ public:
 
     PowerStatus power_status() const;
     void tone(float frequency_hz, std::uint32_t duration_ms);
+    void wake_display();
 
     void clear_screen();
     void fill_circle(

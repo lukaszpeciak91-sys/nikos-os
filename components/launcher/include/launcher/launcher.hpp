@@ -8,6 +8,7 @@ namespace nikos::launcher {
 
 enum class Action : std::uint8_t {
     None,
+    OpenCommunicator,
     OpenRadioLab,
 };
 

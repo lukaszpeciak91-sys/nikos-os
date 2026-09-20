@@ -1,4 +1,5 @@
 #include "board/board.hpp"
+#include "communicator/communicator_app.hpp"
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
 #include "radiolab/radiolab_app.hpp"
@@ -20,6 +21,7 @@ constexpr std::uint32_t kRadioErrorDisplayMs = 1200;
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
+    Communicator,
     RadioLab,
 };
 
@@ -82,6 +84,10 @@ extern "C" void app_main(void)
 
     nikos::radio::RadioService radio;
     nikos::messaging::Service messaging(radio);
+    nikos::communicator::CommunicatorApp communicator(
+        board,
+        messaging,
+        "DRUGI M5");
     nikos::radiolab::RadioLabApp radiolab(board, radio);
 
     if (!messaging.begin(make_messaging_config())) {
@@ -99,31 +105,62 @@ extern "C" void app_main(void)
         messaging.update();
 
         if (state == RuntimeState::Launcher) {
-            if (launcher.update() == nikos::launcher::Action::OpenRadioLab) {
-                if (!messaging.pause_transport()) {
+            nikos::messaging::IncomingMessage incoming;
+            if (messaging.poll_incoming(incoming)
+                && communicator.accept_incoming(incoming)) {
+                if (!communicator.begin()) {
                     ESP_LOGW(
                         kTag,
-                        "Messaging transport pause completed with cleanup errors");
+                        "Communicator foreground RX profile could not be applied");
                 }
+                state = RuntimeState::Communicator;
+            } else {
+                const nikos::launcher::Action action = launcher.update();
 
-                if (radio.begin(kRadioChannel, nikos::radio::Mode::Normal)) {
-                    radiolab.begin();
-                    state = RuntimeState::RadioLab;
-                } else {
-                    board.draw_screen(
-                        "RADIO LAB",
-                        "RADIO INIT FAILED\n"
-                        "Check serial log.");
-                    vTaskDelay(pdMS_TO_TICKS(kRadioErrorDisplayMs));
-
-                    if (!messaging.resume_transport()) {
+                if (action == nikos::launcher::Action::OpenCommunicator) {
+                    if (!communicator.begin()) {
                         ESP_LOGW(
                             kTag,
-                            "Messaging transport failed to resume after RadioLab error");
+                            "Communicator foreground RX profile could not be applied");
+                    }
+                    state = RuntimeState::Communicator;
+                } else if (action == nikos::launcher::Action::OpenRadioLab) {
+                    if (!messaging.pause_transport()) {
+                        ESP_LOGW(
+                            kTag,
+                            "Messaging transport pause completed with cleanup errors");
                     }
 
-                    launcher.begin();
+                    if (radio.begin(kRadioChannel, nikos::radio::Mode::Normal)) {
+                        radiolab.begin();
+                        state = RuntimeState::RadioLab;
+                    } else {
+                        board.draw_screen(
+                            "RADIO LAB",
+                            "RADIO INIT FAILED\n"
+                            "Check serial log.");
+                        vTaskDelay(pdMS_TO_TICKS(kRadioErrorDisplayMs));
+
+                        if (!messaging.resume_transport()) {
+                            ESP_LOGW(
+                                kTag,
+                                "Messaging transport failed to resume after RadioLab error");
+                        }
+
+                        launcher.begin();
+                    }
                 }
+            }
+        } else if (state == RuntimeState::Communicator) {
+            if (communicator.update()
+                == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested) {
+                if (!communicator.end()) {
+                    ESP_LOGW(
+                        kTag,
+                        "Communicator background RX profile could not be restored");
+                }
+                launcher.begin();
+                state = RuntimeState::Launcher;
             }
         } else {
             if (radiolab.update()
