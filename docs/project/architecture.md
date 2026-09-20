@@ -127,7 +127,7 @@ Current and future applications include:
 
 RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
 
-Communicator is a foreground UI over the long-lived `messaging::Service`. Entering Communicator selects the experimental foreground messaging RX profile; exiting restores the background profile. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state.
+Communicator is a foreground UI over the long-lived `messaging::Service`. Entering Communicator selects the experimental foreground messaging RX profile; exiting restores the background profile. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state. To prevent FIFO head-of-line blocking during one active exchange, Communicator may hold exactly one temporarily incompatible incoming logical event locally while later service-queue traffic is inspected; this is current-exchange state, not a general inbox/router.
 
 RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
 
@@ -144,6 +144,7 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - UI state must not own background communication.
 - Background messaging must remain independent of the foreground screen/application.
 - Communicator conversation state is small, volatile, and limited to the current deterministic exchange; it is not chat history.
+- Communicator may retain at most one deferred incoming event to avoid head-of-line blocking; it must not overwrite that slot or expand it into a general inbox/reordering layer.
 - Human-visible conversation `OK` remains distinct from transport/application ACK.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.

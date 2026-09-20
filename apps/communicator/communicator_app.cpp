@@ -50,7 +50,7 @@ CommunicatorApp::UpdateResult CommunicatorApp::update()
     messaging::DeliveryReceipt receipt;
     (void)messaging_.poll_delivery(receipt);
 
-    poll_expected_incoming();
+    (void)process_incoming();
 
     if (state_ == State::Main) {
         render_main_if_status_changed();
@@ -153,17 +153,71 @@ bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
     return true;
 }
 
-void CommunicatorApp::poll_expected_incoming()
+bool CommunicatorApp::process_incoming()
 {
-    if (!can_accept_incoming()) {
-        return;
+    if (deferred_incoming_valid_
+        && accept_incoming(deferred_incoming_)) {
+        deferred_incoming_valid_ = false;
+        return true;
     }
 
     messaging::IncomingMessage incoming;
-    if (messaging_.peek_incoming(incoming)
-        && accept_incoming(incoming)) {
-        (void)messaging_.consume_incoming(incoming.logical_message_id);
+    while (messaging_.peek_incoming(incoming)) {
+        if (accept_incoming(incoming)) {
+            (void)messaging_.consume_incoming(incoming.logical_message_id);
+            return true;
+        }
+
+        if (!can_defer_incoming(incoming)
+            || deferred_incoming_valid_) {
+            return false;
+        }
+
+        // Retain exactly one temporarily incompatible event locally so it
+        // cannot block a later event required by the current exchange.
+        deferred_incoming_ = incoming;
+        deferred_incoming_valid_ = true;
+
+        if (!messaging_.consume_incoming(incoming.logical_message_id)) {
+            deferred_incoming_valid_ = false;
+            return false;
+        }
     }
+
+    return false;
+}
+
+bool CommunicatorApp::can_defer_incoming(
+    const messaging::IncomingMessage& message) const
+{
+    if (message.kind == messaging::IncomingKind::PresetMessage) {
+        catalogue::PresetId preset;
+        return catalogue::preset_from_wire(message.value_id, preset);
+    }
+
+    if (message.kind != messaging::IncomingKind::PresetResponse) {
+        return false;
+    }
+
+    catalogue::ResponseId response;
+    if (!catalogue::response_from_wire(message.value_id, response)) {
+        return false;
+    }
+
+    if (response == catalogue::ResponseId::GreetingHello) {
+        return last_greeting_message_id_ != 0
+            && message.reference_message_id == last_greeting_message_id_;
+    }
+
+    if (response == catalogue::ResponseId::HumanOk) {
+        return expected_human_ack_reference_ != 0
+            && message.reference_message_id
+                == expected_human_ack_reference_;
+    }
+
+    return expected_response_reference_ != 0
+        && message.reference_message_id == expected_response_reference_
+        && catalogue::response_allowed_for(sent_preset_, response);
 }
 
 void CommunicatorApp::handle_input(const board::InputState& input)
@@ -377,14 +431,6 @@ bool CommunicatorApp::send_wait_followup()
     state_ = State::WaitingForWaitResponse;
     render_waiting_for_response();
     return true;
-}
-
-bool CommunicatorApp::can_accept_incoming() const
-{
-    return state_ == State::Main
-        || state_ == State::WaitingForResponse
-        || state_ == State::WaitingForHumanAck
-        || state_ == State::WaitingForWaitResponse;
 }
 
 void CommunicatorApp::notify_incoming()

@@ -64,7 +64,7 @@ The `CZEŚĆ!` preset is fire-and-forget at the conversation level: the sender r
 
 Special responses `Za chwilę`, `Później`, and `Sprawdzę` allow the initiator to choose `OK` or send the same `ZACZEKAĆ?` preset used by the main catalogue.
 
-Incoming logical events are inspected non-destructively and are consumed from `messaging::Service` only after Communicator has retained/accepted them. A full small incoming queue does not discard an already retained event; an unretained new logical message remains un-ACKed so the existing sender retry can deliver it later.
+Incoming logical events are inspected non-destructively and are consumed from `messaging::Service` only after Communicator has retained/accepted them. Communicator may additionally retain exactly one temporarily incompatible incoming event locally, consume that event from the service queue, and continue inspecting later queued traffic needed by the active exchange. The deferred event keeps its original logical identity and is surfaced once the conversation reaches a compatible state. An occupied deferred slot is never overwritten. A full small service queue does not discard an already retained event; an unretained new logical message remains un-ACKed so the existing sender retry can deliver it later.
 
 SYGNAŁ/RING UI and audible attention behavior are intentionally not part of this Communicator v0.1 core UX PR.
 

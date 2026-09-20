@@ -105,12 +105,7 @@ extern "C" void app_main(void)
         messaging.update();
 
         if (state == RuntimeState::Launcher) {
-            nikos::messaging::IncomingMessage incoming;
-            if (messaging.peek_incoming(incoming)
-                && communicator.accept_incoming(incoming)) {
-                (void)messaging.consume_incoming(
-                    incoming.logical_message_id);
-
+            if (communicator.process_incoming()) {
                 if (!communicator.begin()) {
                     ESP_LOGW(
                         kTag,

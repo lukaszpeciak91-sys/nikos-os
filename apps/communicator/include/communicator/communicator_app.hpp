@@ -24,8 +24,9 @@ public:
     bool end();
     UpdateResult update();
 
-    // Used by the shell to surface a background message by opening Communicator.
-    bool accept_incoming(const messaging::IncomingMessage& message);
+    // Inspect retained messaging events. Returns true when one event was
+    // accepted into the current Communicator conversation/UI state.
+    bool process_incoming();
 
 private:
     enum class State : std::uint8_t {
@@ -40,7 +41,9 @@ private:
         HumanOkReceived,
     };
 
-    void poll_expected_incoming();
+    bool accept_incoming(const messaging::IncomingMessage& message);
+    bool can_defer_incoming(
+        const messaging::IncomingMessage& message) const;
     void handle_input(const board::InputState& input);
 
     void handle_main_input(const board::InputState& input);
@@ -92,6 +95,9 @@ private:
     catalogue::ResponseSet response_set_{};
 
     messaging::IncomingMessage current_incoming_{};
+    messaging::IncomingMessage deferred_incoming_{};
+    bool deferred_incoming_valid_ = false;
+
     std::uint32_t expected_response_reference_ = 0;
     std::uint32_t expected_human_ack_reference_ = 0;
     std::uint32_t last_greeting_message_id_ = 0;
