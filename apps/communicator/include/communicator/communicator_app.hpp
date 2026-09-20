@@ -42,6 +42,7 @@ private:
         WaitDecision,
         WaitingForWaitResponse,
         HumanOkReceived,
+        DeliveryFailed,
     };
 
     struct SuspendedWaitingContext {
@@ -57,6 +58,8 @@ private:
         catalogue::PresetId preset) const;
     void suspend_waiting_for_response();
     void restore_suspended_waiting(bool render);
+    void handle_delivery_receipt(
+        const messaging::DeliveryReceipt& receipt);
     void handle_input(const board::InputState& input);
 
     void handle_main_input(const board::InputState& input);
@@ -66,6 +69,7 @@ private:
     void handle_incoming_response_input(const board::InputState& input);
     void handle_wait_decision_input(const board::InputState& input);
     void handle_human_ok_input(const board::InputState& input);
+    void handle_delivery_failed_input(const board::InputState& input);
 
     bool send_selected_preset();
     bool send_signal();
@@ -93,6 +97,7 @@ private:
     void render_incoming_response();
     void render_wait_decision();
     void render_human_ok_received();
+    void render_delivery_failed();
     void render_signal_alert(bool wide_arcs);
     void draw_bell_glyph(
         std::int16_t center_x,
@@ -135,6 +140,7 @@ private:
     std::uint32_t expected_response_reference_ = 0;
     std::uint32_t expected_human_ack_reference_ = 0;
     std::uint32_t last_greeting_message_id_ = 0;
+    bool delivery_failure_restore_suspended_ = false;
 
     bool signal_alert_active_ = false;
     bool signal_return_to_launcher_ = false;
