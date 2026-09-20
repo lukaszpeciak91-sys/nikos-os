@@ -21,7 +21,7 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - The board rendering layer includes a small embedded DejaVu Sans subset for ASCII plus Polish UI letters, exposed only through a scoped Polish UTF-8 text API.
 - The visual layer now supports three boot-scoped runtime themes through semantic display roles: Nikoś (default), Bursztyn, and Grafit. Theme accents vary by palette while active/reachable status remains mint/green, SYGNAŁ remains orange, and danger/error remains distinct.
 - ESP-NOW callback-owned RX data and metadata are copied into a FreeRTOS queue before callback return.
-- A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, retry/ACK delivery, dedupe, and experimental RX profiles above `radio`.
+- A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, bounded retry/application-ACK delivery, explicit Delivered/Failed outcomes, dedupe, and experimental RX profiles above `radio`.
 - Communicator background messaging starts OFF after boot and is explicitly enabled/disabled from the launcher for the current OS session only; the state is not persisted.
 - While Communicator messaging is ACTIVE, leaving its foreground panel keeps background messaging alive. RadioLab pauses/resumes messaging only when it was active before the RadioLab handoff.
 - The two RadioLab user-button positions are physically verified on the M5StickC Plus SE; remaining hardware and radio behavior still requires field verification.
@@ -30,6 +30,8 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Communicator v0.1 UI and conversation flow have not yet been physically validated on the two M5StickC Plus SE units.
 - Communicator STANDARD/LR switching under the unchanged duty-cycled foreground/background RX schedules still requires two-device hardware validation.
 - `SYGNAŁ` LCD layout, bell/arcs animation, ~3.12 s buzzer pattern, audibility, and immediate button-dismiss behavior still require physical device validation.
+- Communicator logical delivery now uses experimental 1000 ms + up to 250 ms jitter retries, at most 8 send attempts, and a 12000 ms absolute deadline; delivery metrics are logged for sender power testing.
+- TxResult-aware pacing/attribution and Presence optimization remain pending follow-up work; Presence cadence and RX duty schedules are unchanged in this step.
 - A local ESP-IDF build has not yet been executed in the available implementation environment.
 
 ## Next planned implementation step
@@ -72,3 +74,5 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-20 — Froze the base launcher hierarchy as Komunikator / Narzędzia / Rozrywka / Zegar / Ustawienia / Wyłącz, with RadioLab under Narzędzia and explicit visible Powrót rows in every normal submenu.
 - 2026-09-20 — Added Settings v1 SYGNAŁ sound selection with boot-default Łagodny and a shared non-blocking player used by both preview and real Communicator SYGNAŁ.
 - 2026-09-20 — Added Settings v2 runtime themes (Nikoś / Bursztyn / Grafit), centralized compile-time palettes, and semantic display roles while preserving fixed status/attention/danger colors.
+
+- 2026-09-20 — Bounded Communicator logical delivery with experimental retry jitter/attempt/deadline policy, explicit Delivered/Failed receipts, sender submission metrics, and minimal delivery-failure UI; Presence and TxResult behavior remain unchanged.
