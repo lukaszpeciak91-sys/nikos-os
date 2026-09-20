@@ -963,9 +963,9 @@ void CommunicatorApp::render_main()
         signal_color,
         signal_background);
     board_.draw_polish_ui_text_region(
-        11,
+        10,
         96,
-        75,
+        76,
         21,
         "SYGNAŁ",
         2,
