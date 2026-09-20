@@ -7,4 +7,5 @@ idf_component_register(
         board
         esp_timer
         messaging
+        signal_sound
 )

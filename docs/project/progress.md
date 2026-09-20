@@ -11,7 +11,7 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - ESP-IDF 5.5.5, M5Unified 0.2.22, and M5GFX 0.2.29 are pinned.
 - Minimal `board`, `radio`, and `protocol` boundaries implemented.
 - Boot shows a short deterministic branded signal-synchronization splash and enters the frozen six-item top-level launcher: Komunikator, Narzędzia, Rozrywka, Zegar, Ustawienia, Wyłącz. A local four-row viewport keeps the header, battery indicator, and footer clear.
-- Narzędzia currently contains RadioLab and Powrót; RadioLab returns to Narzędzia after exit. Rozrywka, Zegar, and Ustawienia currently expose only Powrót and add no placeholder features.
+- Narzędzia currently contains RadioLab and Powrót; RadioLab returns to Narzędzia after exit. Rozrywka and Zegar currently expose only Powrót. Ustawienia now contains the first real option: Dźwięk -> selectable SYGNAŁ patterns plus Powrót.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
 - Launcher controls use primary short = open/confirm and secondary short = next.
@@ -26,6 +26,7 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - While Communicator messaging is ACTIVE, leaving its foreground panel keeps background messaging alive. RadioLab pauses/resumes messaging only when it was active before the RadioLab handoff.
 - The two RadioLab user-button positions are physically verified on the M5StickC Plus SE; remaining hardware and radio behavior still requires field verification.
 - Communicator v0.1 now provides one-peer availability, a five-message Polish preset catalogue, contextual responses, human-visible OK flow, full-screen incoming cards, short audible notification, foreground/background messaging profile switching, a separate orange `SYGNAŁ` attention action, explicit volatile session enable/disable lifecycle, and a minimal volatile `STANDARD/LR` radio-mode option owned by messaging.
+- Settings v1 provides volatile `Łagodny / Klasyczny / Pager` SYGNAŁ sound selection. `Łagodny` is the boot default; preview and real received SYGNAŁ share one non-blocking `signal_sound::Player`.
 - Communicator v0.1 UI and conversation flow have not yet been physically validated on the two M5StickC Plus SE units.
 - Communicator STANDARD/LR switching under the unchanged duty-cycled foreground/background RX schedules still requires two-device hardware validation.
 - `SYGNAŁ` LCD layout, bell/arcs animation, ~3.12 s buzzer pattern, audibility, and immediate button-dismiss behavior still require physical device validation.
@@ -69,3 +70,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-20 — Added a minimal Communicator `STANDARD/LR` option that switches the existing radio mode through messaging while preserving duty-cycle schedules and delivery state and forcing fresh peer discovery.
 - 2026-09-20 — Refined the base Nikoś OS reference palette after physical LCD testing and grouped the launcher header into a compact Polish `NIKOŚ OS` wordmark.
 - 2026-09-20 — Froze the base launcher hierarchy as Komunikator / Narzędzia / Rozrywka / Zegar / Ustawienia / Wyłącz, with RadioLab under Narzędzia and explicit visible Powrót rows in every normal submenu.
+- 2026-09-20 — Added Settings v1 SYGNAŁ sound selection with boot-default Łagodny and a shared non-blocking player used by both preview and real Communicator SYGNAŁ.

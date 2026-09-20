@@ -107,11 +107,34 @@ While RadioLab owns the radio for its field-test session, messaging transport is
 
 Receiver dedupe state is part of that long-lived in-memory service state, so it survives foreground application changes and the RadioLab pause/resume handoff. It is intentionally volatile across a full device reboot. In this first infrastructure version, if a sender is still retrying an outstanding logical message when the receiver reboots, that message may be surfaced again after the receiver restarts.
 
+### settings
+
+`settings::State` owns the current boot-scoped user preference state. Settings v1 contains only the selected Communicator `SYGNAŁ` sound:
+
+- Gentle / `Łagodny` (default)
+- Classic / `Klasyczny`
+- Pager
+
+The state is created by composition in `app_main`, is shared with the launcher Settings UI and signal-sound player, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
+
+### signal_sound
+
+`signal_sound::Player` owns the three fixed Communicator `SYGNAŁ` buzzer patterns and their non-blocking playback state.
+
+It:
+- reads the selected `settings::SignalSound`;
+- starts one complete fixed pattern;
+- advances from the normal main loop;
+- stops immediately on request;
+- uses only `board::tone()` / `board::stop_tone()` for buzzer hardware.
+
+Settings preview and received Communicator `SYGNAŁ` both use this same player and the same pattern definitions. It is not a generic audio engine, arbitrary sequencer, notification framework, or FreeRTOS audio task.
+
 ### storage
 
 Owns versioned persistent configuration when persistence is required.
 
-No persistent contact database or chat history is introduced by the first Communicator infrastructure phase.
+No persistent contact database, chat history, or user-settings schema is introduced by the current implementation.
 
 ### power
 
@@ -181,5 +204,7 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
 - Communicator STANDARD/LR selection is session-scoped radio configuration owned by `messaging::Service`; it must not alter foreground/background RX schedules, presence cadence, retry timing, ACK/dedupe semantics, or logical MessageIds.
+- Settings v1 signal-sound selection is boot-scoped volatile state owned by composition; it is not persisted in NVS.
+- Settings preview and received Communicator `SYGNAŁ` must use the same `signal_sound::Player` and fixed pattern definitions.
 - Experimental RX and reachability timing values are configuration, not platform invariants. The current foreground profile uses an approximately 7 s reachability timeout, while the background 3000/500 ms RX profile uses a more conservative approximately 20 s timeout to tolerate legitimately missed PRESENCE packets.
 - Persistent schemas and wire protocols must be versioned once introduced.

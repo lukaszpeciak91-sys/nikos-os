@@ -28,6 +28,32 @@ constexpr std::uint32_t kSyncFrameMs = 140;
 constexpr std::uint32_t kFormFrameMs = 170;
 constexpr std::uint32_t kBatterySampleIntervalMs = 1000;
 
+std::uint8_t signal_sound_index(nikos::settings::SignalSound sound)
+{
+    switch (sound) {
+        case nikos::settings::SignalSound::Classic:
+            return 1;
+        case nikos::settings::SignalSound::Pager:
+            return 2;
+        case nikos::settings::SignalSound::Gentle:
+        default:
+            return 0;
+    }
+}
+
+nikos::settings::SignalSound signal_sound_from_index(std::uint8_t index)
+{
+    switch (index) {
+        case 1:
+            return nikos::settings::SignalSound::Classic;
+        case 2:
+            return nikos::settings::SignalSound::Pager;
+        case 0:
+        default:
+            return nikos::settings::SignalSound::Gentle;
+    }
+}
+
 std::uint32_t now_ms()
 {
     return static_cast<std::uint32_t>(
@@ -122,8 +148,13 @@ void draw_sliced_logo(nikos::board::Board& board, bool show_os)
 
 namespace nikos::launcher {
 
-Launcher::Launcher(board::Board& board)
-    : board_(board)
+Launcher::Launcher(
+    board::Board& board,
+    settings::State& settings,
+    signal_sound::Player& signal_sound)
+    : board_(board),
+      settings_(settings),
+      signal_sound_(signal_sound)
 {
 }
 
@@ -166,6 +197,8 @@ void Launcher::begin(bool communicator_active)
     communicator_active_ = communicator_active;
     selected_index_ = 0;
     tools_selection_ = 0;
+    settings_selection_ = 0;
+    signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
     active_communicator_selection_ = 0;
 
     const std::uint32_t now = now_ms();
@@ -254,8 +287,7 @@ Action Launcher::update()
     }
 
     if (screen_ == Screen::Entertainment
-        || screen_ == Screen::Clock
-        || screen_ == Screen::Settings) {
+        || screen_ == Screen::Clock) {
         if (input.secondary_long || input.primary_short) {
             screen_ = Screen::Main;
             render();
@@ -267,6 +299,73 @@ Action Launcher::update()
             render();
         }
 
+        return Action::None;
+    }
+
+    if (screen_ == Screen::Settings) {
+        if (input.secondary_long) {
+            signal_sound_.stop();
+            screen_ = Screen::Main;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            settings_selection_ =
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 2U);
+            render();
+            return Action::None;
+        }
+
+        if (input.primary_short) {
+            if (settings_selection_ == 0) {
+                signal_sound_selection_ =
+                    signal_sound_index(settings_.signal_sound);
+                screen_ = Screen::SignalSound;
+            } else {
+                signal_sound_.stop();
+                screen_ = Screen::Main;
+            }
+
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::SignalSound) {
+        if (input.secondary_long) {
+            signal_sound_.stop();
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            signal_sound_selection_ =
+                static_cast<std::uint8_t>(
+                    (signal_sound_selection_ + 1U) % 4U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (signal_sound_selection_ == 3U) {
+            signal_sound_.stop();
+            settings_selection_ = 0;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        settings_.signal_sound =
+            signal_sound_from_index(signal_sound_selection_);
+        signal_sound_.stop();
+        signal_sound_.play_selected();
+        render();
         return Action::None;
     }
 
@@ -316,6 +415,7 @@ Action Launcher::update()
             screen_ = Screen::Clock;
             break;
         case 4:
+            settings_selection_ = 0;
             screen_ = Screen::Settings;
             break;
         case 5:
@@ -360,6 +460,9 @@ void Launcher::render()
             break;
         case Screen::Settings:
             render_settings();
+            break;
+        case Screen::SignalSound:
+            render_signal_sound();
             break;
         case Screen::EnableCommunicator:
             render_enable_communicator();
@@ -649,28 +752,118 @@ void Launcher::render_settings()
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
 
-    board_.draw_polish_ui_text_region(
-        22,
-        58,
-        196,
-        22,
+    constexpr const char* kItems[2] = {
+        u8"Dźwięk",
         u8"Powrót",
-        2,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::PanelNavy);
-    board_.draw_line(
-        14,
-        58,
-        14,
-        75,
-        board::DisplayColor::AccentGreen);
+    };
+
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = index == settings_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(50 + index * 28);
+
+        board_.draw_polish_ui_text_region(
+            22,
+            y,
+            196,
+            22,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            selected
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 17),
+                board::DisplayColor::AccentGreen);
+        }
+    }
 
     board_.draw_polish_ui_text_region(
         14,
         112,
         212,
         14,
-        u8"M5 POWRÓT",
+        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_signal_sound()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        12,
+        212,
+        18,
+        u8"DŹWIĘK SYGNAŁU",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+
+    constexpr const char* kItems[4] = {
+        u8"Łagodny",
+        u8"Klasyczny",
+        "Pager",
+        u8"Powrót",
+    };
+
+    for (std::uint8_t index = 0; index < 4; ++index) {
+        const bool selected = index == signal_sound_selection_;
+        const bool active =
+            index < 3U
+            && signal_sound_index(settings_.signal_sound) == index;
+        const std::int16_t y =
+            static_cast<std::int16_t>(36 + index * 19);
+
+        board_.draw_polish_ui_text_region(
+            22,
+            y,
+            196,
+            18,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            selected
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 15),
+                board::DisplayColor::AccentGreen);
+        }
+
+        if (active) {
+            board_.fill_circle(
+                211,
+                static_cast<std::int16_t>(y + 7),
+                3,
+                board::DisplayColor::AccentGreen);
+        }
+    }
+
+    board_.draw_polish_ui_text_region(
+        14,
+        116,
+        212,
+        14,
+        u8"M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);

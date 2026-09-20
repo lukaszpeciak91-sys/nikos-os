@@ -1,9 +1,8 @@
 idf_component_register(
-    SRCS "launcher.cpp"
+    SRCS "signal_sound_player.cpp"
     INCLUDE_DIRS "include"
     REQUIRES
         board
-        freertos
+        esp_timer
         settings
-        signal_sound
 )
