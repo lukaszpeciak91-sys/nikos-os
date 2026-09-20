@@ -22,8 +22,9 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, retry/ACK delivery, dedupe, and experimental RX profiles above `radio`.
 - Messaging transport is active outside RadioLab; entering RadioLab pauses messaging transport and gives RadioLab temporary radio ownership, then messaging resumes on exit.
 - The two RadioLab user-button positions are physically verified on the M5StickC Plus SE; remaining hardware and radio behavior still requires field verification.
-- Communicator v0.1 now provides one-peer availability, a five-message Polish preset catalogue, contextual responses, human-visible OK flow, full-screen incoming cards, short audible notification, and foreground/background messaging profile switching.
+- Communicator v0.1 now provides one-peer availability, a five-message Polish preset catalogue, contextual responses, human-visible OK flow, full-screen incoming cards, short audible notification, foreground/background messaging profile switching, and a separate orange `SYGNAŁ` attention action.
 - Communicator v0.1 UI and conversation flow have not yet been physically validated on the two M5StickC Plus SE units.
+- `SYGNAŁ` LCD layout, bell/arcs animation, ~3.12 s buzzer pattern, audibility, and immediate button-dismiss behavior still require physical device validation.
 - A local ESP-IDF build has not yet been executed in the available implementation environment.
 
 ## Next planned implementation step
@@ -58,3 +59,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-20 — Added the first Communicator protocol/messaging infrastructure with one-peer presence, application-ACK retry/dedupe, RadioLab transport handoff, and configurable experimental RX schedules.
 - 2026-09-20 — Added a lightweight embedded DejaVu Sans subset in the board layer for Polish Communicator UI text preparation.
 - 2026-09-20 — Added Communicator v0.1 core UX with fixed launcher integration, Polish preset/response catalogues, deterministic human-OK conversation state, reachability UI, and full-screen incoming cards.
+- 2026-09-20 — Added the separate non-blocking Communicator `SYGNAŁ` attention action using existing RING delivery semantics, custom bell/arcs rendering, and a bounded three-repeat buzzer pattern.

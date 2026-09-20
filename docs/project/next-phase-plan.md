@@ -107,15 +107,20 @@ When a message arrives, the intended experience is a dedicated full-screen notif
 
 The M5StickC Plus SE has no built-in vibration motor, so current hardware feedback relies on sound and display.
 
-## RING behavior
+## SYGNAŁ / RING behavior
 
-The wire and reliable delivery foundation supports RING, but audible UI behavior is not implemented yet.
+The internal wire/delivery type remains RING; the user-facing Communicator action is `SYGNAŁ`.
 
 - [x] Add RING as a Communicator wire/delivery type.
-- [ ] Define a noticeable but short sound pattern.
-- [ ] Make RING easy to silence.
-- [ ] Prevent continuous ringing.
-- [ ] Evaluate whether a cooldown/rate limit is needed after initial testing.
+- [x] Add a separate orange `SYGNAŁ` action outside the preset catalogue and conversation state machine.
+- [x] Add a custom bell glyph without emoji-font dependency.
+- [x] Implement the bounded three-repeat 2.4/2.8 kHz attention pattern.
+- [x] Make any normal user button immediately silence and dismiss the alert.
+- [x] Keep the buzzer/animation sequence non-blocking while messaging updates continue.
+- [x] Restore the previous foreground screen/state after dismissal.
+- [x] Preserve retry/application-ACK/dedupe semantics so retransmitted duplicates do not repeat the alert.
+- [ ] Physically validate buzzer audibility, exact perceived timing, animation readability, and dismissal responsiveness.
+- [ ] Evaluate whether a cooldown/rate limit is needed only if hardware testing reveals a real product/correctness need.
 
 ## Communicator implementation
 
@@ -127,7 +132,7 @@ The wire and reliable delivery foundation supports RING, but audible UI behavior
 - [x] Implement the dedicated receive notification UI.
 - [x] Implement contextual preset responses and the deterministic human-OK flow.
 - [x] Treat `CZEŚĆ!` as conversation-level fire-and-forget; optional `Cześć!` reply is terminal and requires no human OK.
-- [ ] Implement audible RING behavior after basic messaging UX is stable.
+- [x] Implement separate user-facing `SYGNAŁ` attention behavior using the existing internal RING delivery type.
 - [x] Keep retry/dedupe/delivery semantics in `messaging::Service`, not in the UI.
 - [x] Avoid chat history and avoid expanding this into a generic messaging framework without a proven requirement.
 

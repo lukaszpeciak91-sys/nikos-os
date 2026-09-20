@@ -19,6 +19,7 @@ enum class DisplayColor : std::uint8_t {
     PanelNavy,
     Ivory,
     AccentGreen,
+    Orange,
     MutedBlue,
 };
 
@@ -42,6 +43,7 @@ public:
 
     PowerStatus power_status() const;
     void tone(float frequency_hz, std::uint32_t duration_ms);
+    void stop_tone();
     void wake_display();
 
     void clear_screen();
