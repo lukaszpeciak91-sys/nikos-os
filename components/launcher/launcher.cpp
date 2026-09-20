@@ -1011,18 +1011,27 @@ void Launcher::render_enable_communicator()
     clear_shell(board_);
 
     board_.draw_polish_ui_text_region(
-        14,
-        26,
-        212,
+        18,
+        16,
+        204,
         22,
-        "WŁĄCZYĆ KOMUNIKATOR?",
-        1,
+        "WŁĄCZYĆ",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_polish_ui_text_region(
+        18,
+        39,
+        204,
+        22,
+        "KOMUNIKATOR?",
+        2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
     board_.draw_polish_ui_text_region(
         18,
-        62,
+        77,
         204,
         18,
         "M5 / PRIMARY: TAK",
@@ -1032,7 +1041,7 @@ void Launcher::render_enable_communicator()
 
     board_.draw_polish_ui_text_region(
         18,
-        86,
+        101,
         204,
         18,
         "SIDE / SECONDARY: NIE",
@@ -1046,12 +1055,21 @@ void Launcher::render_active_communicator()
     clear_shell(board_);
 
     board_.draw_polish_ui_text_region(
-        20,
         18,
-        200,
+        10,
+        204,
+        22,
+        "KOMUNIKATOR",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_polish_ui_text_region(
         18,
-        "KOMUNIKATOR AKTYWNY",
-        1,
+        32,
+        204,
+        22,
+        "AKTYWNY",
+        2,
         board::DisplayColor::StatusActive,
         board::DisplayColor::Background);
 
@@ -1064,7 +1082,7 @@ void Launcher::render_active_communicator()
         const bool selected =
             index == active_communicator_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(49 + index * 28);
+            static_cast<std::int16_t>(59 + index * 28);
 
         board_.draw_polish_ui_text_region(
             22,
@@ -1092,7 +1110,7 @@ void Launcher::render_active_communicator()
 
     board_.draw_polish_ui_text_region(
         14,
-        112,
+        116,
         212,
         14,
         "M5 WYBIERZ  |  SIDE DALEJ",

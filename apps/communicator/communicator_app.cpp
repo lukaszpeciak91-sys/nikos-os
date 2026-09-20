@@ -839,6 +839,8 @@ void CommunicatorApp::render_main()
     const std::size_t signal_index = catalogue::kPresetOrder.size();
     const std::size_t options_index = signal_index + 1U;
     const std::size_t return_index = options_index + 1U;
+    const std::size_t choice_count = return_index + 1U;
+    constexpr std::size_t kVisibleRows = 3;
 
     if (!reachable && selected_main_index_ == signal_index) {
         selected_main_index_ =
@@ -847,9 +849,9 @@ void CommunicatorApp::render_main()
 
     board_.draw_polish_ui_text_region(
         10,
-        20,
+        22,
         145,
-        14,
+        11,
         peer_label_,
         1,
         reachable
@@ -859,9 +861,9 @@ void CommunicatorApp::render_main()
 
     board_.draw_polish_ui_text_region(
         10,
-        33,
+        34,
         150,
-        12,
+        11,
         reachable ? "DOSTĘPNY" : "NIEDOSTĘPNY",
         1,
         reachable
@@ -877,161 +879,147 @@ void CommunicatorApp::render_main()
         47,
         board::DisplayColor::SecondaryText);
 
-    const std::size_t selected_preset =
-        selected_main_index_ < signal_index
-            ? selected_main_index_
-            : signal_index - 1U;
-    std::size_t first = selected_preset > 0
-        ? selected_preset - 1U
-        : 0U;
-    const std::size_t max_first = catalogue::kPresetOrder.size() - 2U;
-    first = std::min(first, max_first);
+    std::size_t first_visible = 0;
+    if (selected_main_index_ >= kVisibleRows) {
+        first_visible =
+            selected_main_index_ - kVisibleRows + 1U;
+    }
+    const std::size_t max_first = choice_count - kVisibleRows;
+    first_visible = std::min(first_visible, max_first);
 
-    for (std::size_t slot = 0; slot < 2; ++slot) {
-        const std::size_t index = first + slot;
-        const bool selected_row =
-            reachable && selected_main_index_ == index;
+    for (std::size_t slot = 0; slot < kVisibleRows; ++slot) {
+        const std::size_t index = first_visible + slot;
+        const bool selected = index == selected_main_index_;
         const std::int16_t y =
-            static_cast<std::int16_t>(48 + slot * 14);
+            static_cast<std::int16_t>(50 + slot * 23);
+        const board::DisplayColor row_background =
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background;
+
+        if (index == signal_index
+            && index > 0
+            && slot > 0) {
+            board_.draw_line(
+                12,
+                static_cast<std::int16_t>(y - 2),
+                228,
+                static_cast<std::int16_t>(y - 2),
+                board::DisplayColor::SecondaryText);
+        }
 
         board_.draw_polish_ui_text_region(
-            12,
+            8,
             y,
-            216,
-            12,
-            catalogue::preset_text(catalogue::kPresetOrder[index]),
+            224,
+            21,
+            "",
             1,
-            selected_row
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected_row
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
+            board::DisplayColor::PrimaryText,
+            row_background);
 
-        if (selected_row) {
+        const board::DisplayColor marker_color =
+            index == signal_index
+                ? board::DisplayColor::Attention
+                : board::DisplayColor::Accent;
+
+        if (selected) {
             board_.draw_line(
                 8,
                 y,
                 8,
+                static_cast<std::int16_t>(y + 17),
+                marker_color);
+        }
+
+        if (index < signal_index) {
+            board_.draw_polish_ui_text_region(
+                16,
+                static_cast<std::int16_t>(y + 1),
+                208,
+                20,
+                catalogue::preset_text(
+                    catalogue::kPresetOrder[index]),
+                2,
+                selected
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText,
+                row_background);
+        } else if (index == signal_index) {
+            const board::DisplayColor signal_color =
+                reachable
+                    ? board::DisplayColor::Attention
+                    : board::DisplayColor::SecondaryText;
+
+            draw_bell_glyph(
+                26,
                 static_cast<std::int16_t>(y + 10),
-                board::DisplayColor::Accent);
+                1,
+                signal_color);
+            board_.draw_polish_ui_text_region(
+                44,
+                static_cast<std::int16_t>(y + 1),
+                176,
+                20,
+                "SYGNAŁ",
+                2,
+                signal_color,
+                row_background);
+        } else if (index == options_index) {
+            board_.draw_polish_ui_text_region(
+                16,
+                static_cast<std::int16_t>(y + 1),
+                208,
+                20,
+                "OPCJE",
+                2,
+                selected
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText,
+                row_background);
+        } else {
+            const board::DisplayColor return_color =
+                selected
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText;
+
+            board_.draw_line(
+                22,
+                static_cast<std::int16_t>(y + 10),
+                28,
+                static_cast<std::int16_t>(y + 5),
+                return_color);
+            board_.draw_line(
+                22,
+                static_cast<std::int16_t>(y + 10),
+                28,
+                static_cast<std::int16_t>(y + 15),
+                return_color);
+            board_.draw_line(
+                22,
+                static_cast<std::int16_t>(y + 10),
+                35,
+                static_cast<std::int16_t>(y + 10),
+                return_color);
+
+            board_.draw_polish_ui_text_region(
+                42,
+                static_cast<std::int16_t>(y + 1),
+                178,
+                20,
+                "POWRÓT",
+                2,
+                return_color,
+                row_background);
         }
     }
 
-    board_.draw_line(
-        8,
-        76,
-        231,
-        76,
-        board::DisplayColor::SecondaryText);
-
     const bool signal_selected =
         reachable && selected_main_index_ == signal_index;
-    const board::DisplayColor signal_color =
-        reachable
-            ? board::DisplayColor::Attention
-            : board::DisplayColor::SecondaryText;
-
-    draw_bell_glyph(
-        24,
-        88,
-        1,
-        signal_color);
-
-    board_.draw_polish_ui_text_region(
-        44,
-        77,
-        150,
-        22,
-        "SYGNAŁ",
-        2,
-        signal_color,
-        signal_selected
-            ? board::DisplayColor::Surface
-            : board::DisplayColor::Background);
-
-    if (signal_selected) {
-        board_.draw_line(
-            8,
-            79,
-            8,
-            96,
-            board::DisplayColor::Attention);
-    }
-
     const bool options_selected =
         selected_main_index_ == options_index;
-    board_.draw_polish_ui_text_region(
-        12,
-        99,
-        216,
-        12,
-        "OPCJE",
-        1,
-        options_selected
-            ? board::DisplayColor::PrimaryText
-            : board::DisplayColor::SecondaryText,
-        options_selected
-            ? board::DisplayColor::Surface
-            : board::DisplayColor::Background);
-
-    if (options_selected) {
-        board_.draw_line(
-            8,
-            99,
-            8,
-            109,
-            board::DisplayColor::Accent);
-    }
-
     const bool return_selected =
         selected_main_index_ == return_index;
-    const board::DisplayColor return_color =
-        return_selected
-            ? board::DisplayColor::PrimaryText
-            : board::DisplayColor::SecondaryText;
-    const board::DisplayColor return_background =
-        return_selected
-            ? board::DisplayColor::Surface
-            : board::DisplayColor::Background;
-
-    board_.draw_line(
-        22,
-        117,
-        28,
-        112,
-        return_color);
-    board_.draw_line(
-        22,
-        117,
-        28,
-        122,
-        return_color);
-    board_.draw_line(
-        22,
-        117,
-        35,
-        117,
-        return_color);
-
-    board_.draw_polish_ui_text_region(
-        42,
-        111,
-        170,
-        12,
-        "POWRÓT",
-        1,
-        return_color,
-        return_background);
-
-    if (return_selected) {
-        board_.draw_line(
-            8,
-            111,
-            8,
-            121,
-            board::DisplayColor::Accent);
-    }
 
     const char* footer = nullptr;
     if (options_selected) {
@@ -1048,9 +1036,9 @@ void CommunicatorApp::render_main()
 
     board_.draw_polish_ui_text_region(
         8,
-        123,
+        121,
         224,
-        12,
+        13,
         footer,
         1,
         board::DisplayColor::SecondaryText,
@@ -1073,60 +1061,59 @@ void CommunicatorApp::render_options()
             ? "LR"
             : "STANDARD";
 
+    const board::DisplayColor mode_background =
+        mode_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background;
+
     board_.draw_polish_ui_text_region(
-        12,
-        34,
-        216,
-        22,
+        8,
+        29,
+        224,
+        44,
         "",
         1,
         board::DisplayColor::PrimaryText,
-        mode_selected
-            ? board::DisplayColor::Surface
-            : board::DisplayColor::Background);
+        mode_background);
 
     board_.draw_polish_ui_text_region(
-        18,
-        39,
-        104,
-        14,
+        16,
+        30,
+        208,
+        21,
         "TRYB RADIO",
-        1,
+        2,
         mode_selected
             ? board::DisplayColor::PrimaryText
             : board::DisplayColor::SecondaryText,
-        mode_selected
-            ? board::DisplayColor::Surface
-            : board::DisplayColor::Background);
+        mode_background);
 
     board_.draw_polish_ui_text_region(
-        132,
-        39,
-        90,
-        14,
+        16,
+        51,
+        208,
+        21,
         mode_text,
-        1,
+        2,
         board::DisplayColor::PrimaryText,
-        mode_selected
-            ? board::DisplayColor::Surface
-            : board::DisplayColor::Background);
+        mode_background);
 
     if (mode_selected) {
         board_.draw_line(
             8,
-            35,
+            30,
             8,
-            54,
+            69,
             board::DisplayColor::Accent);
     }
 
     board_.draw_polish_ui_text_region(
         12,
-        69,
+        78,
         216,
-        20,
+        22,
         "POWRÓT",
-        1,
+        2,
         return_selected
             ? board::DisplayColor::PrimaryText
             : board::DisplayColor::SecondaryText,
@@ -1137,17 +1124,17 @@ void CommunicatorApp::render_options()
     if (return_selected) {
         board_.draw_line(
             8,
-            70,
+            79,
             8,
-            86,
+            96,
             board::DisplayColor::Accent);
     }
 
     board_.draw_polish_ui_text_region(
         18,
-        99,
+        102,
         204,
-        14,
+        13,
         radio_mode_change_failed_
             ? "NIE UDAŁO SIĘ"
             : "USTAW TAK SAMO NA OBU",
@@ -1161,7 +1148,7 @@ void CommunicatorApp::render_options()
         8,
         120,
         224,
-        12,
+        13,
         "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::SecondaryText,
@@ -1252,9 +1239,9 @@ void CommunicatorApp::render_response_choices()
 
     board_.draw_polish_ui_text_region(
         10,
-        22,
+        23,
         220,
-        14,
+        13,
         catalogue::preset_text(incoming_preset_),
         1,
         board::DisplayColor::SecondaryText,
@@ -1263,15 +1250,15 @@ void CommunicatorApp::render_response_choices()
     for (std::uint8_t index = 0; index < response_set_.count; ++index) {
         const bool selected = index == selected_response_index_;
         const std::int16_t y =
-            static_cast<std::int16_t>(45 + index * 22);
+            static_cast<std::int16_t>(39 + index * 25);
 
         board_.draw_polish_ui_text_region(
             12,
             y,
             216,
-            18,
+            22,
             catalogue::response_text(response_set_.ids[index]),
-            1,
+            2,
             selected
                 ? board::DisplayColor::PrimaryText
                 : board::DisplayColor::SecondaryText,
@@ -1284,7 +1271,7 @@ void CommunicatorApp::render_response_choices()
                 8,
                 y,
                 8,
-                static_cast<std::int16_t>(y + 14),
+                static_cast<std::int16_t>(y + 17),
                 board::DisplayColor::Accent);
         }
     }
@@ -1311,7 +1298,7 @@ void CommunicatorApp::render_waiting_for_human_ack()
         216,
         22,
         "ODPOWIEDŹ WYSŁANA",
-        1,
+        2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
@@ -1345,7 +1332,7 @@ void CommunicatorApp::render_incoming_response()
         216,
         30,
         catalogue::response_text(incoming_response_),
-        1,
+        2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_polish_ui_text_region(
@@ -1368,18 +1355,18 @@ void CommunicatorApp::render_wait_decision()
 
     board_.draw_polish_ui_text_region(
         10,
-        22,
+        23,
         220,
-        16,
+        14,
         catalogue::response_text(incoming_response_),
         1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
         10,
-        40,
+        39,
         220,
-        14,
+        13,
         "CO DALEJ?",
         1,
         board::DisplayColor::SecondaryText,
@@ -1389,21 +1376,30 @@ void CommunicatorApp::render_wait_decision()
     for (std::uint8_t index = 0; index < 2; ++index) {
         const bool selected = index == selected_wait_decision_index_;
         const std::int16_t y =
-            static_cast<std::int16_t>(61 + index * 24);
+            static_cast<std::int16_t>(56 + index * 27);
 
         board_.draw_polish_ui_text_region(
             12,
             y,
             216,
-            20,
+            22,
             choices[index],
-            1,
+            2,
             selected
                 ? board::DisplayColor::PrimaryText
                 : board::DisplayColor::SecondaryText,
             selected
                 ? board::DisplayColor::Surface
                 : board::DisplayColor::Background);
+
+        if (selected) {
+            board_.draw_line(
+                8,
+                y,
+                8,
+                static_cast<std::int16_t>(y + 17),
+                board::DisplayColor::Accent);
+        }
     }
 
     board_.draw_polish_ui_text_region(
@@ -1576,11 +1572,11 @@ void CommunicatorApp::draw_header(const char* title)
 {
     board_.draw_polish_ui_text_region(
         8,
-        5,
+        3,
         224,
-        14,
+        18,
         title,
-        1,
+        2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 }
