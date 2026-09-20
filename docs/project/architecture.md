@@ -96,7 +96,7 @@ It currently owns:
 - duplicate ACK behavior without duplicate notification
 - bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
 - a small volatile queue of incoming logical message notifications, exposed through explicit peek/consume so UI rejection cannot destructively remove an event
-- delivery receipts for matching application ACKs
+- delivery completion receipts for matching application ACKs or explicit failure
 - foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
 The service has no dedicated FreeRTOS task. It is advanced from the normal main loop. Communicator retry interval/jitter, maximum send attempts, and logical delivery timeout are experimental configuration for hardware tuning rather than permanent product policy. Application ACK remains the only authoritative Delivered condition; ESP-NOW send submission is counted only as sender instrumentation, while radio TxResult-aware optimization remains a later step.
