@@ -89,7 +89,9 @@ It currently owns:
 - latest peer RX RSSI
 - stable logical message IDs across retries
 - one outstanding outgoing logical message
-- retry-until-application-ACK behavior, with retransmission suspended while the known peer is stale/unreachable
+- bounded retry-until-application-ACK delivery with a fixed logical deadline, configured attempt budget, and bounded retry jitter
+- explicit Delivered/Failed logical delivery outcomes with attempt/latency instrumentation
+- retransmission suspended while the known peer is stale/unreachable without pausing or resetting the absolute delivery deadline
 - receiver-side in-memory dedupe
 - duplicate ACK behavior without duplicate notification
 - bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
@@ -97,7 +99,7 @@ It currently owns:
 - delivery receipts for matching application ACKs
 - foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
-The service has no dedicated FreeRTOS task. It is advanced from the normal main loop.
+The service has no dedicated FreeRTOS task. It is advanced from the normal main loop. Communicator retry interval/jitter, maximum send attempts, and logical delivery timeout are experimental configuration for hardware tuning rather than permanent product policy. Application ACK remains the only authoritative Delivered condition; ESP-NOW send submission is counted only as sender instrumentation, while radio TxResult-aware optimization remains a later step.
 
 Messaging service lifetime is independent of foreground Communicator UI. Background Communicator messaging starts OFF after boot and is enabled explicitly for the current OS session only. This enabled/disabled state is volatile and is not persisted in NVS.
 
@@ -210,7 +212,9 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.
-- Communicator delivery confirmation requires a matching application ACK.
+- Communicator delivery confirmation requires a matching application ACK; attempt-budget or deadline exhaustion produces an explicit Failed logical outcome.
+- Communicator retry interval/jitter, attempt limit, and logical timeout are experimental configuration; reachability changes do not reset the logical delivery deadline.
+- Current metrics count ESP-NOW send submissions/requests, not true PHY-level Wi-Fi transmissions; radio TxResult attribution remains future work.
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
 - A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
