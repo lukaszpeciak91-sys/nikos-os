@@ -98,6 +98,7 @@ void CommunicatorApp::reset_session()
     expected_response_reference_ = 0;
     expected_human_ack_reference_ = 0;
     last_greeting_message_id_ = 0;
+    delivery_failure_restore_suspended_ = false;
 
     signal_alert_active_ = false;
     signal_return_to_launcher_ = false;
@@ -113,9 +114,11 @@ void CommunicatorApp::reset_session()
 CommunicatorApp::UpdateResult CommunicatorApp::update()
 {
     messaging::DeliveryReceipt receipt;
-    (void)messaging_.poll_delivery(receipt);
+    if (messaging_.poll_delivery(receipt)) {
+        handle_delivery_receipt(receipt);
+    }
 
-    if (!signal_alert_active_) {
+    if (!signal_alert_active_ && state_ != State::DeliveryFailed) {
         (void)process_incoming();
     }
 
@@ -388,6 +391,48 @@ void CommunicatorApp::restore_suspended_waiting(bool render)
     }
 }
 
+void CommunicatorApp::handle_delivery_receipt(
+    const messaging::DeliveryReceipt& receipt)
+{
+    if (receipt.outcome == messaging::DeliveryOutcome::Delivered) {
+        return;
+    }
+
+    const bool failed_suspended_delivery =
+        suspended_waiting_.valid
+        && receipt.logical_message_id
+            == suspended_waiting_.expected_response_reference;
+    if (failed_suspended_delivery) {
+        // The peer exchange that caused this outgoing request to be
+        // suspended is already the active conversation. Drop only the
+        // failed suspended context and leave that accepted exchange intact.
+        suspended_waiting_ = SuspendedWaitingContext{};
+        delivery_failure_restore_suspended_ = false;
+        return;
+    }
+
+    delivery_failure_restore_suspended_ =
+        suspended_waiting_.valid;
+
+    if (receipt.logical_message_id == expected_response_reference_) {
+        expected_response_reference_ = 0;
+    }
+    if (receipt.logical_message_id == expected_human_ack_reference_) {
+        expected_human_ack_reference_ = 0;
+    }
+    if (receipt.logical_message_id == last_greeting_message_id_) {
+        last_greeting_message_id_ = 0;
+    }
+
+    options_active_ = false;
+    radio_mode_change_failed_ = false;
+    state_ = State::DeliveryFailed;
+
+    if (active_ && !signal_alert_active_) {
+        render_delivery_failed();
+    }
+}
+
 void CommunicatorApp::handle_input(const board::InputState& input)
 {
     switch (state_) {
@@ -412,6 +457,9 @@ void CommunicatorApp::handle_input(const board::InputState& input)
             break;
         case State::HumanOkReceived:
             handle_human_ok_input(input);
+            break;
+        case State::DeliveryFailed:
+            handle_delivery_failed_input(input);
             break;
         case State::WaitingForResponse:
         case State::WaitingForHumanAck:
@@ -597,6 +645,26 @@ void CommunicatorApp::handle_human_ok_input(const board::InputState& input)
             state_ = State::Main;
             render_main();
         }
+    }
+}
+
+void CommunicatorApp::handle_delivery_failed_input(
+    const board::InputState& input)
+{
+    if (!input.primary_short && !input.secondary_short) {
+        return;
+    }
+
+    const bool restore_suspended =
+        delivery_failure_restore_suspended_
+        && suspended_waiting_.valid;
+    delivery_failure_restore_suspended_ = false;
+
+    if (restore_suspended) {
+        restore_suspended_waiting(true);
+    } else {
+        state_ = State::Main;
+        render_main();
     }
 }
 
@@ -825,6 +893,9 @@ void CommunicatorApp::render_current()
             break;
         case State::HumanOkReceived:
             render_human_ok_received();
+            break;
+        case State::DeliveryFailed:
+            render_delivery_failed();
             break;
     }
 }
@@ -1463,6 +1534,31 @@ void CommunicatorApp::render_human_ok_received()
         224,
         18,
         "M5 / SIDE = ZAMKNIJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void CommunicatorApp::render_delivery_failed()
+{
+    clear_screen();
+    draw_header("KOMUNIKATOR");
+
+    board_.draw_polish_ui_text_region(
+        12,
+        48,
+        216,
+        24,
+        "NIE DOSTARCZONO",
+        2,
+        board::DisplayColor::Danger,
+        board::DisplayColor::Background);
+    board_.draw_polish_ui_text_region(
+        8,
+        112,
+        224,
+        18,
+        "M5 / SIDE = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);

@@ -90,7 +90,7 @@ The first Communicator infrastructure uses a separate versioned `communicator_pr
 
 A small `messaging::Service` lives above `radio` and independently of foreground UI.
 
-For the first implementation it supports one known peer, presence/reachability, latest peer RSSI, one outstanding outgoing logical message, retry until matching application ACK, and receiver dedupe. Retransmission is suspended while the known peer is stale/unreachable and resumes with the same logical message ID after valid peer traffic restores reachability. Duplicate copies are ACKed again but do not produce duplicate notification events.
+For the first implementation it supports one known peer, presence/reachability, latest peer RSSI, one outstanding outgoing logical message, bounded retry until matching application ACK, and receiver dedupe. Retransmission is suspended while the known peer is stale/unreachable and resumes with the same logical message ID after valid peer traffic restores reachability, while the absolute logical delivery deadline continues to advance. Duplicate copies are ACKed again but do not produce duplicate notification events.
 
 Presence cadence includes small bounded configurable jitter so deterministic schedules do not repeatedly alias with duty-cycled receive windows.
 
@@ -172,7 +172,7 @@ Default after full boot is STANDARD. The selection is volatile and is not persis
 A successful change uses the existing `RadioService::set_mode()` path without restarting the messaging transport. It updates the messaging mode configuration, clears learned peer registration/reachability/RSSI, and forces fresh PRESENCE discovery while preserving:
 - current foreground/background RX profile and schedule;
 - presence interval/jitter;
-- retry interval;
+- retry/delivery policy;
 - incoming queue;
 - receiver dedupe state;
 - outstanding logical message and MessageId.
@@ -219,3 +219,26 @@ Theme-varying roles are background, surface, primary text, secondary text, and v
 Changing the theme updates `settings::State`, switches the board palette immediately, and redraws the current Theme screen. No Save/Apply step, generic styling engine, per-screen palette, or persistence is introduced.
 
 **Rationale:** The existing boot-scoped settings state is already the correct ownership boundary for real user preferences. A small semantic color cleanup prevents palette-specific names from leaking into applications while keeping runtime theming mechanically simple.
+
+
+## D-018 — Communicator logical delivery is bounded and measurable
+
+**Status:** Accepted
+
+Communicator logical delivery remains application-ACK based, but retries are no longer indefinite. One outgoing logical message has a configurable experimental retry interval, bounded retry jitter, maximum send-attempt budget, and absolute logical delivery timeout.
+
+The first hardware-test defaults are approximately:
+- 1000 ms retry interval;
+- up to 250 ms additional retry jitter;
+- 8 send attempts;
+- 12000 ms absolute logical delivery timeout.
+
+These values are experimental tuning inputs, not permanent product policy.
+
+The first attempt is immediate when transport/peer reachability permits. Retries keep the same logical MessageId. Ordinary peer reachability loss suppresses radio submission but continues consuming the logical delivery timeout; peer disappearance never resets the deadline or attempt budget. A deliberate `messaging.pause_transport()` handoff to RadioLab is different: while RadioLab intentionally owns the radio, logical delivery timeout and retry-delay clocks are suspended. On resume the same logical MessageId, send-attempt count, and remaining delivery/retry timing budget are preserved. A matching application ACK is the only authoritative `Delivered` outcome. Attempt/deadline exhaustion produces an explicit `Failed` outcome and clears the outgoing logical delivery.
+
+Development metrics record logical delivery kind/outcome, ESP-NOW send-request attempts, immediate send-request failures, logical delivery latency, and cumulative accepted send submissions for logical payloads, application ACKs, and Presence. These are submission-level measurements, not true PHY-level Wi-Fi transmission counts.
+
+This decision does not change Presence cadence, Communicator protocol v1, RX duty-cycle schedules, or radio `TxResult` handling. TxResult-aware attribution/pacing and Presence optimization remain separate future steps.
+
+**Rationale:** Hardware testing showed that indefinite retransmission can waste sender energy and leave UI state waiting forever. Bounded delivery provides a safe measurement baseline before deeper MAC-aware or Presence optimization.

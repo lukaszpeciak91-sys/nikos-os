@@ -25,7 +25,10 @@ struct Config {
     radio::Mode mode = radio::Mode::Normal;
     std::uint32_t presence_interval_ms = 2000;
     std::uint16_t presence_jitter_ms = 250;
-    std::uint32_t retry_interval_ms = 500;
+    std::uint32_t retry_interval_ms = 1000;
+    std::uint16_t retry_jitter_ms = 250;
+    std::uint8_t max_send_attempts = 8;
+    std::uint32_t delivery_timeout_ms = 12000;
     RxSchedule foreground_rx{1000, 500, 7000};
     RxSchedule background_rx{3000, 500, 20000};
 };
@@ -49,9 +52,18 @@ enum class DeliveryKind : std::uint8_t {
     Ring,
 };
 
+enum class DeliveryOutcome : std::uint8_t {
+    Delivered,
+    Failed,
+};
+
 struct DeliveryReceipt {
     DeliveryKind kind = DeliveryKind::PresetMessage;
+    DeliveryOutcome outcome = DeliveryOutcome::Delivered;
     std::uint32_t logical_message_id = 0;
+    std::uint32_t send_attempt_count = 0;
+    std::uint32_t send_request_failure_count = 0;
+    std::uint32_t latency_ms = 0;
 };
 
 class Service final {
@@ -98,8 +110,20 @@ private:
     struct OutgoingState {
         bool active = false;
         communicator_protocol::Message message{};
+        std::uint32_t started_ms = 0;
         std::uint32_t last_send_ms = 0;
+        std::uint32_t retry_delay_ms = 0;
+        std::uint32_t paused_since_ms = 0;
         std::uint32_t attempts = 0;
+        std::uint32_t send_request_failures = 0;
+    };
+
+    struct TrafficCounters {
+        std::uint32_t logical_payload_tx_submissions = 0;
+        std::uint32_t ack_tx_submissions = 0;
+        std::uint32_t presence_tx_submissions = 0;
+        std::uint32_t delivered_logical_messages = 0;
+        std::uint32_t failed_logical_messages = 0;
     };
 
     bool start_transport();
@@ -116,11 +140,14 @@ private:
         std::uint16_t value_id,
         std::uint32_t reference_message_id);
     void send_outgoing(std::uint32_t now_ms);
+    std::uint32_t next_retry_delay_ms() const;
+    void finish_outgoing(
+        DeliveryOutcome outcome,
+        std::uint32_t completed_ms);
 
     bool is_duplicate(std::uint32_t logical_message_id) const;
     void remember_received(std::uint32_t logical_message_id);
     bool enqueue_incoming(const IncomingMessage& message);
-    void publish_delivery();
 
     std::uint32_t next_logical_message_id();
     std::uint32_t now_ms() const;
@@ -141,6 +168,7 @@ private:
 
     std::uint32_t next_message_id_ = 1;
     OutgoingState outgoing_{};
+    TrafficCounters traffic_{};
 
     std::array<std::uint32_t, kDedupeDepth> recent_received_ids_{};
     std::size_t recent_received_count_ = 0;
