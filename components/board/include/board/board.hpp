@@ -45,6 +45,7 @@ public:
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
     void wake_display();
+    void power_off();
 
     void clear_screen();
     void fill_circle(

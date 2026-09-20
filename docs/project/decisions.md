@@ -137,3 +137,21 @@ Foreground Communicator visibility is separate from messaging service lifetime:
 RadioLab pauses and later resumes messaging only when Communicator messaging was active before RadioLab acquired exclusive radio ownership.
 
 **Rationale:** This gives the user explicit control over background radio activity without coupling service lifetime to a foreground screen or introducing persistence/power-policy infrastructure.
+
+
+## D-014 — Whole-device shutdown is launcher-requested and board-owned
+
+**Status:** Accepted
+
+The final launcher entry `WYŁĄCZ` requests whole-device shutdown only after an explicit `NIE/TAK` confirmation with `NIE` selected by default.
+
+The launcher owns only the confirmation UI and returns a high-level shutdown action. `app_main` performs orderly runtime cleanup: it stops tones, clears volatile Communicator state, stops messaging, and ensures radio transport cleanup. The board layer then performs hardware shutdown through M5Unified.
+
+The board implementation uses `M5.Power.powerOff()` from pinned M5Unified 0.2.22. Launcher and `app_main` do not access AXP192 directly.
+
+This remains distinct from:
+- Communicator `POWRÓT`: close foreground panel only;
+- Communicator `WYŁĄCZ`: stop the background Communicator service only;
+- launcher `WYŁĄCZ`: power off the whole device.
+
+**Rationale:** Destructive whole-device power control requires explicit confirmation and orderly system cleanup while preserving the existing ownership boundary for M5-specific hardware.

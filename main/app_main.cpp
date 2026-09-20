@@ -152,6 +152,32 @@ extern "C" void app_main(void)
                     communicator_enabled = false;
                     launcher.begin(false);
                 } else if (
+                    action == nikos::launcher::Action::ShutdownRequested) {
+                    board.stop_tone();
+                    communicator.reset_session();
+
+                    if (!messaging.stop()) {
+                        ESP_LOGW(
+                            kTag,
+                            "Messaging stop completed with cleanup errors during shutdown");
+                    }
+
+                    communicator_enabled = false;
+                    resume_messaging_after_radiolab = false;
+
+                    if (!radio.stop()) {
+                        ESP_LOGW(
+                            kTag,
+                            "Radio stop completed with cleanup errors during shutdown");
+                    }
+
+                    board.power_off();
+
+                    // M5Unified powerOff() should not return on target hardware.
+                    while (true) {
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                    }
+                } else if (
                     action == nikos::launcher::Action::OpenRadioLab) {
                     resume_messaging_after_radiolab =
                         communicator_enabled;

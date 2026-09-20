@@ -13,12 +13,15 @@ struct Entry {
     nikos::launcher::Action action;
 };
 
-constexpr std::array<Entry, 4> kEntries = {{
+constexpr std::array<Entry, 5> kEntries = {{
     {"Communicator", nikos::launcher::Action::None},
     {"RadioLab", nikos::launcher::Action::OpenRadioLab},
     {"Minutnik", nikos::launcher::Action::None},
     {"Rozrywka", nikos::launcher::Action::None},
+    {u8"WYŁĄCZ", nikos::launcher::Action::None},
 }};
+
+constexpr std::size_t kVisibleLauncherRows = 4;
 
 constexpr std::uint32_t kSignalFrameMs = 110;
 constexpr std::uint32_t kSyncFrameMs = 140;
@@ -163,6 +166,7 @@ void Launcher::begin(bool communicator_active)
     communicator_active_ = communicator_active;
     selected_index_ = 0;
     active_communicator_selection_ = 0;
+    shutdown_selection_ = 0;
 
     const std::uint32_t now = now_ms();
     update_battery_sample(now);
@@ -211,6 +215,27 @@ Action Launcher::update()
         return Action::None;
     }
 
+    if (screen_ == Screen::ShutdownConfirm) {
+        if (input.secondary_short) {
+            shutdown_selection_ =
+                static_cast<std::uint8_t>((shutdown_selection_ + 1U) % 2U);
+            render();
+            return Action::None;
+        }
+
+        if (input.primary_short) {
+            if (shutdown_selection_ == 0) {
+                screen_ = Screen::Main;
+                render();
+                return Action::None;
+            }
+
+            return Action::ShutdownRequested;
+        }
+
+        return Action::None;
+    }
+
     if (input.secondary_long) {
         return Action::None;
     }
@@ -228,6 +253,13 @@ Action Launcher::update()
             screen_ = communicator_active_
                 ? Screen::ActiveCommunicator
                 : Screen::EnableCommunicator;
+            render();
+            return Action::None;
+        }
+
+        if (selected_index_ == kEntries.size() - 1U) {
+            shutdown_selection_ = 0;
+            screen_ = Screen::ShutdownConfirm;
             render();
             return Action::None;
         }
@@ -264,6 +296,9 @@ void Launcher::render()
         case Screen::ActiveCommunicator:
             render_active_communicator();
             break;
+        case Screen::ShutdownConfirm:
+            render_shutdown_confirm();
+            break;
     }
 }
 
@@ -299,10 +334,21 @@ void Launcher::render_main()
 
     render_battery_if_changed();
 
-    for (std::size_t index = 0; index < kEntries.size(); ++index) {
+    std::size_t first_visible = 0;
+    if (selected_index_ >= kVisibleLauncherRows) {
+        first_visible =
+            selected_index_ - kVisibleLauncherRows + 1U;
+    }
+
+    for (std::size_t slot = 0; slot < kVisibleLauncherRows; ++slot) {
+        const std::size_t index = first_visible + slot;
+        if (index >= kEntries.size()) {
+            break;
+        }
+
         const bool selected = index == selected_index_;
         const std::int16_t row_y =
-            static_cast<std::int16_t>(32 + index * 19);
+            static_cast<std::int16_t>(32 + slot * 19);
         const board::DisplayColor row_background =
             selected
                 ? board::DisplayColor::PanelNavy
@@ -332,17 +378,31 @@ void Launcher::render_main()
                 board::DisplayColor::AccentGreen);
         }
 
-        board_.draw_text_region(
-            18,
-            row_y,
-            184,
-            18,
-            kEntries[index].label,
-            2,
-            selected
-                ? board::DisplayColor::Ivory
-                : board::DisplayColor::MutedBlue,
-            row_background);
+        if (index == kEntries.size() - 1U) {
+            board_.draw_polish_ui_text_region(
+                18,
+                row_y,
+                184,
+                18,
+                kEntries[index].label,
+                2,
+                selected
+                    ? board::DisplayColor::Ivory
+                    : board::DisplayColor::MutedBlue,
+                row_background);
+        } else {
+            board_.draw_text_region(
+                18,
+                row_y,
+                184,
+                18,
+                kEntries[index].label,
+                2,
+                selected
+                    ? board::DisplayColor::Ivory
+                    : board::DisplayColor::MutedBlue,
+                row_background);
+        }
 
         if (index == 0) {
             const board::DisplayColor indicator_color =
@@ -456,6 +516,65 @@ void Launcher::render_active_communicator()
                 14,
                 y,
                 14,
+                static_cast<std::int16_t>(y + 17),
+                board::DisplayColor::AccentGreen);
+        }
+    }
+
+    board_.draw_polish_ui_text_region(
+        14,
+        112,
+        212,
+        14,
+        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_shutdown_confirm()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        20,
+        20,
+        200,
+        20,
+        u8"WYŁĄCZYĆ NIKOŚ OS?",
+        1,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+
+    constexpr const char* kChoices[2] = {
+        "NIE",
+        "TAK",
+    };
+
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = index == shutdown_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(52 + index * 28);
+
+        board_.draw_polish_ui_text_region(
+            24,
+            y,
+            192,
+            22,
+            kChoices[index],
+            2,
+            selected
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            selected
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy);
+
+        if (selected) {
+            board_.draw_line(
+                16,
+                y,
+                16,
                 static_cast<std::int16_t>(y + 17),
                 board::DisplayColor::AccentGreen);
         }

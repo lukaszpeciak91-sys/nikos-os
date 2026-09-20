@@ -12,6 +12,7 @@ enum class Action : std::uint8_t {
     OpenCommunicator,
     StopCommunicator,
     OpenRadioLab,
+    ShutdownRequested,
 };
 
 class Launcher final {
@@ -27,6 +28,7 @@ private:
         Main,
         EnableCommunicator,
         ActiveCommunicator,
+        ShutdownConfirm,
     };
 
     void update_battery_sample(std::uint32_t now_ms);
@@ -34,6 +36,7 @@ private:
     void render_main();
     void render_enable_communicator();
     void render_active_communicator();
+    void render_shutdown_confirm();
     void render_battery_if_changed();
 
     board::Board& board_;
@@ -41,6 +44,7 @@ private:
     bool communicator_active_ = false;
     std::uint8_t selected_index_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
+    std::uint8_t shutdown_selection_ = 0;
 
     bool battery_sample_valid_ = false;
     std::uint32_t last_battery_sample_ms_ = 0;
