@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-First Communicator messaging infrastructure above the existing Nikoś OS shell and RadioLab.
+Communicator v0.1 core UX over the long-lived messaging infrastructure.
 
 ## Current state
 
@@ -10,8 +10,8 @@ First Communicator messaging infrastructure above the existing Nikoś OS shell a
 - Native ESP-IDF scaffold implemented for classic ESP32 / ESP32-PICO-D4.
 - ESP-IDF 5.5.5, M5Unified 0.2.22, and M5GFX 0.2.29 are pinned.
 - Minimal `board`, `radio`, and `protocol` boundaries implemented.
-- Boot shows a short deterministic branded signal-synchronization splash and enters a dark navy three-item launcher: RadioLab, Minutnik, Rozrywka. The launcher shows a small cached battery percentage sampled about once per second.
-- Minutnik and Rozrywka are visible placeholders only.
+- Boot shows a short deterministic branded signal-synchronization splash and enters a dark navy four-item launcher: Communicator, RadioLab, Minutnik, Rozrywka. The launcher shows a small cached battery percentage sampled about once per second.
+- Communicator and RadioLab are real launcher applications; Minutnik and Rozrywka remain visible placeholders.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
 - Launcher controls use primary short = open/confirm and secondary short = next.
@@ -22,14 +22,15 @@ First Communicator messaging infrastructure above the existing Nikoś OS shell a
 - A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, retry/ACK delivery, dedupe, and experimental RX profiles above `radio`.
 - Messaging transport is active outside RadioLab; entering RadioLab pauses messaging transport and gives RadioLab temporary radio ownership, then messaging resumes on exit.
 - The two RadioLab user-button positions are physically verified on the M5StickC Plus SE; remaining hardware and radio behavior still requires field verification.
-- The Communicator infrastructure has not yet been physically validated on the two M5StickC Plus SE units.
+- Communicator v0.1 now provides one-peer availability, a five-message Polish preset catalogue, contextual responses, human-visible OK flow, full-screen incoming cards, short audible notification, and foreground/background messaging profile switching.
+- Communicator v0.1 UI and conversation flow have not yet been physically validated on the two M5StickC Plus SE units.
 - A local ESP-IDF build has not yet been executed in the available implementation environment.
 
 ## Next planned implementation step
 
 The current near-term implementation plan and checklist is tracked in [next-phase-plan.md](next-phase-plan.md).
 
-- Build the Communicator infrastructure with ESP-IDF 5.5.5.
+- Build Communicator v0.1 core UX with ESP-IDF 5.5.5.
 - Verify boot -> splash -> launcher -> RadioLab -> launcher -> RadioLab lifecycle on hardware.
 - Flash the same firmware to both M5StickC Plus SE devices.
 - Verify LCD behavior with the physically mapped primary/secondary controls.
@@ -56,3 +57,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-19 — Added the first branded shell pass for the boot splash and launcher visuals.
 - 2026-09-20 — Added the first Communicator protocol/messaging infrastructure with one-peer presence, application-ACK retry/dedupe, RadioLab transport handoff, and configurable experimental RX schedules.
 - 2026-09-20 — Added a lightweight embedded DejaVu Sans subset in the board layer for Polish Communicator UI text preparation.
+- 2026-09-20 — Added Communicator v0.1 core UX with fixed launcher integration, Polish preset/response catalogues, deterministic human-OK conversation state, reachability UI, and full-screen incoming cards.

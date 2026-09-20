@@ -20,6 +20,9 @@ The first infrastructure phase intentionally supports one known peer and keeps m
 - [x] Retry one outgoing logical message until its matching application ACK.
 - [x] Suspend retransmission while the known peer is stale/unreachable and resume the same logical message ID after recovery.
 - [x] Dedupe received logical messages while ACKing duplicate copies again.
+- [x] Keep incoming logical events retained until Communicator accepts them; use non-destructive peek plus explicit consume.
+- [x] Allow exactly one temporarily incompatible incoming event to be deferred locally so it cannot head-of-line block a later event required by the active exchange.
+- [x] Resolve true simultaneous conversational initiation deterministically by MAC ordering, with exactly one suspended WaitingForResponse context on the yielding side.
 - [x] Keep dedupe in long-lived RAM state across foreground app changes and RadioLab pause/resume, while documenting that it resets on full reboot.
 - [x] Keep messaging state independent of foreground UI.
 - [x] Pause messaging transport while RadioLab owns the radio and resume it afterwards.
@@ -35,14 +38,14 @@ Near-term first UI flow:
 
 The first version is optimized for one known peer. Multi-peer contact selection may be added later only when required.
 
-- [ ] Add Communicator as the next real launcher application.
-- [ ] Show the known peer with a simple human-readable label such as `Nikoś` or `Łuki`.
-- [ ] Show unavailable/reachable state clearly.
-- [ ] Prevent message actions when the known peer is unavailable.
-- [ ] Define the predefined-message selection screen.
-- [ ] Define the contextual-response selection flow.
-- [ ] Keep the UI explicit and small enough for the M5StickC Plus SE display.
-- [ ] Keep chat history out of this phase.
+- [x] Add Communicator as the next real launcher application.
+- [x] Show the known peer with a simple human-readable v0.1 label.
+- [x] Show unavailable/reachable state clearly.
+- [x] Prevent message actions when the known peer is unavailable.
+- [x] Define the predefined-message selection screen.
+- [x] Define the contextual-response selection flow.
+- [x] Keep the UI explicit with 2–3 visible choices per screen; physical layout verification remains pending.
+- [x] Keep chat history out of this phase.
 - [ ] Revisit peer-selection UI only if a real multi-peer requirement appears.
 
 ## Preset message catalogue
@@ -55,12 +58,12 @@ Transport direction is already supported:
 This is one message type, not the permanent limit of the protocol. Future `FREE_TEXT` support remains possible.
 
 - [x] Provide transport support for compact preset-message IDs.
-- [ ] Design the first predefined-message catalogue separately from protocol plumbing.
-- [ ] Assign compact stable IDs to approved preset messages.
-- [ ] Define local Polish display text for each approved message ID.
+- [x] Define the first five-message Communicator v0.1 catalogue.
+- [x] Assign compact stable IDs to approved preset messages.
+- [x] Define local Polish display text for each approved message ID.
 - [ ] Define UI behavior for an unknown/unsupported message ID.
 
-The exact message list is intentionally not finalized in this document.
+The Communicator v0.1 preset list is now fixed in the application catalogue; later additions should use new explicit IDs without reassigning existing v0.1 IDs.
 
 ## Contextual response catalogue
 
@@ -70,12 +73,12 @@ Transport direction is already supported:
 - `reference_message_id` can associate the response with the received logical message.
 
 - [x] Provide transport support for compact preset-response IDs and a logical-message reference.
-- [ ] Design the first contextual response catalogue.
-- [ ] Define which responses are valid for each received preset message.
-- [ ] Assign compact stable IDs to approved responses.
-- [ ] Define local Polish display text for each approved response ID.
+- [x] Define the Communicator v0.1 contextual response catalogue.
+- [x] Define which responses are valid for each received preset message.
+- [x] Assign compact stable IDs to approved responses.
+- [x] Define local Polish display text for each approved response ID.
 
-The exact response list is intentionally not finalized in this document.
+The Communicator v0.1 contextual response list is now fixed in the application catalogue; later additions should use new explicit IDs without reassigning existing v0.1 IDs.
 
 ## Device/contact availability UI
 
@@ -83,10 +86,10 @@ The infrastructure currently supports one known peer rather than a peer list.
 
 - [x] Provide one-peer presence/reachability state in `messaging::Service`.
 - [x] Provide latest peer RX RSSI as context.
-- [ ] Define the Communicator freshness presentation for the known peer.
-- [ ] Show the known peer unavailable when reachability is stale.
-- [ ] Show the known peer active when reachability is fresh.
-- [ ] Define the first local human-readable label mapping.
+- [x] Present reachability as available/unavailable without exposing timeout details to the UI.
+- [x] Show the known peer unavailable when reachability is stale.
+- [x] Show the known peer active when reachability is fresh.
+- [ ] Replace the temporary single v0.1 peer label with per-device human labels only when a concrete identity/config requirement is chosen.
 - [ ] Add multi-peer selection only if later requirements justify it.
 
 ## Received-message UX
@@ -94,13 +97,13 @@ The infrastructure currently supports one known peer rather than a peer list.
 When a message arrives, the intended experience is a dedicated full-screen notification/card.
 
 - [x] Provide deduped incoming logical-message events below the UI layer.
-- [ ] Show the received message prominently on a dedicated screen.
-- [ ] Play a short audible alert.
-- [ ] Keep the received message visible until the user acts.
-- [ ] Show clear button guidance consistent with the current Nikoś OS interaction model.
-- [ ] Provide one action for contextual responses.
-- [ ] Provide one action to dismiss/exit as appropriate.
-- [ ] Confirm how incoming communication wakes or replaces the current screen.
+- [x] Show the received message prominently on a dedicated screen.
+- [x] Play one short ~90 ms audible alert.
+- [x] Keep the received message visible until the user acts.
+- [x] Show clear button guidance consistent with the current Nikoś OS interaction model.
+- [x] Provide one action for contextual responses.
+- [x] Allow dismiss only where the v0.1 flow permits it (notably greeting and final OK card).
+- [x] Wake the display and surface Communicator from the launcher for accepted incoming traffic.
 
 The M5StickC Plus SE has no built-in vibration motor, so current hardware feedback relies on sound and display.
 
@@ -116,16 +119,17 @@ The wire and reliable delivery foundation supports RING, but audible UI behavior
 
 ## Communicator implementation
 
-- [ ] Add the Communicator foreground UI.
-- [ ] Connect the UI to the existing long-lived messaging service.
-- [ ] Implement known-peer availability presentation.
-- [ ] Implement preset-message selection and transmission.
-- [ ] Implement received-message decoding into local visible strings.
-- [ ] Implement the dedicated receive notification UI.
-- [ ] Implement contextual preset responses.
+- [x] Add the Communicator foreground UI.
+- [x] Connect the UI to the existing long-lived messaging service.
+- [x] Implement known-peer availability presentation with derived signal bars.
+- [x] Implement preset-message selection and transmission.
+- [x] Implement received-message decoding into local visible strings.
+- [x] Implement the dedicated receive notification UI.
+- [x] Implement contextual preset responses and the deterministic human-OK flow.
+- [x] Treat `CZEŚĆ!` as conversation-level fire-and-forget; optional `Cześć!` reply is terminal and requires no human OK.
 - [ ] Implement audible RING behavior after basic messaging UX is stable.
-- [ ] Keep retry/dedupe/delivery semantics in `messaging::Service`, not in the UI.
-- [ ] Avoid chat history and avoid expanding this into a generic messaging framework without a proven requirement.
+- [x] Keep retry/dedupe/delivery semantics in `messaging::Service`, not in the UI.
+- [x] Avoid chat history and avoid expanding this into a generic messaging framework without a proven requirement.
 
 ## Messaging RX power experiment
 
@@ -217,7 +221,7 @@ Direction only; exact timeouts are intentionally undecided.
 - [ ] Dim the display after inactivity.
 - [ ] Turn the display off after longer inactivity.
 - [ ] Keep communication availability independent of display state where practical.
-- [ ] Allow incoming communication to wake the display and play an alert.
+- [x] Allow incoming Communicator traffic to wake the display and play an alert.
 - [ ] Choose timeout values only after hardware/usability testing.
 
 ## Entertainment session limits

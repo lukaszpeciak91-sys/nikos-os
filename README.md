@@ -8,7 +8,7 @@ The conceptual architecture is:
 
 `BOOT -> PLATFORM / CORE -> lightweight launcher -> applications`
 
-The first real application is RadioLab. RadioLab and the future Nikoś Communicator are sibling applications built on reusable platform services rather than defining the platform itself.
+RadioLab and Communicator are the first two real sibling applications, built on reusable platform services rather than defining the platform itself.
 
 ## Launcher
 
@@ -16,11 +16,12 @@ Boot now shows a short deterministic branded splash: sparse signal fragments ali
 
 Launcher entries:
 
-1. RadioLab
-2. Minutnik
-3. Rozrywka
+1. Communicator
+2. RadioLab
+3. Minutnik
+4. Rozrywka
 
-Only RadioLab opens in this milestone. Minutnik and Rozrywka are visible placeholders. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
+Communicator and RadioLab are active applications. Minutnik and Rozrywka remain visible placeholders. The launcher remains a fixed static list rather than an app registry/plugin system. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
 
 Launcher controls:
 
@@ -28,6 +29,46 @@ Launcher controls:
 - Secondary short: move to the next item.
 - Secondary long: back where applicable; the top-level launcher has no parent screen.
 - The separate power button remains outside application navigation.
+
+## Communicator v0.1 core UX
+
+Communicator uses the long-lived `messaging::Service` and the embedded Polish UI font.
+
+The main screen shows one known peer directly, with:
+- a simple v0.1 peer label;
+- available/unavailable state from messaging reachability;
+- a small three-level signal indicator derived from recent RSSI;
+- the preset-message list without raw dBm emphasis.
+
+Preset messages use stable explicit IDs:
+
+1. `CZEŚĆ!`
+2. `MOŻESZ GADAĆ?`
+3. `IDZIESZ NA SPACER?`
+4. `MASZ PUSZKI?`
+5. `ZACZEKAĆ?`
+
+Controls:
+- Secondary short: next item/choice.
+- Primary short: select/send/respond.
+- Secondary long: exit to launcher.
+- Power remains outside application navigation.
+
+The message list stays visible but inactive while the peer is unavailable. Communicator switches messaging to the experimental foreground RX profile while open and restores the background profile on exit.
+
+Incoming preset messages/responses wake the display, play one short ~90 ms alert, and use dedicated full-screen cards. The current exchange is held only in a small volatile deterministic state machine; there is no chat history or free text.
+
+Human-visible `OK` is a PRESET_RESPONSE used by the conversation flow and is separate from the internal application ACK used by `messaging::Service` for reliable delivery.
+
+The `CZEŚĆ!` preset is fire-and-forget at the conversation level: the sender remains on the main screen. The receiver may dismiss it or optionally answer `Cześć!`; that optional reply is itself terminal and does not require human `OK`.
+
+Special responses `Za chwilę`, `Później`, and `Sprawdzę` allow the initiator to choose `OK` or send the same `ZACZEKAĆ?` preset used by the main catalogue.
+
+Incoming logical events are inspected non-destructively and are consumed from `messaging::Service` only after Communicator has retained/accepted them. Communicator may additionally retain exactly one temporarily incompatible incoming event locally, consume that event from the service queue, and continue inspecting later queued traffic needed by the active exchange. The deferred event keeps its original logical identity and is surfaced once the conversation reaches a compatible state. An occupied deferred slot is never overwritten. A full small service queue does not discard an already retained event; an unretained new logical message remains un-ACKed so the existing sender retry can deliver it later.
+
+True simultaneous conversational initiation uses one deterministic collision rule: when both sides are waiting for a response and receive the other's new conversational preset, the device with the lexicographically lower self MAC yields. It preserves exactly one original WaitingForResponse context, handles the peer's short exchange through its normal response/human-OK flow, then restores its original wait. The higher-MAC device keeps its own exchange active and later surfaces its already deferred peer question. No protocol synchronization is added.
+
+SYGNAŁ/RING UI and audible attention behavior are intentionally not part of this Communicator v0.1 core UX PR.
 
 ## RadioLab v0.1 foundation
 

@@ -116,6 +116,11 @@ void Board::tone(float frequency_hz, std::uint32_t duration_ms)
     }
 }
 
+void Board::wake_display()
+{
+    M5.Display.wakeup();
+}
+
 void Board::clear_screen()
 {
     M5.Display.fillScreen(TFT_BLACK);

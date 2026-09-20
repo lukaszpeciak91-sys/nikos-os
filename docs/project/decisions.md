@@ -26,7 +26,7 @@ Use M5Unified/M5GFX as ESP-IDF components for initial M5 hardware support.
 
 **Status:** Accepted
 
-RadioLab proves and diagnoses platform capabilities. The future Nikoś Communicator UI uses the same lower-level platform services.
+RadioLab proves and diagnoses platform capabilities. Communicator v0.1 uses the same lower-level platform services as a sibling foreground application.
 
 **Rationale:** The communicator UI must not define the platform or become a dependency of platform services.
 

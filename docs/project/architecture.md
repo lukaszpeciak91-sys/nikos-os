@@ -10,7 +10,7 @@ The conceptual model is:
 
 Applications may initially be compiled into a single firmware image. No dynamic APK-style or plugin system is required.
 
-The current runtime starts with a lightweight launcher. The launcher has three fixed entries: RadioLab, Minutnik, and Rozrywka. Only RadioLab is active; the other two are placeholders. This is a static skeleton, not an application registry or plugin framework.
+The current runtime starts with a lightweight launcher. The launcher has four fixed entries: Communicator, RadioLab, Minutnik, and Rozrywka. Communicator and RadioLab are real applications; Minutnik and Rozrywka remain placeholders. This is still a static shape, not an application registry or plugin framework.
 
 ## Initial ownership boundaries
 
@@ -23,6 +23,7 @@ Owns M5-specific hardware integration:
 - buzzer
 - AXP192 / PMU
 - battery information
+- display wake/activation
 - M5-specific hardware integration
 
 ### radio
@@ -84,7 +85,7 @@ It currently owns:
 - receiver-side in-memory dedupe
 - duplicate ACK behavior without duplicate notification
 - bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
-- a small volatile queue of incoming logical message notifications
+- a small volatile queue of incoming logical message notifications, exposed through explicit peek/consume so UI rejection cannot destructively remove an event
 - delivery receipts for matching application ACKs
 - foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
@@ -118,13 +119,15 @@ It does not own radio lifecycle internals, application registries, persistence, 
 
 ### applications
 
-Initial and future applications include:
+Current and future applications include:
 
+- Communicator v0.1
 - RadioLab
-- future Nikoś Communicator UI
 - future diagnostic, Wi-Fi, BLE, IR, and hardware tools
 
 RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
+
+Communicator is a foreground UI over the long-lived `messaging::Service`. Entering Communicator selects the experimental foreground messaging RX profile; exiting restores the background profile. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state. To prevent FIFO head-of-line blocking during one active exchange, Communicator may hold exactly one temporarily incompatible incoming logical event locally while later service-queue traffic is inspected; this is current-exchange state, not a general inbox/router.
 
 RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
 
@@ -140,11 +143,16 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - ESP-NOW callbacks must perform minimal work and hand copied data to normal task context.
 - UI state must not own background communication.
 - Background messaging must remain independent of the foreground screen/application.
+- Communicator conversation state is small, volatile, and limited to the current deterministic exchange; it is not chat history.
+- Communicator may retain at most one deferred incoming event to avoid head-of-line blocking; it must not overwrite that slot or expand it into a general inbox/reordering layer.
+- True simultaneous conversational initiation uses deterministic MAC ordering: the lower self MAC temporarily yields and may suspend exactly one WaitingForResponse context until the peer's short exchange completes; this is collision handling, not multi-conversation scheduling.
+- Human-visible conversation `OK` remains distinct from transport/application ACK.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - ESP-NOW MAC send success is not application-level delivery.
 - Communicator delivery confirmation requires a matching application ACK.
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
+- A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
 - Experimental RX and reachability timing values are configuration, not platform invariants. The current foreground profile uses an approximately 7 s reachability timeout, while the background 3000/500 ms RX profile uses a more conservative approximately 20 s timeout to tolerate legitimately missed PRESENCE packets.
 - Persistent schemas and wire protocols must be versioned once introduced.
