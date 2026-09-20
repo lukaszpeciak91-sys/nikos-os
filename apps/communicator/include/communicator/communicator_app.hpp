@@ -107,6 +107,7 @@ private:
     const char* peer_label_;
 
     bool active_ = false;
+    bool foreground_exit_requested_ = false;
     State state_ = State::Main;
 
     std::uint8_t selected_main_index_ = 0;
