@@ -10,8 +10,8 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Native ESP-IDF scaffold implemented for classic ESP32 / ESP32-PICO-D4.
 - ESP-IDF 5.5.5, M5Unified 0.2.22, and M5GFX 0.2.29 are pinned.
 - Minimal `board`, `radio`, and `protocol` boundaries implemented.
-- Boot shows a short deterministic branded signal-synchronization splash and enters a dark navy five-entry launcher: Communicator, RadioLab, Minutnik, Rozrywka, WYŁĄCZ. A local four-row viewport keeps the header, battery indicator, and footer clear.
-- Communicator and RadioLab are real launcher applications; Minutnik and Rozrywka remain visible placeholders.
+- Boot shows a short deterministic branded signal-synchronization splash and enters the frozen six-item top-level launcher: Komunikator, Narzędzia, Rozrywka, Zegar, Ustawienia, Wyłącz. A local four-row viewport keeps the header, battery indicator, and footer clear.
+- Narzędzia currently contains RadioLab and Powrót; RadioLab returns to Narzędzia after exit. Rozrywka, Zegar, and Ustawienia currently expose only Powrót and add no placeholder features.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
 - Launcher controls use primary short = open/confirm and secondary short = next.
@@ -68,3 +68,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-20 — Added explicit confirmed whole-device shutdown from the launcher with orderly app/radio cleanup and board-owned M5Unified power-off.
 - 2026-09-20 — Added a minimal Communicator `STANDARD/LR` option that switches the existing radio mode through messaging while preserving duty-cycle schedules and delivery state and forcing fresh peer discovery.
 - 2026-09-20 — Refined the base Nikoś OS reference palette after physical LCD testing and grouped the launcher header into a compact Polish `NIKOŚ OS` wordmark.
+- 2026-09-20 — Froze the base launcher hierarchy as Komunikator / Narzędzia / Rozrywka / Zegar / Ustawienia / Wyłącz, with RadioLab under Narzędzia and explicit visible Powrót rows in every normal submenu.

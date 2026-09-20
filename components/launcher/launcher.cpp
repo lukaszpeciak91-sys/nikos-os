@@ -10,15 +10,15 @@ namespace {
 
 struct Entry {
     const char* label;
-    nikos::launcher::Action action;
 };
 
-constexpr std::array<Entry, 5> kEntries = {{
-    {"Communicator", nikos::launcher::Action::None},
-    {"RadioLab", nikos::launcher::Action::OpenRadioLab},
-    {"Minutnik", nikos::launcher::Action::None},
-    {"Rozrywka", nikos::launcher::Action::None},
-    {u8"WYŁĄCZ", nikos::launcher::Action::None},
+constexpr std::array<Entry, 6> kEntries = {{
+    {u8"Komunikator"},
+    {u8"Narzędzia"},
+    {u8"Rozrywka"},
+    {u8"Zegar"},
+    {u8"Ustawienia"},
+    {u8"Wyłącz"},
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
@@ -165,8 +165,20 @@ void Launcher::begin(bool communicator_active)
     screen_ = Screen::Main;
     communicator_active_ = communicator_active;
     selected_index_ = 0;
+    tools_selection_ = 0;
     active_communicator_selection_ = 0;
-    shutdown_selection_ = 0;
+
+    const std::uint32_t now = now_ms();
+    update_battery_sample(now);
+    render();
+}
+
+void Launcher::begin_tools(bool communicator_active)
+{
+    screen_ = Screen::Tools;
+    communicator_active_ = communicator_active;
+    selected_index_ = 1;
+    tools_selection_ = 0;
 
     const std::uint32_t now = now_ms();
     update_battery_sample(now);
@@ -215,22 +227,57 @@ Action Launcher::update()
         return Action::None;
     }
 
-    if (screen_ == Screen::ShutdownConfirm) {
+    if (screen_ == Screen::Tools) {
+        if (input.secondary_long) {
+            screen_ = Screen::Main;
+            render();
+            return Action::None;
+        }
+
         if (input.secondary_short) {
-            shutdown_selection_ =
-                static_cast<std::uint8_t>((shutdown_selection_ + 1U) % 2U);
+            tools_selection_ =
+                static_cast<std::uint8_t>((tools_selection_ + 1U) % 2U);
             render();
             return Action::None;
         }
 
         if (input.primary_short) {
-            if (shutdown_selection_ == 0) {
-                screen_ = Screen::Main;
-                render();
-                return Action::None;
+            if (tools_selection_ == 0) {
+                return Action::OpenRadioLab;
             }
 
+            screen_ = Screen::Main;
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::Entertainment
+        || screen_ == Screen::Clock
+        || screen_ == Screen::Settings) {
+        if (input.secondary_long || input.primary_short) {
+            screen_ = Screen::Main;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            // There is exactly one selectable item: visible "Powrót".
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ShutdownConfirm) {
+        if (input.primary_short) {
             return Action::ShutdownRequested;
+        }
+
+        if (input.secondary_short || input.secondary_long) {
+            screen_ = Screen::Main;
+            render();
         }
 
         return Action::None;
@@ -247,26 +294,38 @@ Action Launcher::update()
         return Action::None;
     }
 
-    if (input.primary_short) {
-        if (selected_index_ == 0) {
+    if (!input.primary_short) {
+        return Action::None;
+    }
+
+    switch (selected_index_) {
+        case 0:
             active_communicator_selection_ = 0;
             screen_ = communicator_active_
                 ? Screen::ActiveCommunicator
                 : Screen::EnableCommunicator;
-            render();
-            return Action::None;
-        }
-
-        if (selected_index_ == kEntries.size() - 1U) {
-            shutdown_selection_ = 0;
+            break;
+        case 1:
+            tools_selection_ = 0;
+            screen_ = Screen::Tools;
+            break;
+        case 2:
+            screen_ = Screen::Entertainment;
+            break;
+        case 3:
+            screen_ = Screen::Clock;
+            break;
+        case 4:
+            screen_ = Screen::Settings;
+            break;
+        case 5:
             screen_ = Screen::ShutdownConfirm;
-            render();
+            break;
+        default:
             return Action::None;
-        }
-
-        return kEntries[selected_index_].action;
     }
 
+    render();
     return Action::None;
 }
 
@@ -289,6 +348,18 @@ void Launcher::render()
     switch (screen_) {
         case Screen::Main:
             render_main();
+            break;
+        case Screen::Tools:
+            render_tools();
+            break;
+        case Screen::Entertainment:
+            render_entertainment();
+            break;
+        case Screen::Clock:
+            render_clock();
+            break;
+        case Screen::Settings:
+            render_settings();
             break;
         case Screen::EnableCommunicator:
             render_enable_communicator();
@@ -378,31 +449,17 @@ void Launcher::render_main()
                 board::DisplayColor::AccentGreen);
         }
 
-        if (index == kEntries.size() - 1U) {
-            board_.draw_polish_ui_text_region(
-                18,
-                row_y,
-                184,
-                18,
-                kEntries[index].label,
-                2,
-                selected
-                    ? board::DisplayColor::Ivory
-                    : board::DisplayColor::MutedBlue,
-                row_background);
-        } else {
-            board_.draw_text_region(
-                18,
-                row_y,
-                184,
-                18,
-                kEntries[index].label,
-                2,
-                selected
-                    ? board::DisplayColor::Ivory
-                    : board::DisplayColor::MutedBlue,
-                row_background);
-        }
+        board_.draw_polish_ui_text_region(
+            18,
+            row_y,
+            184,
+            18,
+            kEntries[index].label,
+            2,
+            selected
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            row_background);
 
         if (index == 0) {
             const board::DisplayColor indicator_color =
@@ -432,6 +489,188 @@ void Launcher::render_main()
         220,
         12,
         "M5 OPEN  |  SIDE NEXT",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_tools()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        14,
+        212,
+        20,
+        u8"NARZĘDZIA",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+
+    constexpr const char* kTools[2] = {
+        "RadioLab",
+        u8"Powrót",
+    };
+
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = index == tools_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(48 + index * 28);
+
+        board_.draw_polish_ui_text_region(
+            22,
+            y,
+            196,
+            22,
+            kTools[index],
+            2,
+            selected
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            selected
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 17),
+                board::DisplayColor::AccentGreen);
+        }
+    }
+
+    board_.draw_polish_ui_text_region(
+        14,
+        112,
+        212,
+        14,
+        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_entertainment()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        18,
+        212,
+        20,
+        u8"ROZRYWKA",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        22,
+        58,
+        196,
+        22,
+        u8"Powrót",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::PanelNavy);
+    board_.draw_line(
+        14,
+        58,
+        14,
+        75,
+        board::DisplayColor::AccentGreen);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        112,
+        212,
+        14,
+        u8"M5 POWRÓT",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_clock()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        18,
+        212,
+        20,
+        u8"ZEGAR",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        22,
+        58,
+        196,
+        22,
+        u8"Powrót",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::PanelNavy);
+    board_.draw_line(
+        14,
+        58,
+        14,
+        75,
+        board::DisplayColor::AccentGreen);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        112,
+        212,
+        14,
+        u8"M5 POWRÓT",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_settings()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        18,
+        212,
+        20,
+        u8"USTAWIENIA",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        22,
+        58,
+        196,
+        22,
+        u8"Powrót",
+        2,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::PanelNavy);
+    board_.draw_line(
+        14,
+        58,
+        14,
+        75,
+        board::DisplayColor::AccentGreen);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        112,
+        212,
+        14,
+        u8"M5 POWRÓT",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -546,46 +785,22 @@ void Launcher::render_shutdown_confirm()
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
 
-    constexpr const char* kChoices[2] = {
-        "NIE",
-        "TAK",
-    };
-
-    for (std::uint8_t index = 0; index < 2; ++index) {
-        const bool selected = index == shutdown_selection_;
-        const std::int16_t y =
-            static_cast<std::int16_t>(52 + index * 28);
-
-        board_.draw_polish_ui_text_region(
-            24,
-            y,
-            192,
-            22,
-            kChoices[index],
-            2,
-            selected
-                ? board::DisplayColor::Ivory
-                : board::DisplayColor::MutedBlue,
-            selected
-                ? board::DisplayColor::PanelNavy
-                : board::DisplayColor::Navy);
-
-        if (selected) {
-            board_.draw_line(
-                16,
-                y,
-                16,
-                static_cast<std::int16_t>(y + 17),
-                board::DisplayColor::AccentGreen);
-        }
-    }
+    board_.draw_polish_ui_text_region(
+        18,
+        58,
+        204,
+        18,
+        "M5 / PRIMARY: TAK",
+        1,
+        board::DisplayColor::AccentGreen,
+        board::DisplayColor::Navy);
 
     board_.draw_polish_ui_text_region(
-        14,
-        112,
-        212,
-        14,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        18,
+        84,
+        204,
+        18,
+        "SIDE / SECONDARY: NIE",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);

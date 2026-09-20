@@ -215,7 +215,7 @@ extern "C" void app_main(void)
                         }
 
                         resume_messaging_after_radiolab = false;
-                        launcher.begin(communicator_enabled);
+                        launcher.begin_tools(communicator_enabled);
                     }
                 }
             }
@@ -253,7 +253,7 @@ extern "C" void app_main(void)
                 }
 
                 resume_messaging_after_radiolab = false;
-                launcher.begin(communicator_enabled);
+                launcher.begin_tools(communicator_enabled);
                 state = RuntimeState::Launcher;
             }
         }
