@@ -37,6 +37,11 @@ bool CommunicatorApp::begin()
 bool CommunicatorApp::end()
 {
     active_ = false;
+
+    if (state_ == State::HumanOkReceived) {
+        state_ = State::Main;
+    }
+
     return messaging_.set_rx_profile(messaging::RxProfile::Background);
 }
 
