@@ -145,6 +145,7 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Background messaging must remain independent of the foreground screen/application.
 - Communicator conversation state is small, volatile, and limited to the current deterministic exchange; it is not chat history.
 - Communicator may retain at most one deferred incoming event to avoid head-of-line blocking; it must not overwrite that slot or expand it into a general inbox/reordering layer.
+- True simultaneous conversational initiation uses deterministic MAC ordering: the lower self MAC temporarily yields and may suspend exactly one WaitingForResponse context until the peer's short exchange completes; this is collision handling, not multi-conversation scheduling.
 - Human-visible conversation `OK` remains distinct from transport/application ACK.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.

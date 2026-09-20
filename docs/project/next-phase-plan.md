@@ -22,6 +22,7 @@ The first infrastructure phase intentionally supports one known peer and keeps m
 - [x] Dedupe received logical messages while ACKing duplicate copies again.
 - [x] Keep incoming logical events retained until Communicator accepts them; use non-destructive peek plus explicit consume.
 - [x] Allow exactly one temporarily incompatible incoming event to be deferred locally so it cannot head-of-line block a later event required by the active exchange.
+- [x] Resolve true simultaneous conversational initiation deterministically by MAC ordering, with exactly one suspended WaitingForResponse context on the yielding side.
 - [x] Keep dedupe in long-lived RAM state across foreground app changes and RadioLab pause/resume, while documenting that it resets on full reboot.
 - [x] Keep messaging state independent of foreground UI.
 - [x] Pause messaging transport while RadioLab owns the radio and resume it afterwards.

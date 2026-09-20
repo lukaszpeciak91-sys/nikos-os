@@ -79,6 +79,7 @@ public:
 
     bool peer_known() const;
     bool peer_reachable() const;
+    const radio::MacAddress& self_mac() const;
     const radio::MacAddress& peer_mac() const;
     bool latest_peer_rssi(std::int8_t& rssi) const;
 

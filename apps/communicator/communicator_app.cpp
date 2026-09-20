@@ -39,7 +39,11 @@ bool CommunicatorApp::end()
     active_ = false;
 
     if (state_ == State::HumanOkReceived) {
-        state_ = State::Main;
+        if (suspended_waiting_.valid) {
+            restore_suspended_waiting(false);
+        } else {
+            state_ = State::Main;
+        }
     }
 
     return messaging_.set_rx_profile(messaging::RxProfile::Background);
@@ -83,9 +87,15 @@ bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
         const bool wait_followup =
             state_ == State::WaitingForHumanAck
             && preset == catalogue::PresetId::Wait;
+        const bool collision_yield =
+            should_yield_simultaneous_preset(preset);
 
-        if (!idle_message && !wait_followup) {
+        if (!idle_message && !wait_followup && !collision_yield) {
             return false;
+        }
+
+        if (collision_yield) {
+            suspend_waiting_for_response();
         }
 
         current_incoming_ = message;
@@ -215,9 +225,68 @@ bool CommunicatorApp::can_defer_incoming(
                 == expected_human_ack_reference_;
     }
 
-    return expected_response_reference_ != 0
+    const bool matches_active_wait =
+        expected_response_reference_ != 0
         && message.reference_message_id == expected_response_reference_
         && catalogue::response_allowed_for(sent_preset_, response);
+
+    const bool matches_suspended_wait =
+        suspended_waiting_.valid
+        && message.reference_message_id
+            == suspended_waiting_.expected_response_reference
+        && catalogue::response_allowed_for(
+            suspended_waiting_.sent_preset,
+            response);
+
+    return matches_active_wait || matches_suspended_wait;
+}
+
+bool CommunicatorApp::should_yield_simultaneous_preset(
+    catalogue::PresetId preset) const
+{
+    if (state_ != State::WaitingForResponse
+        || suspended_waiting_.valid
+        || preset == catalogue::PresetId::Greeting
+        || !messaging_.peer_known()) {
+        return false;
+    }
+
+    // Both peers know the same pair of MACs. Exactly the lower self MAC yields.
+    return messaging_.self_mac() < messaging_.peer_mac();
+}
+
+void CommunicatorApp::suspend_waiting_for_response()
+{
+    suspended_waiting_.valid = true;
+    suspended_waiting_.sent_preset = sent_preset_;
+    suspended_waiting_.expected_response_reference =
+        expected_response_reference_;
+
+    // Recognition of the original expected response moves to the suspended
+    // context while the peer's colliding exchange is handled.
+    expected_response_reference_ = 0;
+}
+
+void CommunicatorApp::restore_suspended_waiting(bool render)
+{
+    if (!suspended_waiting_.valid) {
+        state_ = State::Main;
+        if (render) {
+            render_main();
+        }
+        return;
+    }
+
+    sent_preset_ = suspended_waiting_.sent_preset;
+    expected_response_reference_ =
+        suspended_waiting_.expected_response_reference;
+    expected_human_ack_reference_ = 0;
+    suspended_waiting_ = SuspendedWaitingContext{};
+    state_ = State::WaitingForResponse;
+
+    if (render) {
+        render_waiting_for_response();
+    }
 }
 
 void CommunicatorApp::handle_input(const board::InputState& input)
@@ -341,8 +410,12 @@ void CommunicatorApp::handle_wait_decision_input(
 void CommunicatorApp::handle_human_ok_input(const board::InputState& input)
 {
     if (input.primary_short || input.secondary_short) {
-        state_ = State::Main;
-        render_main();
+        if (suspended_waiting_.valid) {
+            restore_suspended_waiting(true);
+        } else {
+            state_ = State::Main;
+            render_main();
+        }
     }
 }
 

@@ -66,6 +66,8 @@ Special responses `Za chwilę`, `Później`, and `Sprawdzę` allow the initiator
 
 Incoming logical events are inspected non-destructively and are consumed from `messaging::Service` only after Communicator has retained/accepted them. Communicator may additionally retain exactly one temporarily incompatible incoming event locally, consume that event from the service queue, and continue inspecting later queued traffic needed by the active exchange. The deferred event keeps its original logical identity and is surfaced once the conversation reaches a compatible state. An occupied deferred slot is never overwritten. A full small service queue does not discard an already retained event; an unretained new logical message remains un-ACKed so the existing sender retry can deliver it later.
 
+True simultaneous conversational initiation uses one deterministic collision rule: when both sides are waiting for a response and receive the other's new conversational preset, the device with the lexicographically lower self MAC yields. It preserves exactly one original WaitingForResponse context, handles the peer's short exchange through its normal response/human-OK flow, then restores its original wait. The higher-MAC device keeps its own exchange active and later surfaces its already deferred peer question. No protocol synchronization is added.
+
 SYGNAŁ/RING UI and audible attention behavior are intentionally not part of this Communicator v0.1 core UX PR.
 
 ## RadioLab v0.1 foundation

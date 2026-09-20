@@ -226,6 +226,11 @@ bool Service::peer_reachable() const
             <= schedule.reachability_timeout_ms;
 }
 
+const radio::MacAddress& Service::self_mac() const
+{
+    return radio_.self_mac();
+}
+
 const radio::MacAddress& Service::peer_mac() const
 {
     return peer_mac_;

@@ -41,9 +41,19 @@ private:
         HumanOkReceived,
     };
 
+    struct SuspendedWaitingContext {
+        bool valid = false;
+        catalogue::PresetId sent_preset = catalogue::PresetId::Greeting;
+        std::uint32_t expected_response_reference = 0;
+    };
+
     bool accept_incoming(const messaging::IncomingMessage& message);
     bool can_defer_incoming(
         const messaging::IncomingMessage& message) const;
+    bool should_yield_simultaneous_preset(
+        catalogue::PresetId preset) const;
+    void suspend_waiting_for_response();
+    void restore_suspended_waiting(bool render);
     void handle_input(const board::InputState& input);
 
     void handle_main_input(const board::InputState& input);
@@ -97,6 +107,7 @@ private:
     messaging::IncomingMessage current_incoming_{};
     messaging::IncomingMessage deferred_incoming_{};
     bool deferred_incoming_valid_ = false;
+    SuspendedWaitingContext suspended_waiting_{};
 
     std::uint32_t expected_response_reference_ = 0;
     std::uint32_t expected_human_ack_reference_ = 0;
