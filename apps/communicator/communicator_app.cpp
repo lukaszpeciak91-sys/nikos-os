@@ -83,9 +83,12 @@ void CommunicatorApp::reset_session()
 
     active_ = false;
     foreground_exit_requested_ = false;
+    options_active_ = false;
+    radio_mode_change_failed_ = false;
     state_ = State::Main;
 
     selected_main_index_ = 0;
+    selected_options_index_ = 0;
     selected_response_index_ = 0;
     selected_wait_decision_index_ = 0;
 
@@ -140,13 +143,20 @@ CommunicatorApp::UpdateResult CommunicatorApp::update()
         return UpdateResult::Running;
     }
 
-    if (state_ == State::Main) {
+    if (state_ == State::Main && !options_active_) {
         render_main_if_status_changed();
     }
 
     const board::InputState input = board_.poll_input();
 
     if (input.secondary_long) {
+        if (state_ == State::Main && options_active_) {
+            options_active_ = false;
+            radio_mode_change_failed_ = false;
+            render_main();
+            return UpdateResult::Running;
+        }
+
         return UpdateResult::ExitRequested;
     }
 
@@ -391,7 +401,11 @@ void CommunicatorApp::handle_input(const board::InputState& input)
 {
     switch (state_) {
         case State::Main:
-            handle_main_input(input);
+            if (options_active_) {
+                handle_options_input(input);
+            } else {
+                handle_main_input(input);
+            }
             break;
         case State::IncomingPreset:
             handle_incoming_preset_input(input);
@@ -420,8 +434,10 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
     const bool reachable = messaging_.peer_reachable();
     const std::uint8_t signal_index =
         static_cast<std::uint8_t>(catalogue::kPresetOrder.size());
-    const std::uint8_t return_index =
+    const std::uint8_t options_index =
         static_cast<std::uint8_t>(signal_index + 1U);
+    const std::uint8_t return_index =
+        static_cast<std::uint8_t>(options_index + 1U);
     const std::uint8_t choice_count =
         static_cast<std::uint8_t>(return_index + 1U);
 
@@ -429,9 +445,9 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         std::uint8_t next = static_cast<std::uint8_t>(
             (selected_main_index_ + 1U) % choice_count);
 
-        // SYGNAŁ is not selectable while the peer is unavailable.
+        // Only SYGNAŁ is unavailable while the peer is unreachable.
         if (!reachable && next == signal_index) {
-            next = return_index;
+            next = options_index;
         }
 
         selected_main_index_ = next;
@@ -440,6 +456,14 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
     }
 
     if (!input.primary_short) {
+        return;
+    }
+
+    if (selected_main_index_ == options_index) {
+        options_active_ = true;
+        selected_options_index_ = 0;
+        radio_mode_change_failed_ = false;
+        render_options();
         return;
     }
 
@@ -458,6 +482,43 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
     }
 
     (void)send_selected_preset();
+}
+
+void CommunicatorApp::handle_options_input(
+    const board::InputState& input)
+{
+    if (input.secondary_short) {
+        selected_options_index_ =
+            static_cast<std::uint8_t>((selected_options_index_ + 1U) % 2U);
+        radio_mode_change_failed_ = false;
+        render_options();
+        return;
+    }
+
+    if (!input.primary_short) {
+        return;
+    }
+
+    if (selected_options_index_ == 1U) {
+        options_active_ = false;
+        radio_mode_change_failed_ = false;
+        render_main();
+        return;
+    }
+
+    const radio::Mode current = messaging_.radio_mode();
+    const radio::Mode target =
+        current == radio::Mode::Normal
+            ? radio::Mode::Lr
+            : radio::Mode::Normal;
+
+    if (messaging_.set_radio_mode(target)) {
+        radio_mode_change_failed_ = false;
+    } else {
+        radio_mode_change_failed_ = true;
+    }
+
+    render_options();
 }
 
 void CommunicatorApp::handle_incoming_preset_input(
@@ -798,7 +859,11 @@ void CommunicatorApp::render_current()
 {
     switch (state_) {
         case State::Main:
-            render_main();
+            if (options_active_) {
+                render_options();
+            } else {
+                render_main();
+            }
             break;
         case State::WaitingForResponse:
         case State::WaitingForWaitResponse:
@@ -833,11 +898,12 @@ void CommunicatorApp::render_main()
     const bool reachable = messaging_.peer_reachable();
     const std::uint8_t bars = signal_bars();
     const std::size_t signal_index = catalogue::kPresetOrder.size();
-    const std::size_t return_index = signal_index + 1U;
+    const std::size_t options_index = signal_index + 1U;
+    const std::size_t return_index = options_index + 1U;
 
     if (!reachable && selected_main_index_ == signal_index) {
         selected_main_index_ =
-            static_cast<std::uint8_t>(return_index);
+            static_cast<std::uint8_t>(options_index);
     }
 
     board_.draw_polish_ui_text_region(
@@ -887,13 +953,13 @@ void CommunicatorApp::render_main()
         const bool selected_row =
             reachable && selected_main_index_ == index;
         const std::int16_t y =
-            static_cast<std::int16_t>(50 + slot * 16);
+            static_cast<std::int16_t>(48 + slot * 14);
 
         board_.draw_polish_ui_text_region(
             12,
             y,
             216,
-            13,
+            12,
             catalogue::preset_text(catalogue::kPresetOrder[index]),
             1,
             selected_row
@@ -908,16 +974,16 @@ void CommunicatorApp::render_main()
                 8,
                 y,
                 8,
-                static_cast<std::int16_t>(y + 11),
+                static_cast<std::int16_t>(y + 10),
                 board::DisplayColor::AccentGreen);
         }
     }
 
     board_.draw_line(
         8,
-        82,
+        76,
         231,
-        82,
+        76,
         board::DisplayColor::MutedBlue);
 
     const bool signal_selected =
@@ -929,13 +995,13 @@ void CommunicatorApp::render_main()
 
     draw_bell_glyph(
         24,
-        95,
+        88,
         1,
         signal_color);
 
     board_.draw_polish_ui_text_region(
         44,
-        84,
+        77,
         150,
         22,
         u8"SYGNAŁ",
@@ -948,10 +1014,35 @@ void CommunicatorApp::render_main()
     if (signal_selected) {
         board_.draw_line(
             8,
-            86,
+            79,
             8,
-            103,
+            96,
             board::DisplayColor::Orange);
+    }
+
+    const bool options_selected =
+        selected_main_index_ == options_index;
+    board_.draw_polish_ui_text_region(
+        12,
+        99,
+        216,
+        12,
+        "OPCJE",
+        1,
+        options_selected
+            ? board::DisplayColor::Ivory
+            : board::DisplayColor::MutedBlue,
+        options_selected
+            ? board::DisplayColor::PanelNavy
+            : board::DisplayColor::Navy);
+
+    if (options_selected) {
+        board_.draw_line(
+            8,
+            99,
+            8,
+            109,
+            board::DisplayColor::AccentGreen);
     }
 
     const bool return_selected =
@@ -965,40 +1056,30 @@ void CommunicatorApp::render_main()
             ? board::DisplayColor::PanelNavy
             : board::DisplayColor::Navy;
 
-    board_.draw_polish_ui_text_region(
-        12,
-        106,
-        216,
-        14,
-        "",
-        1,
-        return_color,
-        return_background);
-
     board_.draw_line(
         22,
-        113,
+        117,
         28,
-        108,
+        112,
         return_color);
     board_.draw_line(
         22,
-        113,
+        117,
         28,
-        118,
+        122,
         return_color);
     board_.draw_line(
         22,
-        113,
+        117,
         35,
-        113,
+        117,
         return_color);
 
     board_.draw_polish_ui_text_region(
         42,
-        106,
+        111,
         170,
-        14,
+        12,
         u8"POWRÓT",
         1,
         return_color,
@@ -1007,14 +1088,16 @@ void CommunicatorApp::render_main()
     if (return_selected) {
         board_.draw_line(
             8,
-            106,
+            111,
             8,
-            118,
+            121,
             board::DisplayColor::AccentGreen);
     }
 
     const char* footer = nullptr;
-    if (return_selected) {
+    if (options_selected) {
+        footer = "M5 OPCJE  |  SIDE DALEJ";
+    } else if (return_selected) {
         footer = u8"M5 POWRÓT  |  SIDE DALEJ";
     } else if (signal_selected) {
         footer = u8"M5 SYGNAŁ  |  SIDE DALEJ";
@@ -1026,9 +1109,9 @@ void CommunicatorApp::render_main()
 
     board_.draw_polish_ui_text_region(
         8,
-        122,
+        123,
         224,
-        11,
+        12,
         footer,
         1,
         board::DisplayColor::MutedBlue,
@@ -1037,6 +1120,115 @@ void CommunicatorApp::render_main()
     rendered_peer_state_valid_ = true;
     rendered_peer_reachable_ = reachable;
     rendered_signal_bars_ = bars;
+}
+
+void CommunicatorApp::render_options()
+{
+    clear_screen();
+    draw_header("OPCJE");
+
+    const bool mode_selected = selected_options_index_ == 0U;
+    const bool return_selected = selected_options_index_ == 1U;
+    const char* mode_text =
+        messaging_.radio_mode() == radio::Mode::Lr
+            ? "LR"
+            : "STANDARD";
+
+    board_.draw_polish_ui_text_region(
+        12,
+        34,
+        216,
+        22,
+        "",
+        1,
+        board::DisplayColor::Ivory,
+        mode_selected
+            ? board::DisplayColor::PanelNavy
+            : board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        18,
+        39,
+        104,
+        14,
+        "TRYB RADIO",
+        1,
+        mode_selected
+            ? board::DisplayColor::Ivory
+            : board::DisplayColor::MutedBlue,
+        mode_selected
+            ? board::DisplayColor::PanelNavy
+            : board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        132,
+        39,
+        90,
+        14,
+        mode_text,
+        1,
+        mode_selected
+            ? board::DisplayColor::AccentGreen
+            : board::DisplayColor::Ivory,
+        mode_selected
+            ? board::DisplayColor::PanelNavy
+            : board::DisplayColor::Navy);
+
+    if (mode_selected) {
+        board_.draw_line(
+            8,
+            35,
+            8,
+            54,
+            board::DisplayColor::AccentGreen);
+    }
+
+    board_.draw_polish_ui_text_region(
+        12,
+        69,
+        216,
+        20,
+        u8"POWRÓT",
+        1,
+        return_selected
+            ? board::DisplayColor::Ivory
+            : board::DisplayColor::MutedBlue,
+        return_selected
+            ? board::DisplayColor::PanelNavy
+            : board::DisplayColor::Navy);
+
+    if (return_selected) {
+        board_.draw_line(
+            8,
+            70,
+            8,
+            86,
+            board::DisplayColor::AccentGreen);
+    }
+
+    board_.draw_polish_ui_text_region(
+        18,
+        99,
+        204,
+        14,
+        radio_mode_change_failed_
+            ? u8"NIE UDAŁO SIĘ"
+            : "USTAW TAK SAMO NA OBU",
+        1,
+        radio_mode_change_failed_
+            ? board::DisplayColor::Orange
+            : board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        8,
+        120,
+        224,
+        12,
+        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
 }
 
 void CommunicatorApp::render_main_if_status_changed()

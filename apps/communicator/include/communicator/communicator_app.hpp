@@ -58,6 +58,7 @@ private:
     void handle_input(const board::InputState& input);
 
     void handle_main_input(const board::InputState& input);
+    void handle_options_input(const board::InputState& input);
     void handle_incoming_preset_input(const board::InputState& input);
     void handle_response_choice_input(const board::InputState& input);
     void handle_incoming_response_input(const board::InputState& input);
@@ -82,6 +83,7 @@ private:
     std::uint8_t signal_bars() const;
     void render_current();
     void render_main();
+    void render_options();
     void render_main_if_status_changed();
     void render_waiting_for_response();
     void render_incoming_preset();
@@ -108,9 +110,12 @@ private:
 
     bool active_ = false;
     bool foreground_exit_requested_ = false;
+    bool options_active_ = false;
+    bool radio_mode_change_failed_ = false;
     State state_ = State::Main;
 
     std::uint8_t selected_main_index_ = 0;
+    std::uint8_t selected_options_index_ = 0;
     std::uint8_t selected_response_index_ = 0;
     std::uint8_t selected_wait_decision_index_ = 0;
 
