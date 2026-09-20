@@ -839,8 +839,6 @@ void CommunicatorApp::render_main()
     const std::size_t signal_index = catalogue::kPresetOrder.size();
     const std::size_t options_index = signal_index + 1U;
     const std::size_t return_index = options_index + 1U;
-    const std::size_t choice_count = return_index + 1U;
-    constexpr std::size_t kVisibleRows = 3;
 
     if (!reachable && selected_main_index_ == signal_index) {
         selected_main_index_ =
@@ -879,140 +877,65 @@ void CommunicatorApp::render_main()
         47,
         board::DisplayColor::SecondaryText);
 
-    std::size_t first_visible = 0;
-    if (selected_main_index_ >= kVisibleRows) {
-        first_visible =
-            selected_main_index_ - kVisibleRows + 1U;
-    }
-    const std::size_t max_first = choice_count - kVisibleRows;
-    first_visible = std::min(first_visible, max_first);
+    const std::size_t selected_preset =
+        selected_main_index_ < signal_index
+            ? selected_main_index_
+            : signal_index - 1U;
+    std::size_t first = selected_preset > 0
+        ? selected_preset - 1U
+        : 0U;
+    const std::size_t max_first = catalogue::kPresetOrder.size() - 2U;
+    first = std::min(first, max_first);
 
-    for (std::size_t slot = 0; slot < kVisibleRows; ++slot) {
-        const std::size_t index = first_visible + slot;
-        const bool selected = index == selected_main_index_;
+    for (std::size_t slot = 0; slot < 2; ++slot) {
+        const std::size_t index = first + slot;
+        const bool selected_row =
+            reachable && selected_main_index_ == index;
         const std::int16_t y =
-            static_cast<std::int16_t>(50 + slot * 23);
+            static_cast<std::int16_t>(50 + slot * 22);
         const board::DisplayColor row_background =
-            selected
+            selected_row
                 ? board::DisplayColor::Surface
                 : board::DisplayColor::Background;
-
-        if (index == signal_index
-            && index > 0
-            && slot > 0) {
-            board_.draw_line(
-                12,
-                static_cast<std::int16_t>(y - 2),
-                228,
-                static_cast<std::int16_t>(y - 2),
-                board::DisplayColor::SecondaryText);
-        }
 
         board_.draw_polish_ui_text_region(
             8,
             y,
             224,
-            21,
+            20,
             "",
             1,
             board::DisplayColor::PrimaryText,
             row_background);
 
-        const board::DisplayColor marker_color =
-            index == signal_index
-                ? board::DisplayColor::Attention
-                : board::DisplayColor::Accent;
+        board_.draw_polish_ui_text_region(
+            16,
+            static_cast<std::int16_t>(y + 1),
+            208,
+            19,
+            catalogue::preset_text(catalogue::kPresetOrder[index]),
+            2,
+            selected_row
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            row_background);
 
-        if (selected) {
+        if (selected_row) {
             board_.draw_line(
                 8,
                 y,
                 8,
                 static_cast<std::int16_t>(y + 17),
-                marker_color);
-        }
-
-        if (index < signal_index) {
-            board_.draw_polish_ui_text_region(
-                16,
-                static_cast<std::int16_t>(y + 1),
-                208,
-                20,
-                catalogue::preset_text(
-                    catalogue::kPresetOrder[index]),
-                2,
-                selected
-                    ? board::DisplayColor::PrimaryText
-                    : board::DisplayColor::SecondaryText,
-                row_background);
-        } else if (index == signal_index) {
-            const board::DisplayColor signal_color =
-                reachable
-                    ? board::DisplayColor::Attention
-                    : board::DisplayColor::SecondaryText;
-
-            draw_bell_glyph(
-                26,
-                static_cast<std::int16_t>(y + 10),
-                1,
-                signal_color);
-            board_.draw_polish_ui_text_region(
-                44,
-                static_cast<std::int16_t>(y + 1),
-                176,
-                20,
-                "SYGNAŁ",
-                2,
-                signal_color,
-                row_background);
-        } else if (index == options_index) {
-            board_.draw_polish_ui_text_region(
-                16,
-                static_cast<std::int16_t>(y + 1),
-                208,
-                20,
-                "OPCJE",
-                2,
-                selected
-                    ? board::DisplayColor::PrimaryText
-                    : board::DisplayColor::SecondaryText,
-                row_background);
-        } else {
-            const board::DisplayColor return_color =
-                selected
-                    ? board::DisplayColor::PrimaryText
-                    : board::DisplayColor::SecondaryText;
-
-            board_.draw_line(
-                22,
-                static_cast<std::int16_t>(y + 10),
-                28,
-                static_cast<std::int16_t>(y + 5),
-                return_color);
-            board_.draw_line(
-                22,
-                static_cast<std::int16_t>(y + 10),
-                28,
-                static_cast<std::int16_t>(y + 15),
-                return_color);
-            board_.draw_line(
-                22,
-                static_cast<std::int16_t>(y + 10),
-                35,
-                static_cast<std::int16_t>(y + 10),
-                return_color);
-
-            board_.draw_polish_ui_text_region(
-                42,
-                static_cast<std::int16_t>(y + 1),
-                178,
-                20,
-                "POWRÓT",
-                2,
-                return_color,
-                row_background);
+                board::DisplayColor::Accent);
         }
     }
+
+    board_.draw_line(
+        8,
+        94,
+        231,
+        94,
+        board::DisplayColor::SecondaryText);
 
     const bool signal_selected =
         reachable && selected_main_index_ == signal_index;
@@ -1020,6 +943,86 @@ void CommunicatorApp::render_main()
         selected_main_index_ == options_index;
     const bool return_selected =
         selected_main_index_ == return_index;
+
+    const board::DisplayColor signal_background =
+        signal_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background;
+    const board::DisplayColor signal_color =
+        reachable
+            ? board::DisplayColor::Attention
+            : board::DisplayColor::SecondaryText;
+
+    board_.draw_polish_ui_text_region(
+        8,
+        96,
+        80,
+        21,
+        "SYGNAŁ",
+        2,
+        signal_color,
+        signal_background);
+
+    if (signal_selected) {
+        board_.draw_line(
+            8,
+            96,
+            8,
+            113,
+            board::DisplayColor::Attention);
+    }
+
+    const board::DisplayColor options_background =
+        options_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background;
+
+    board_.draw_polish_ui_text_region(
+        88,
+        96,
+        64,
+        21,
+        "OPCJE",
+        2,
+        options_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        options_background);
+
+    if (options_selected) {
+        board_.draw_line(
+            88,
+            96,
+            88,
+            113,
+            board::DisplayColor::Accent);
+    }
+
+    const board::DisplayColor return_background =
+        return_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background;
+
+    board_.draw_polish_ui_text_region(
+        152,
+        96,
+        80,
+        21,
+        "POWRÓT",
+        2,
+        return_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        return_background);
+
+    if (return_selected) {
+        board_.draw_line(
+            152,
+            96,
+            152,
+            113,
+            board::DisplayColor::Accent);
+    }
 
     const char* footer = nullptr;
     if (options_selected) {
