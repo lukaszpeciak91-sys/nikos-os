@@ -59,6 +59,7 @@ public:
     explicit Service(radio::RadioService& radio);
 
     bool begin(const Config& config);
+    bool stop();
     void update();
 
     bool pause_transport();

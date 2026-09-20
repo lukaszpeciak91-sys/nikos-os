@@ -14,7 +14,7 @@ struct Entry {
 };
 
 constexpr std::array<Entry, 4> kEntries = {{
-    {"Communicator", nikos::launcher::Action::OpenCommunicator},
+    {"Communicator", nikos::launcher::Action::None},
     {"RadioLab", nikos::launcher::Action::OpenRadioLab},
     {"Minutnik", nikos::launcher::Action::None},
     {"Rozrywka", nikos::launcher::Action::None},
@@ -157,9 +157,13 @@ void Launcher::show_splash()
     draw_sliced_logo(board_, true);
 }
 
-void Launcher::begin()
+void Launcher::begin(bool communicator_active)
 {
+    screen_ = Screen::Main;
+    communicator_active_ = communicator_active;
     selected_index_ = 0;
+    active_communicator_selection_ = 0;
+
     const std::uint32_t now = now_ms();
     update_battery_sample(now);
     render();
@@ -169,9 +173,43 @@ Action Launcher::update()
 {
     const std::uint32_t now = now_ms();
     update_battery_sample(now);
-    render_battery_if_changed();
+
+    if (screen_ == Screen::Main) {
+        render_battery_if_changed();
+    }
 
     const board::InputState input = board_.poll_input();
+
+    if (screen_ == Screen::EnableCommunicator) {
+        if (input.primary_short) {
+            return Action::StartCommunicator;
+        }
+
+        if (input.secondary_short) {
+            screen_ = Screen::Main;
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ActiveCommunicator) {
+        if (input.secondary_short) {
+            active_communicator_selection_ =
+                static_cast<std::uint8_t>(
+                    (active_communicator_selection_ + 1U) % 2U);
+            render();
+            return Action::None;
+        }
+
+        if (input.primary_short) {
+            return active_communicator_selection_ == 0
+                ? Action::OpenCommunicator
+                : Action::StopCommunicator;
+        }
+
+        return Action::None;
+    }
 
     if (input.secondary_long) {
         return Action::None;
@@ -185,6 +223,15 @@ Action Launcher::update()
     }
 
     if (input.primary_short) {
+        if (selected_index_ == 0) {
+            active_communicator_selection_ = 0;
+            screen_ = communicator_active_
+                ? Screen::ActiveCommunicator
+                : Screen::EnableCommunicator;
+            render();
+            return Action::None;
+        }
+
         return kEntries[selected_index_].action;
     }
 
@@ -206,6 +253,21 @@ void Launcher::update_battery_sample(std::uint32_t now_ms)
 }
 
 void Launcher::render()
+{
+    switch (screen_) {
+        case Screen::Main:
+            render_main();
+            break;
+        case Screen::EnableCommunicator:
+            render_enable_communicator();
+            break;
+        case Screen::ActiveCommunicator:
+            render_active_communicator();
+            break;
+    }
+}
+
+void Launcher::render_main()
 {
     clear_shell(board_);
     rendered_battery_valid_ = false;
@@ -241,6 +303,10 @@ void Launcher::render()
         const bool selected = index == selected_index_;
         const std::int16_t row_y =
             static_cast<std::int16_t>(32 + index * 19);
+        const board::DisplayColor row_background =
+            selected
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy;
 
         if (selected) {
             board_.draw_text_region(
@@ -269,16 +335,35 @@ void Launcher::render()
         board_.draw_text_region(
             18,
             row_y,
-            205,
+            184,
             18,
             kEntries[index].label,
             2,
             selected
                 ? board::DisplayColor::Ivory
                 : board::DisplayColor::MutedBlue,
-            selected
-                ? board::DisplayColor::PanelNavy
-                : board::DisplayColor::Navy);
+            row_background);
+
+        if (index == 0) {
+            const board::DisplayColor indicator_color =
+                communicator_active_
+                    ? board::DisplayColor::AccentGreen
+                    : board::DisplayColor::MutedBlue;
+
+            board_.fill_circle(
+                219,
+                static_cast<std::int16_t>(row_y + 7),
+                5,
+                indicator_color);
+
+            if (!communicator_active_) {
+                board_.fill_circle(
+                    219,
+                    static_cast<std::int16_t>(row_y + 7),
+                    2,
+                    row_background);
+            }
+        }
     }
 
     board_.draw_text_region(
@@ -287,6 +372,101 @@ void Launcher::render()
         220,
         12,
         "M5 OPEN  |  SIDE NEXT",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_enable_communicator()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        14,
+        26,
+        212,
+        22,
+        u8"WŁĄCZYĆ KOMUNIKATOR?",
+        1,
+        board::DisplayColor::Ivory,
+        board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        18,
+        62,
+        204,
+        18,
+        "M5 / PRIMARY: TAK",
+        1,
+        board::DisplayColor::AccentGreen,
+        board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        18,
+        86,
+        204,
+        18,
+        "SIDE / SECONDARY: NIE",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void Launcher::render_active_communicator()
+{
+    clear_shell(board_);
+
+    board_.draw_polish_ui_text_region(
+        20,
+        18,
+        200,
+        18,
+        "KOMUNIKATOR AKTYWNY",
+        1,
+        board::DisplayColor::AccentGreen,
+        board::DisplayColor::Navy);
+
+    constexpr const char* kChoices[2] = {
+        u8"WEJDŹ",
+        u8"WYŁĄCZ",
+    };
+
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected =
+            index == active_communicator_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(49 + index * 28);
+
+        board_.draw_polish_ui_text_region(
+            22,
+            y,
+            196,
+            22,
+            kChoices[index],
+            2,
+            selected
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            selected
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 17),
+                board::DisplayColor::AccentGreen);
+        }
+    }
+
+    board_.draw_polish_ui_text_region(
+        14,
+        112,
+        212,
+        14,
+        u8"M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);

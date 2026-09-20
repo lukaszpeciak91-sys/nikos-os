@@ -95,6 +95,42 @@ bool Service::begin(const Config& config)
     return true;
 }
 
+bool Service::stop()
+{
+    bool stopped = true;
+    if (transport_active_) {
+        stopped = radio_.stop();
+    }
+
+    started_ = false;
+    transport_active_ = false;
+    rx_profile_ = RxProfile::Background;
+
+    peer_known_ = false;
+    peer_mac_ = {};
+    last_peer_rx_ms_ = 0;
+    latest_peer_rssi_ = 0;
+    latest_peer_rssi_valid_ = false;
+    last_presence_tx_ms_ = 0;
+    current_presence_delay_ms_ = 0;
+
+    next_message_id_ = 1;
+    outgoing_ = OutgoingState{};
+
+    recent_received_ids_ = {};
+    recent_received_count_ = 0;
+    recent_received_next_ = 0;
+
+    incoming_queue_ = {};
+    incoming_head_ = 0;
+    incoming_count_ = 0;
+
+    delivery_receipt_ = DeliveryReceipt{};
+    delivery_ready_ = false;
+
+    return stopped;
+}
+
 void Service::update()
 {
     if (!started_ || !transport_active_) {

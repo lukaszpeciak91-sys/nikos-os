@@ -90,22 +90,20 @@ extern "C" void app_main(void)
         "DRUGI M5");
     nikos::radiolab::RadioLabApp radiolab(board, radio);
 
-    if (!messaging.begin(make_messaging_config())) {
-        ESP_LOGW(
-            kTag,
-            "Messaging transport failed to start; shell remains available");
-    }
+    bool communicator_enabled = false;
+    bool resume_messaging_after_radiolab = false;
 
     RuntimeState state = RuntimeState::Launcher;
-    launcher.begin();
+    launcher.begin(communicator_enabled);
 
     while (true) {
-        // Long-lived messaging state is independent of foreground UI.
-        // update() becomes a no-op while RadioLab has transport ownership.
+        // update() is a no-op while messaging is disabled or while RadioLab
+        // temporarily owns the radio transport.
         messaging.update();
 
         if (state == RuntimeState::Launcher) {
-            if (communicator.process_incoming()) {
+            if (communicator_enabled
+                && communicator.process_incoming()) {
                 if (!communicator.begin()) {
                     ESP_LOGW(
                         kTag,
@@ -115,21 +113,59 @@ extern "C" void app_main(void)
             } else {
                 const nikos::launcher::Action action = launcher.update();
 
-                if (action == nikos::launcher::Action::OpenCommunicator) {
+                if (action == nikos::launcher::Action::StartCommunicator) {
+                    communicator.reset_session();
+
+                    if (messaging.begin(make_messaging_config())) {
+                        communicator_enabled = true;
+
+                        if (!communicator.begin()) {
+                            ESP_LOGW(
+                                kTag,
+                                "Communicator foreground RX profile could not be applied");
+                        }
+                        state = RuntimeState::Communicator;
+                    } else {
+                        ESP_LOGW(
+                            kTag,
+                            "Communicator messaging failed to start");
+                        launcher.begin(false);
+                    }
+                } else if (
+                    action == nikos::launcher::Action::OpenCommunicator) {
                     if (!communicator.begin()) {
                         ESP_LOGW(
                             kTag,
                             "Communicator foreground RX profile could not be applied");
                     }
                     state = RuntimeState::Communicator;
-                } else if (action == nikos::launcher::Action::OpenRadioLab) {
-                    if (!messaging.pause_transport()) {
+                } else if (
+                    action == nikos::launcher::Action::StopCommunicator) {
+                    communicator.reset_session();
+
+                    if (!messaging.stop()) {
+                        ESP_LOGW(
+                            kTag,
+                            "Communicator messaging stop completed with cleanup errors");
+                    }
+
+                    communicator_enabled = false;
+                    launcher.begin(false);
+                } else if (
+                    action == nikos::launcher::Action::OpenRadioLab) {
+                    resume_messaging_after_radiolab =
+                        communicator_enabled;
+
+                    if (resume_messaging_after_radiolab
+                        && !messaging.pause_transport()) {
                         ESP_LOGW(
                             kTag,
                             "Messaging transport pause completed with cleanup errors");
                     }
 
-                    if (radio.begin(kRadioChannel, nikos::radio::Mode::Normal)) {
+                    if (radio.begin(
+                            kRadioChannel,
+                            nikos::radio::Mode::Normal)) {
                         radiolab.begin();
                         state = RuntimeState::RadioLab;
                     } else {
@@ -139,13 +175,18 @@ extern "C" void app_main(void)
                             "Check serial log.");
                         vTaskDelay(pdMS_TO_TICKS(kRadioErrorDisplayMs));
 
-                        if (!messaging.resume_transport()) {
+                        if (resume_messaging_after_radiolab
+                            && !messaging.resume_transport()) {
                             ESP_LOGW(
                                 kTag,
-                                "Messaging transport failed to resume after RadioLab error");
+                                "Messaging transport failed to resume after RadioLab error; disabling Communicator session");
+                            communicator.reset_session();
+                            (void)messaging.stop();
+                            communicator_enabled = false;
                         }
 
-                        launcher.begin();
+                        resume_messaging_after_radiolab = false;
+                        launcher.begin(communicator_enabled);
                     }
                 }
             }
@@ -157,7 +198,8 @@ extern "C" void app_main(void)
                         kTag,
                         "Communicator background RX profile could not be restored");
                 }
-                launcher.begin();
+
+                launcher.begin(communicator_enabled);
                 state = RuntimeState::Launcher;
             }
         } else {
@@ -166,20 +208,28 @@ extern "C" void app_main(void)
                 radiolab.end();
 
                 if (!radio.stop()) {
-                    ESP_LOGW(kTag, "Radio stop completed with cleanup errors");
-                }
-
-                if (!messaging.resume_transport()) {
                     ESP_LOGW(
                         kTag,
-                        "Messaging transport failed to resume after RadioLab");
+                        "Radio stop completed with cleanup errors");
                 }
 
-                launcher.begin();
+                if (resume_messaging_after_radiolab
+                    && !messaging.resume_transport()) {
+                    ESP_LOGW(
+                        kTag,
+                        "Messaging transport failed to resume after RadioLab; disabling Communicator session");
+                    communicator.reset_session();
+                    (void)messaging.stop();
+                    communicator_enabled = false;
+                }
+
+                resume_messaging_after_radiolab = false;
+                launcher.begin(communicator_enabled);
                 state = RuntimeState::Launcher;
             }
         }
 
         vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
     }
+
 }

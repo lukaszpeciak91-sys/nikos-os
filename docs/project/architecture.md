@@ -91,7 +91,11 @@ It currently owns:
 
 The service has no dedicated FreeRTOS task. It is advanced from the normal main loop.
 
-Messaging state is independent of foreground UI. While RadioLab owns the radio for its field-test session, messaging transport is paused but messaging state remains alive. When RadioLab exits, messaging transport resumes.
+Messaging service lifetime is independent of foreground Communicator UI. Background Communicator messaging starts OFF after boot and is enabled explicitly for the current OS session only. This enabled/disabled state is volatile and is not persisted in NVS.
+
+While enabled, leaving the foreground Communicator UI does not stop messaging; it restores the background RX profile. Explicitly disabling Communicator stops the messaging transport and clears volatile messaging/session state.
+
+While RadioLab owns the radio for its field-test session, messaging transport is paused only if Communicator messaging was active before the handoff. RadioLab exit resumes messaging only in that case; it must not start an OFF Communicator session.
 
 Receiver dedupe state is part of that long-lived in-memory service state, so it survives foreground application changes and the RadioLab pause/resume handoff. It is intentionally volatile across a full device reboot. In this first infrastructure version, if a sender is still retrying an outstanding logical message when the receiver reboots, that message may be surfaced again after the receiver restarts.
 
@@ -127,7 +131,7 @@ Current and future applications include:
 
 RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
 
-Communicator is a foreground UI over the long-lived `messaging::Service`. Entering Communicator selects the experimental foreground messaging RX profile; exiting restores the background profile. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state. To prevent FIFO head-of-line blocking during one active exchange, Communicator may hold exactly one temporarily incompatible incoming logical event locally while later service-queue traffic is inspected; this is current-exchange state, not a general inbox/router.
+Communicator is a foreground UI over the session-scoped `messaging::Service`. Enabling Communicator starts the service for the current OS session. Entering the foreground panel selects the experimental foreground messaging RX profile; exiting the panel restores the background profile without disabling the service. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state. To prevent FIFO head-of-line blocking during one active exchange, Communicator may hold exactly one temporarily incompatible incoming logical event locally while later service-queue traffic is inspected; this is current-exchange state, not a general inbox/router.
 
 The separate `SYGNAŁ` attention feature is a transient UI/audio overlay over the current foreground state. It reuses the existing RING delivery type but is not a preset message and does not enter the deterministic conversation state machine. Its short buzzer/animation sequence is advanced from the normal application update loop rather than a blocking delay or separate audio/animation framework.
 
@@ -144,7 +148,9 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - RadioLab protocol and Communicator protocol remain separate while their requirements are materially different.
 - ESP-NOW callbacks must perform minimal work and hand copied data to normal task context.
 - UI state must not own background communication.
-- Background messaging must remain independent of the foreground screen/application.
+- Background messaging lifetime must remain independent of foreground Communicator visibility.
+- Communicator background messaging is OFF after boot and must be explicitly enabled for the current OS session.
+- Communicator enabled/disabled state is volatile and must not be persisted in NVS in this phase.
 - Communicator conversation state is small, volatile, and limited to the current deterministic exchange; it is not chat history.
 - Communicator may retain at most one deferred incoming event to avoid head-of-line blocking; it must not overwrite that slot or expand it into a general inbox/reordering layer.
 - True simultaneous conversational initiation uses deterministic MAC ordering: the lower self MAC temporarily yields and may suspend exactly one WaitingForResponse context until the peer's short exchange completes; this is collision handling, not multi-conversation scheduling.
@@ -152,6 +158,7 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - `SYGNAŁ` remains outside preset conversation semantics; it is a bounded transient attention overlay using existing RING delivery semantics.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
+- RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.
 - Communicator delivery confirmation requires a matching application ACK.
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.

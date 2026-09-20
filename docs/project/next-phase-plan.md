@@ -25,6 +25,10 @@ The first infrastructure phase intentionally supports one known peer and keeps m
 - [x] Resolve true simultaneous conversational initiation deterministically by MAC ordering, with exactly one suspended WaitingForResponse context on the yielding side.
 - [x] Keep dedupe in long-lived RAM state across foreground app changes and RadioLab pause/resume, while documenting that it resets on full reboot.
 - [x] Keep messaging state independent of foreground UI.
+- [x] Start Communicator background messaging OFF after boot.
+- [x] Add volatile launcher-controlled enable/disable for the current OS session only.
+- [x] Keep foreground Communicator open/close separate from background messaging service lifetime.
+- [x] Make RadioLab pause/resume conditional on Communicator messaging already being ACTIVE.
 - [x] Pause messaging transport while RadioLab owns the radio and resume it afterwards.
 - [x] Make radio RX wake behavior configurable.
 - [x] Provide experimental foreground/background messaging RX profiles as configuration.
