@@ -91,7 +91,8 @@ It currently owns:
 - one outstanding outgoing logical message
 - bounded retry-until-application-ACK delivery with a fixed logical deadline, configured attempt budget, and bounded retry jitter
 - explicit Delivered/Failed logical delivery outcomes with attempt/latency instrumentation
-- retransmission suspended while the known peer is stale/unreachable without pausing or resetting the absolute delivery deadline
+- retransmission suspended while the known peer is stale/unreachable without pausing or resetting the logical delivery deadline
+- deliberate RadioLab transport ownership pauses suspend logical delivery timeout and retry-delay clocks; resume preserves the same logical MessageId, attempt count, and remaining delivery/retry budget
 - receiver-side in-memory dedupe
 - duplicate ACK behavior without duplicate notification
 - bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
@@ -213,7 +214,8 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.
 - Communicator delivery confirmation requires a matching application ACK; attempt-budget or deadline exhaustion produces an explicit Failed logical outcome.
-- Communicator retry interval/jitter, attempt limit, and logical timeout are experimental configuration; reachability changes do not reset the logical delivery deadline.
+- Communicator retry interval/jitter, attempt limit, and logical timeout are experimental configuration; ordinary peer unreachability continues consuming the logical delivery deadline.
+- Deliberate RadioLab transport ownership pause is different from peer unreachability: it suspends logical delivery/retry timing, and resume preserves the same MessageId, attempts, and remaining timing budget.
 - Current metrics count ESP-NOW send submissions/requests, not true PHY-level Wi-Fi transmissions; radio TxResult attribution remains future work.
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
 - A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
