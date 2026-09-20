@@ -21,7 +21,7 @@ constexpr std::uint16_t kMutedBlueRgb565 = 0x6391;   // #65708B
 constexpr std::uint16_t kOrangeRgb565 = 0xFD20;      // attention accent
 
 constexpr char kPolishFontSanityText[] =
-    u8"ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
+    "ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
 
 std::uint32_t to_display_color(nikos::board::DisplayColor color)
 {
