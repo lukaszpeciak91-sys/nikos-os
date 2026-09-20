@@ -198,3 +198,24 @@ A small non-blocking `signal_sound::Player` owns the three fixed product pattern
 The ordinary short incoming-message notification tone remains separate and unchanged.
 
 **Rationale:** This establishes one real user preference and one reusable SYGNAŁ playback source without prematurely introducing generic settings persistence, a theme system, or a generic audio/notification framework.
+
+
+## D-017 — Runtime visual themes extend the existing boot-scoped settings state
+
+**Status:** Accepted
+
+Settings v2 extends the existing composition-owned `settings::State` with one typed visual-theme value:
+
+- `Nikos` / Nikoś — default after boot;
+- `Amber` / Bursztyn;
+- `Graphite` / Grafit.
+
+The selection is volatile for the current OS boot and is not persisted in NVS.
+
+Three fixed compile-time palettes live behind a small `ui_theme` boundary. Applications do not know RGB565 values and do not branch on the active theme. They request semantic `board::DisplayColor` roles, and the board layer resolves theme-varying roles through the active palette.
+
+Theme-varying roles are background, surface, primary text, secondary text, and visual accent. Product-semantic status/attention/error roles remain independent of the selected theme: active/reachable stays restrained mint/green, Communicator `SYGNAŁ` stays orange, and danger/error remains distinct from attention.
+
+Changing the theme updates `settings::State`, switches the board palette immediately, and redraws the current Theme screen. No Save/Apply step, generic styling engine, per-screen palette, or persistence is introduced.
+
+**Rationale:** The existing boot-scoped settings state is already the correct ownership boundary for real user preferences. A small semantic color cleanup prevents palette-specific names from leaking into applications while keeping runtime theming mechanically simple.

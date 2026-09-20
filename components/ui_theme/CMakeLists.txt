@@ -1,5 +1,4 @@
 idf_component_register(
-    SRCS "settings.cpp"
+    SRCS "ui_theme.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES ui_theme
 )

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "ui_theme/ui_theme.hpp"
+
 namespace nikos::board {
 
 enum class ChargeState : std::uint8_t {
@@ -11,16 +13,15 @@ enum class ChargeState : std::uint8_t {
 };
 
 enum class DisplayColor : std::uint8_t {
-    Black,
-    White,
-    Red,
-    Green,
-    Navy,
-    PanelNavy,
-    Ivory,
-    AccentGreen,
-    Orange,
-    MutedBlue,
+    Background,
+    Surface,
+    PrimaryText,
+    SecondaryText,
+    Accent,
+    StatusActive,
+    StatusInactive,
+    Attention,
+    Danger,
 };
 
 struct PowerStatus {
@@ -47,6 +48,8 @@ public:
     void wake_display();
     void power_off();
 
+    void set_theme(ui_theme::Theme theme);
+
     void clear_screen();
     void fill_circle(
         std::int16_t x,
@@ -66,8 +69,8 @@ public:
         std::int16_t height,
         const char* text,
         std::uint8_t text_size,
-        DisplayColor foreground = DisplayColor::White,
-        DisplayColor background = DisplayColor::Black);
+        DisplayColor foreground = DisplayColor::PrimaryText,
+        DisplayColor background = DisplayColor::Background);
     void draw_polish_ui_text_region(
         std::int16_t x,
         std::int16_t y,
@@ -75,12 +78,17 @@ public:
         std::int16_t height,
         const char* utf8_text,
         std::uint8_t text_scale = 1,
-        DisplayColor foreground = DisplayColor::White,
-        DisplayColor background = DisplayColor::Black);
+        DisplayColor foreground = DisplayColor::PrimaryText,
+        DisplayColor background = DisplayColor::Background);
     void draw_polish_ui_font_sanity_demo();
 
     void draw_screen(const char* title, const char* body);
     const char* detected_board_name() const;
+
+private:
+    std::uint32_t resolve_display_color(DisplayColor color) const;
+
+    ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
 };
 
 const char* charge_state_name(ChargeState state);

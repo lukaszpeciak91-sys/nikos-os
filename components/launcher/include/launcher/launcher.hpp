@@ -37,6 +37,7 @@ private:
         Clock,
         Settings,
         SignalSound,
+        Theme,
         EnableCommunicator,
         ActiveCommunicator,
         ShutdownConfirm,
@@ -50,6 +51,7 @@ private:
     void render_clock();
     void render_settings();
     void render_signal_sound();
+    void render_theme();
     void render_enable_communicator();
     void render_active_communicator();
     void render_shutdown_confirm();
@@ -64,6 +66,7 @@ private:
     std::uint8_t tools_selection_ = 0;
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
+    std::uint8_t theme_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
 
     bool battery_sample_valid_ = false;
