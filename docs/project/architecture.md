@@ -109,13 +109,24 @@ Receiver dedupe state is part of that long-lived in-memory service state, so it 
 
 ### settings
 
-`settings::State` owns the current boot-scoped user preference state. Settings v1 contains only the selected Communicator `SYGNAŁ` sound:
+`settings::State` owns the current boot-scoped user preference state. It now contains the two real runtime preferences:
 
-- Gentle / `Łagodny` (default)
-- Classic / `Klasyczny`
-- Pager
+- Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
+- visual theme: Nikoś (default), Bursztyn, or Grafit.
 
-The state is created by composition in `app_main`, is shared with the launcher Settings UI and signal-sound player, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
+The state is created by composition in `app_main`, is shared with the launcher Settings UI and the narrow consumers that need each typed value, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
+
+### ui_theme
+
+`ui_theme` owns the three fixed compile-time visual palettes:
+
+- Nikoś — the approved near-black navy reference theme;
+- Bursztyn — a dark warm retro-electronic palette;
+- Grafit — a neutral high-readability graphite palette.
+
+Applications request semantic display roles rather than RGB565 values. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Product-semantic roles such as `StatusActive`, `StatusInactive`, `Attention`, and `Danger` remain fixed across themes so status, SYGNAŁ attention, and error/destructive meaning do not drift with the selected palette.
+
+The active palette is held by `board` and selected from `settings::State::theme`. No generic styling engine, per-screen palette, or runtime RGB editor is introduced.
 
 ### signal_sound
 
@@ -204,7 +215,9 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
 - Communicator STANDARD/LR selection is session-scoped radio configuration owned by `messaging::Service`; it must not alter foreground/background RX schedules, presence cadence, retry timing, ACK/dedupe semantics, or logical MessageIds.
-- Settings v1 signal-sound selection is boot-scoped volatile state owned by composition; it is not persisted in NVS.
+- Settings signal-sound and visual-theme selections are boot-scoped volatile state owned by composition; neither is persisted in NVS.
 - Settings preview and received Communicator `SYGNAŁ` must use the same `signal_sound::Player` and fixed pattern definitions.
+- Applications request semantic display roles; theme-specific RGB565 values remain centralized in `ui_theme` and are resolved by `board`.
+- Theme accent is distinct from fixed semantic status/attention/danger colors.
 - Experimental RX and reachability timing values are configuration, not platform invariants. The current foreground profile uses an approximately 7 s reachability timeout, while the background 3000/500 ms RX profile uses a more conservative approximately 20 s timeout to tolerate legitimately missed PRESENCE packets.
 - Persistent schemas and wire protocols must be versioned once introduced.

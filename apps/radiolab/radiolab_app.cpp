@@ -561,7 +561,7 @@ void RadioLabApp::render_main_if_changed(std::uint32_t now_ms)
             kIndicatorX,
             kIndicatorY,
             kIndicatorRadius,
-            fresh ? board::DisplayColor::Green : board::DisplayColor::Red);
+            fresh ? board::DisplayColor::StatusActive : board::DisplayColor::StatusInactive);
     }
 
     if (!main_render_state_valid_
@@ -629,8 +629,8 @@ void RadioLabApp::render_action_area_if_changed(std::uint32_t now_ms)
 
     if (visible_feedback == DeliveryFeedback::PingOk
         || visible_feedback == DeliveryFeedback::HelloOk) {
-        board_.draw_line(22, 119, 29, 126, board::DisplayColor::Green);
-        board_.draw_line(29, 126, 40, 111, board::DisplayColor::Green);
+        board_.draw_line(22, 119, 29, 126, board::DisplayColor::StatusActive);
+        board_.draw_line(29, 126, 40, 111, board::DisplayColor::StatusActive);
         board_.draw_text_region(
             50,
             109,
@@ -640,7 +640,7 @@ void RadioLabApp::render_action_area_if_changed(std::uint32_t now_ms)
                 ? "PING OK"
                 : "HELLO OK",
             2,
-            board::DisplayColor::Green);
+            board::DisplayColor::StatusActive);
     } else {
         board_.draw_text_region(10, 108, 90, 22, "SIDE PING", 2);
         board_.draw_text_region(120, 108, 115, 22, "M5 HELLO", 2);

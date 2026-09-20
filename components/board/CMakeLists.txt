@@ -3,4 +3,5 @@ idf_component_register(
         "board.cpp"
         "polish_ui_font.cpp"
     INCLUDE_DIRS "include"
+    REQUIRES ui_theme
 )

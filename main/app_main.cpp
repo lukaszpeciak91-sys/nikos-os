@@ -71,6 +71,8 @@ extern "C" void app_main(void)
     board.begin();
 
     nikos::settings::State settings;
+    board.set_theme(settings.theme);
+
     nikos::signal_sound::Player signal_sound(board, settings);
     nikos::launcher::Launcher launcher(
         board,

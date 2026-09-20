@@ -10,45 +10,16 @@ namespace {
 constexpr char kTag[] = "board";
 constexpr std::uint32_t kHoldThresholdMs = 600;
 
-// Nikoś OS base reference palette. Keep these direct RGB565 values local to
-// the board semantic color boundary so they remain easy to tune after LCD
-// testing without introducing a runtime theme system.
-constexpr std::uint16_t kNavyRgb565 = 0x10A5;        // #11162F
-constexpr std::uint16_t kPanelNavyRgb565 = 0x1908;   // #1A2144
-constexpr std::uint16_t kIvoryRgb565 = 0xF75B;       // #F1EBDD
-constexpr std::uint16_t kAccentGreenRgb565 = 0x8DF5; // #88BDA8
-constexpr std::uint16_t kMutedBlueRgb565 = 0x6391;   // #65708B
-constexpr std::uint16_t kOrangeRgb565 = 0xFD20;      // attention accent
+// Theme-varying colors come from ui_theme::Palette. Product-semantic colors
+// remain fixed across themes.
+constexpr std::uint16_t kStatusActiveRgb565 = 0x8DF5;   // #88BDA8
+constexpr std::uint16_t kStatusInactiveRgb565 = 0xB36D; // #B46F6F
+constexpr std::uint16_t kAttentionRgb565 = 0xFD20;      // existing SYGNAŁ orange
+constexpr std::uint16_t kDangerRgb565 = 0xC2EB;         // #C65F5F
 
 constexpr char kPolishFontSanityText[] =
     "ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
 
-std::uint32_t to_display_color(nikos::board::DisplayColor color)
-{
-    switch (color) {
-        case nikos::board::DisplayColor::White:
-            return TFT_WHITE;
-        case nikos::board::DisplayColor::Red:
-            return TFT_RED;
-        case nikos::board::DisplayColor::Green:
-            return TFT_GREEN;
-        case nikos::board::DisplayColor::Navy:
-            return kNavyRgb565;
-        case nikos::board::DisplayColor::PanelNavy:
-            return kPanelNavyRgb565;
-        case nikos::board::DisplayColor::Ivory:
-            return kIvoryRgb565;
-        case nikos::board::DisplayColor::AccentGreen:
-            return kAccentGreenRgb565;
-        case nikos::board::DisplayColor::Orange:
-            return kOrangeRgb565;
-        case nikos::board::DisplayColor::MutedBlue:
-            return kMutedBlueRgb565;
-        case nikos::board::DisplayColor::Black:
-        default:
-            return TFT_BLACK;
-    }
-}
 
 }  // namespace
 
@@ -144,9 +115,14 @@ void Board::power_off()
     M5.Power.powerOff();
 }
 
+void Board::set_theme(ui_theme::Theme theme)
+{
+    theme_ = theme;
+}
+
 void Board::clear_screen()
 {
-    M5.Display.fillScreen(TFT_BLACK);
+    M5.Display.fillScreen(resolve_display_color(DisplayColor::Background));
 }
 
 void Board::fill_circle(
@@ -155,7 +131,7 @@ void Board::fill_circle(
     std::int16_t radius,
     DisplayColor color)
 {
-    M5.Display.fillCircle(x, y, radius, to_display_color(color));
+    M5.Display.fillCircle(x, y, radius, resolve_display_color(color));
 }
 
 void Board::draw_line(
@@ -165,7 +141,7 @@ void Board::draw_line(
     std::int16_t y1,
     DisplayColor color)
 {
-    M5.Display.drawLine(x0, y0, x1, y1, to_display_color(color));
+    M5.Display.drawLine(x0, y0, x1, y1, resolve_display_color(color));
 }
 
 void Board::draw_text_region(
@@ -179,8 +155,8 @@ void Board::draw_text_region(
     DisplayColor background)
 {
     auto& display = M5.Display;
-    const std::uint32_t foreground_color = to_display_color(foreground);
-    const std::uint32_t background_color = to_display_color(background);
+    const std::uint32_t foreground_color = resolve_display_color(foreground);
+    const std::uint32_t background_color = resolve_display_color(background);
 
     display.fillRect(x, y, width, height, background_color);
     display.setTextColor(foreground_color, background_color);
@@ -206,8 +182,8 @@ void Board::draw_polish_ui_text_region(
     const std::int32_t previous_cursor_x = display.getCursorX();
     const std::int32_t previous_cursor_y = display.getCursorY();
 
-    const std::uint32_t foreground_color = to_display_color(foreground);
-    const std::uint32_t background_color = to_display_color(background);
+    const std::uint32_t foreground_color = resolve_display_color(foreground);
+    const std::uint32_t background_color = resolve_display_color(background);
 
     display.fillRect(x, y, width, height, background_color);
     display.setFont(&detail::kPolishUiFont);
@@ -223,7 +199,7 @@ void Board::draw_polish_ui_text_region(
 
 void Board::draw_polish_ui_font_sanity_demo()
 {
-    M5.Display.fillScreen(to_display_color(DisplayColor::Navy));
+    M5.Display.fillScreen(resolve_display_color(DisplayColor::Background));
     draw_polish_ui_text_region(
         4,
         58,
@@ -231,15 +207,20 @@ void Board::draw_polish_ui_font_sanity_demo()
         16,
         kPolishFontSanityText,
         1,
-        DisplayColor::Ivory,
-        DisplayColor::Navy);
+        DisplayColor::PrimaryText,
+        DisplayColor::Background);
 }
 
 void Board::draw_screen(const char* title, const char* body)
 {
     auto& display = M5.Display;
-    display.fillScreen(TFT_BLACK);
-    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    const std::uint32_t background =
+        resolve_display_color(DisplayColor::Background);
+    const std::uint32_t foreground =
+        resolve_display_color(DisplayColor::PrimaryText);
+
+    display.fillScreen(background);
+    display.setTextColor(foreground, background);
     display.setCursor(4, 3);
     display.setTextSize(2);
     display.println(title);
@@ -247,6 +228,33 @@ void Board::draw_screen(const char* title, const char* body)
     display.setCursor(4, 22);
     display.setTextSize(1);
     display.print(body);
+}
+
+std::uint32_t Board::resolve_display_color(DisplayColor color) const
+{
+    const ui_theme::Palette& palette = ui_theme::palette(theme_);
+
+    switch (color) {
+        case DisplayColor::Surface:
+            return palette.surface;
+        case DisplayColor::PrimaryText:
+            return palette.primary_text;
+        case DisplayColor::SecondaryText:
+            return palette.secondary_text;
+        case DisplayColor::Accent:
+            return palette.accent;
+        case DisplayColor::StatusActive:
+            return kStatusActiveRgb565;
+        case DisplayColor::StatusInactive:
+            return kStatusInactiveRgb565;
+        case DisplayColor::Attention:
+            return kAttentionRgb565;
+        case DisplayColor::Danger:
+            return kDangerRgb565;
+        case DisplayColor::Background:
+        default:
+            return palette.background;
+    }
 }
 
 const char* Board::detected_board_name() const

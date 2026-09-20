@@ -853,9 +853,9 @@ void CommunicatorApp::render_main()
         peer_label_,
         1,
         reachable
-            ? board::DisplayColor::Ivory
-            : board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     board_.draw_polish_ui_text_region(
         10,
@@ -865,9 +865,9 @@ void CommunicatorApp::render_main()
         reachable ? "DOSTĘPNY" : "NIEDOSTĘPNY",
         1,
         reachable
-            ? board::DisplayColor::AccentGreen
-            : board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+            ? board::DisplayColor::StatusActive
+            : board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     draw_signal_bars(bars, reachable);
     board_.draw_line(
@@ -875,7 +875,7 @@ void CommunicatorApp::render_main()
         47,
         231,
         47,
-        board::DisplayColor::MutedBlue);
+        board::DisplayColor::SecondaryText);
 
     const std::size_t selected_preset =
         selected_main_index_ < signal_index
@@ -902,11 +902,11 @@ void CommunicatorApp::render_main()
             catalogue::preset_text(catalogue::kPresetOrder[index]),
             1,
             selected_row
-                ? board::DisplayColor::Ivory
-                : board::DisplayColor::MutedBlue,
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
             selected_row
-                ? board::DisplayColor::PanelNavy
-                : board::DisplayColor::Navy);
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
 
         if (selected_row) {
             board_.draw_line(
@@ -914,7 +914,7 @@ void CommunicatorApp::render_main()
                 y,
                 8,
                 static_cast<std::int16_t>(y + 10),
-                board::DisplayColor::AccentGreen);
+                board::DisplayColor::Accent);
         }
     }
 
@@ -923,14 +923,14 @@ void CommunicatorApp::render_main()
         76,
         231,
         76,
-        board::DisplayColor::MutedBlue);
+        board::DisplayColor::SecondaryText);
 
     const bool signal_selected =
         reachable && selected_main_index_ == signal_index;
     const board::DisplayColor signal_color =
         reachable
-            ? board::DisplayColor::Orange
-            : board::DisplayColor::MutedBlue;
+            ? board::DisplayColor::Attention
+            : board::DisplayColor::SecondaryText;
 
     draw_bell_glyph(
         24,
@@ -947,8 +947,8 @@ void CommunicatorApp::render_main()
         2,
         signal_color,
         signal_selected
-            ? board::DisplayColor::PanelNavy
-            : board::DisplayColor::Navy);
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
 
     if (signal_selected) {
         board_.draw_line(
@@ -956,7 +956,7 @@ void CommunicatorApp::render_main()
             79,
             8,
             96,
-            board::DisplayColor::Orange);
+            board::DisplayColor::Attention);
     }
 
     const bool options_selected =
@@ -969,11 +969,11 @@ void CommunicatorApp::render_main()
         "OPCJE",
         1,
         options_selected
-            ? board::DisplayColor::Ivory
-            : board::DisplayColor::MutedBlue,
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
         options_selected
-            ? board::DisplayColor::PanelNavy
-            : board::DisplayColor::Navy);
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
 
     if (options_selected) {
         board_.draw_line(
@@ -981,19 +981,19 @@ void CommunicatorApp::render_main()
             99,
             8,
             109,
-            board::DisplayColor::AccentGreen);
+            board::DisplayColor::Accent);
     }
 
     const bool return_selected =
         selected_main_index_ == return_index;
     const board::DisplayColor return_color =
         return_selected
-            ? board::DisplayColor::Ivory
-            : board::DisplayColor::MutedBlue;
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText;
     const board::DisplayColor return_background =
         return_selected
-            ? board::DisplayColor::PanelNavy
-            : board::DisplayColor::Navy;
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background;
 
     board_.draw_line(
         22,
@@ -1030,7 +1030,7 @@ void CommunicatorApp::render_main()
             111,
             8,
             121,
-            board::DisplayColor::AccentGreen);
+            board::DisplayColor::Accent);
     }
 
     const char* footer = nullptr;
@@ -1053,8 +1053,8 @@ void CommunicatorApp::render_main()
         12,
         footer,
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     rendered_peer_state_valid_ = true;
     rendered_peer_reachable_ = reachable;
@@ -1080,10 +1080,10 @@ void CommunicatorApp::render_options()
         22,
         "",
         1,
-        board::DisplayColor::Ivory,
+        board::DisplayColor::PrimaryText,
         mode_selected
-            ? board::DisplayColor::PanelNavy
-            : board::DisplayColor::Navy);
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
 
     board_.draw_polish_ui_text_region(
         18,
@@ -1093,11 +1093,11 @@ void CommunicatorApp::render_options()
         "TRYB RADIO",
         1,
         mode_selected
-            ? board::DisplayColor::Ivory
-            : board::DisplayColor::MutedBlue,
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
         mode_selected
-            ? board::DisplayColor::PanelNavy
-            : board::DisplayColor::Navy);
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
 
     board_.draw_polish_ui_text_region(
         132,
@@ -1106,10 +1106,10 @@ void CommunicatorApp::render_options()
         14,
         mode_text,
         1,
-        board::DisplayColor::Ivory,
+        board::DisplayColor::PrimaryText,
         mode_selected
-            ? board::DisplayColor::PanelNavy
-            : board::DisplayColor::Navy);
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
 
     if (mode_selected) {
         board_.draw_line(
@@ -1117,7 +1117,7 @@ void CommunicatorApp::render_options()
             35,
             8,
             54,
-            board::DisplayColor::AccentGreen);
+            board::DisplayColor::Accent);
     }
 
     board_.draw_polish_ui_text_region(
@@ -1128,11 +1128,11 @@ void CommunicatorApp::render_options()
         "POWRÓT",
         1,
         return_selected
-            ? board::DisplayColor::Ivory
-            : board::DisplayColor::MutedBlue,
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
         return_selected
-            ? board::DisplayColor::PanelNavy
-            : board::DisplayColor::Navy);
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
 
     if (return_selected) {
         board_.draw_line(
@@ -1140,7 +1140,7 @@ void CommunicatorApp::render_options()
             70,
             8,
             86,
-            board::DisplayColor::AccentGreen);
+            board::DisplayColor::Accent);
     }
 
     board_.draw_polish_ui_text_region(
@@ -1153,9 +1153,9 @@ void CommunicatorApp::render_options()
             : "USTAW TAK SAMO NA OBU",
         1,
         radio_mode_change_failed_
-            ? board::DisplayColor::Orange
-            : board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+            ? board::DisplayColor::Danger
+            : board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     board_.draw_polish_ui_text_region(
         8,
@@ -1164,8 +1164,8 @@ void CommunicatorApp::render_options()
         12,
         "M5 WYBIERZ  |  SIDE DALEJ",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_main_if_status_changed()
@@ -1192,8 +1192,8 @@ void CommunicatorApp::render_waiting_for_response()
         28,
         catalogue::preset_text(sent_preset_),
         2,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::Navy);
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
         12,
         78,
@@ -1201,8 +1201,8 @@ void CommunicatorApp::render_waiting_for_response()
         18,
         "CZEKAM NA ODPOWIEDŹ...",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
         12,
         116,
@@ -1210,8 +1210,8 @@ void CommunicatorApp::render_waiting_for_response()
         14,
         "SIDE HOLD = MENU",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_incoming_preset()
@@ -1226,8 +1226,8 @@ void CommunicatorApp::render_incoming_preset()
         34,
         catalogue::preset_text(incoming_preset_),
         2,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::PanelNavy);
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Surface);
 
     const bool can_dismiss =
         incoming_preset_ == catalogue::PresetId::Greeting;
@@ -1241,8 +1241,8 @@ void CommunicatorApp::render_incoming_preset()
             ? "M5 ODPOWIEDŹ  |  SIDE ZAMKNIJ"
             : "M5 ODPOWIEDŹ",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_response_choices()
@@ -1257,8 +1257,8 @@ void CommunicatorApp::render_response_choices()
         14,
         catalogue::preset_text(incoming_preset_),
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     for (std::uint8_t index = 0; index < response_set_.count; ++index) {
         const bool selected = index == selected_response_index_;
@@ -1273,11 +1273,11 @@ void CommunicatorApp::render_response_choices()
             catalogue::response_text(response_set_.ids[index]),
             1,
             selected
-                ? board::DisplayColor::Ivory
-                : board::DisplayColor::MutedBlue,
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
             selected
-                ? board::DisplayColor::PanelNavy
-                : board::DisplayColor::Navy);
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
 
         if (selected) {
             board_.draw_line(
@@ -1285,7 +1285,7 @@ void CommunicatorApp::render_response_choices()
                 y,
                 8,
                 static_cast<std::int16_t>(y + 14),
-                board::DisplayColor::AccentGreen);
+                board::DisplayColor::Accent);
         }
     }
 
@@ -1296,8 +1296,8 @@ void CommunicatorApp::render_response_choices()
         14,
         "M5 WYBIERZ  |  SIDE DALEJ",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_waiting_for_human_ack()
@@ -1312,8 +1312,8 @@ void CommunicatorApp::render_waiting_for_human_ack()
         22,
         "ODPOWIEDŹ WYSŁANA",
         1,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::Navy);
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
         12,
         70,
@@ -1321,8 +1321,8 @@ void CommunicatorApp::render_waiting_for_human_ack()
         22,
         "CZEKAM NA OK",
         2,
-        board::DisplayColor::AccentGreen,
-        board::DisplayColor::Navy);
+        board::DisplayColor::StatusActive,
+        board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
         12,
         116,
@@ -1330,8 +1330,8 @@ void CommunicatorApp::render_waiting_for_human_ack()
         14,
         "SIDE HOLD = MENU",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_incoming_response()
@@ -1346,8 +1346,8 @@ void CommunicatorApp::render_incoming_response()
         30,
         catalogue::response_text(incoming_response_),
         1,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::PanelNavy);
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Surface);
     board_.draw_polish_ui_text_region(
         8,
         112,
@@ -1357,8 +1357,8 @@ void CommunicatorApp::render_incoming_response()
             ? "M5 / SIDE = ZAMKNIJ"
             : "M5 OK",
         incoming_response_ == catalogue::ResponseId::GreetingHello ? 1 : 2,
-        board::DisplayColor::AccentGreen,
-        board::DisplayColor::Navy);
+        board::DisplayColor::Accent,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_wait_decision()
@@ -1373,8 +1373,8 @@ void CommunicatorApp::render_wait_decision()
         16,
         catalogue::response_text(incoming_response_),
         1,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::Navy);
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
         10,
         40,
@@ -1382,8 +1382,8 @@ void CommunicatorApp::render_wait_decision()
         14,
         "CO DALEJ?",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     const char* choices[2] = {"OK", "ZACZEKAĆ?"};
     for (std::uint8_t index = 0; index < 2; ++index) {
@@ -1399,11 +1399,11 @@ void CommunicatorApp::render_wait_decision()
             choices[index],
             1,
             selected
-                ? board::DisplayColor::Ivory
-                : board::DisplayColor::MutedBlue,
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
             selected
-                ? board::DisplayColor::PanelNavy
-                : board::DisplayColor::Navy);
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
     }
 
     board_.draw_polish_ui_text_region(
@@ -1413,8 +1413,8 @@ void CommunicatorApp::render_wait_decision()
         14,
         "M5 WYBIERZ  |  SIDE DALEJ",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_human_ok_received()
@@ -1429,8 +1429,8 @@ void CommunicatorApp::render_human_ok_received()
         38,
         "OK",
         3,
-        board::DisplayColor::AccentGreen,
-        board::DisplayColor::Navy);
+        board::DisplayColor::StatusActive,
+        board::DisplayColor::Background);
     board_.draw_polish_ui_text_region(
         8,
         112,
@@ -1438,8 +1438,8 @@ void CommunicatorApp::render_human_ok_received()
         18,
         "M5 / SIDE = ZAMKNIJ",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::render_signal_alert(bool wide_arcs)
@@ -1451,7 +1451,7 @@ void CommunicatorApp::render_signal_alert(bool wide_arcs)
         120,
         55,
         3,
-        board::DisplayColor::Orange);
+        board::DisplayColor::Attention);
 
     board_.draw_polish_ui_text_region(
         47,
@@ -1460,8 +1460,8 @@ void CommunicatorApp::render_signal_alert(bool wide_arcs)
         30,
         "SYGNAŁ",
         3,
-        board::DisplayColor::Orange,
-        board::DisplayColor::Navy);
+        board::DisplayColor::Attention,
+        board::DisplayColor::Background);
 
     board_.draw_polish_ui_text_region(
         34,
@@ -1470,8 +1470,8 @@ void CommunicatorApp::render_signal_alert(bool wide_arcs)
         12,
         "DOWOLNY PRZYCISK = ZAMKNIJ",
         1,
-        board::DisplayColor::MutedBlue,
-        board::DisplayColor::Navy);
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::draw_bell_glyph(
@@ -1537,26 +1537,26 @@ void CommunicatorApp::draw_ringing_arcs(bool wide_arcs)
         upper_y,
         static_cast<std::int16_t>(120 - offset - 7),
         48,
-        board::DisplayColor::Orange);
+        board::DisplayColor::Attention);
     board_.draw_line(
         static_cast<std::int16_t>(120 - offset - 7),
         48,
         static_cast<std::int16_t>(120 - offset),
         lower_y,
-        board::DisplayColor::Orange);
+        board::DisplayColor::Attention);
 
     board_.draw_line(
         static_cast<std::int16_t>(120 + offset),
         upper_y,
         static_cast<std::int16_t>(120 + offset + 7),
         48,
-        board::DisplayColor::Orange);
+        board::DisplayColor::Attention);
     board_.draw_line(
         static_cast<std::int16_t>(120 + offset + 7),
         48,
         static_cast<std::int16_t>(120 + offset),
         lower_y,
-        board::DisplayColor::Orange);
+        board::DisplayColor::Attention);
 }
 
 void CommunicatorApp::clear_screen()
@@ -1568,8 +1568,8 @@ void CommunicatorApp::clear_screen()
         kScreenHeight,
         "",
         1,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::Navy);
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::draw_header(const char* title)
@@ -1581,8 +1581,8 @@ void CommunicatorApp::draw_header(const char* title)
         14,
         title,
         1,
-        board::DisplayColor::Ivory,
-        board::DisplayColor::Navy);
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
 }
 
 void CommunicatorApp::draw_signal_bars(
@@ -1597,8 +1597,8 @@ void CommunicatorApp::draw_signal_bars(
         const bool active_bar = reachable && index < bars;
         const board::DisplayColor color =
             active_bar
-                ? board::DisplayColor::AccentGreen
-                : board::DisplayColor::MutedBlue;
+                ? board::DisplayColor::StatusActive
+                : board::DisplayColor::SecondaryText;
         const std::int16_t x =
             static_cast<std::int16_t>(start_x + index * 10);
         const std::int16_t top =
