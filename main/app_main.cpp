@@ -44,11 +44,12 @@ bool initialize_nvs()
     return true;
 }
 
-nikos::messaging::Config make_messaging_config()
+nikos::messaging::Config make_messaging_config(
+    nikos::radio::Mode mode)
 {
     nikos::messaging::Config config;
     config.channel = kRadioChannel;
-    config.mode = nikos::radio::Mode::Normal;
+    config.mode = mode;
     config.presence_interval_ms = 2000;
     config.presence_jitter_ms = 250;
     config.retry_interval_ms = 500;
@@ -116,7 +117,9 @@ extern "C" void app_main(void)
                 if (action == nikos::launcher::Action::StartCommunicator) {
                     communicator.reset_session();
 
-                    if (messaging.begin(make_messaging_config())) {
+                    if (messaging.begin(
+                            make_messaging_config(
+                                messaging.radio_mode()))) {
                         communicator_enabled = true;
 
                         if (!communicator.begin()) {

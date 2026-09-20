@@ -69,6 +69,9 @@ public:
     bool set_rx_profile(RxProfile profile);
     RxProfile rx_profile() const;
 
+    bool set_radio_mode(radio::Mode mode);
+    radio::Mode radio_mode() const;
+
     bool send_preset_message(std::uint16_t message_id);
     bool send_preset_response(
         std::uint16_t response_id,

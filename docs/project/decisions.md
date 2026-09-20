@@ -155,3 +155,26 @@ This remains distinct from:
 - launcher `WYŁĄCZ`: power off the whole device.
 
 **Rationale:** Destructive whole-device power control requires explicit confirmation and orderly system cleanup while preserving the existing ownership boundary for M5-specific hardware.
+
+
+## D-015 — Communicator radio mode is volatile session configuration
+
+**Status:** Accepted
+
+Communicator exposes one minimal radio option:
+- `STANDARD` -> `radio::Mode::Normal`
+- `LR` -> `radio::Mode::Lr`
+
+The option is applied through `messaging::Service`, never directly from Communicator UI to `radio`.
+
+Default after full boot is STANDARD. The selection is volatile and is not persisted in NVS. It survives foreground Communicator exit/re-entry, RadioLab pause/resume, and Communicator OFF -> ON within the same OS boot.
+
+A successful change uses the existing `RadioService::set_mode()` path without restarting the messaging transport. It updates the messaging mode configuration, clears learned peer registration/reachability/RSSI, and forces fresh PRESENCE discovery while preserving:
+- current foreground/background RX profile and schedule;
+- presence interval/jitter;
+- retry interval;
+- incoming queue;
+- receiver dedupe state;
+- outstanding logical message and MessageId.
+
+**Rationale:** This allows controlled STANDARD-vs-LR validation under the real duty-cycled Communicator policy while holding messaging timing and delivery semantics constant.

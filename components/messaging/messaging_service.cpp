@@ -208,6 +208,61 @@ RxProfile Service::rx_profile() const
     return rx_profile_;
 }
 
+bool Service::set_radio_mode(radio::Mode mode)
+{
+    if (mode == config_.mode) {
+        return true;
+    }
+
+    if (!started_ || !transport_active_) {
+        config_.mode = mode;
+
+        peer_known_ = false;
+        peer_mac_ = {};
+        last_peer_rx_ms_ = 0;
+        latest_peer_rssi_ = 0;
+        latest_peer_rssi_valid_ = false;
+        last_presence_tx_ms_ = 0;
+        current_presence_delay_ms_ = 0;
+        outgoing_.last_send_ms = 0;
+        return true;
+    }
+
+    if (!radio_.set_mode(mode)) {
+        return false;
+    }
+
+    config_.mode = mode;
+    radio_.clear_peer();
+
+    // Drop only raw transport events that may have been received before the
+    // protocol switch. Messaging queues/dedupe/delivery state remain intact.
+    radio::Event stale_event;
+    while (radio_.poll(stale_event)) {
+    }
+
+    peer_known_ = false;
+    peer_mac_ = {};
+    last_peer_rx_ms_ = 0;
+    latest_peer_rssi_ = 0;
+    latest_peer_rssi_valid_ = false;
+
+    // Force fresh discovery in the selected mode on the next update().
+    last_presence_tx_ms_ = 0;
+    current_presence_delay_ms_ = 0;
+
+    // Preserve the logical outgoing message and MessageId. It may retry as
+    // soon as a compatible peer is rediscovered.
+    outgoing_.last_send_ms = 0;
+
+    return true;
+}
+
+radio::Mode Service::radio_mode() const
+{
+    return config_.mode;
+}
+
 bool Service::send_preset_message(std::uint16_t message_id)
 {
     return start_outgoing(
