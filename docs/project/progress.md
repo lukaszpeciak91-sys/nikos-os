@@ -17,6 +17,7 @@ First Communicator messaging infrastructure above the existing Nikoś OS shell a
 - Launcher controls use primary short = open/confirm and secondary short = next.
 - RadioLab controls use secondary short = PING, primary short = HELLO, primary long = NORMAL/LR, and secondary long = return to launcher.
 - The separate power button is not part of launcher or application navigation.
+- The board rendering layer includes a small embedded DejaVu Sans subset for ASCII plus Polish UI letters, exposed only through a scoped Polish UTF-8 text API.
 - ESP-NOW callback-owned RX data and metadata are copied into a FreeRTOS queue before callback return.
 - A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, retry/ACK delivery, dedupe, and experimental RX profiles above `radio`.
 - Messaging transport is active outside RadioLab; entering RadioLab pauses messaging transport and gives RadioLab temporary radio ownership, then messaging resumes on exit.
@@ -54,3 +55,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-19 — Added the first static Nikoś OS launcher skeleton and minimal RadioLab start/stop lifecycle.
 - 2026-09-19 — Added the first branded shell pass for the boot splash and launcher visuals.
 - 2026-09-20 — Added the first Communicator protocol/messaging infrastructure with one-peer presence, application-ACK retry/dedupe, RadioLab transport handoff, and configurable experimental RX schedules.
+- 2026-09-20 — Added a lightweight embedded DejaVu Sans subset in the board layer for Polish Communicator UI text preparation.
