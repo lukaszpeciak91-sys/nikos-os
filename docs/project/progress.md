@@ -31,7 +31,7 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Communicator STANDARD/LR switching under the unchanged duty-cycled foreground/background RX schedules still requires two-device hardware validation.
 - `SYGNAŁ` LCD layout, bell/arcs animation, ~3.12 s buzzer pattern, audibility, and immediate button-dismiss behavior still require physical device validation.
 - Communicator logical delivery now uses experimental 1000 ms + up to 250 ms jitter retries, at most 8 send attempts, and a 12000 ms absolute deadline; delivery metrics are logged for sender power testing.
-- TxResult-aware pacing/attribution and Presence optimization remain pending follow-up work; Presence cadence and RX duty schedules are unchanged in this step.
+- TxResult-aware pacing now serializes messaging peer unicasts, gives pending application ACKs priority, uses MAC SUCCESS only to extend ACK wait, and provides bounded missing-result recovery. Presence optimization remains pending; Presence cadence and RX duty schedules are unchanged.
 - A local ESP-IDF build has not yet been executed in the available implementation environment.
 
 ## Next planned implementation step
@@ -76,3 +76,5 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-20 — Added Settings v2 runtime themes (Nikoś / Bursztyn / Grafit), centralized compile-time palettes, and semantic display roles while preserving fixed status/attention/danger colors.
 
 - 2026-09-20 — Bounded Communicator logical delivery with experimental retry jitter/attempt/deadline policy, explicit Delivered/Failed receipts, sender submission metrics, and minimal delivery-failure UI; Presence and TxResult behavior remain unchanged.
+
+- 2026-09-20 — Added serialized messaging-unicast TxResult pacing: MAC SUCCESS enters RX-interval-based application-ACK grace, MAC FAIL/missing result return to bounded retry, pending application ACKs use a fixed small queue, and application ACK remains the only Delivered condition; Presence/protocol/RX policy remain unchanged.
