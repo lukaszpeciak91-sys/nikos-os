@@ -687,6 +687,7 @@ bool Service::submit_next_ack(std::uint32_t now_ms)
     }
 
     if (!radio_.send_peer(wire.data(), wire.size())) {
+        ++traffic_.ack_send_request_failures;
         ESP_LOGW(
             kTag,
             "Application ACK send request rejected ref=%lu",
@@ -1013,10 +1014,12 @@ void Service::finalize_outgoing_metrics()
             outgoing_.completed_ms - outgoing_.started_ms));
     ESP_LOGI(
         kTag,
-        "Traffic submissions logical=%lu ack=%lu presence=%lu logical_mac_success=%lu logical_mac_fail=%lu logical_tx_missing=%lu ack_mac_success=%lu ack_mac_fail=%lu ack_tx_missing=%lu ack_queue_overflow=%lu delivered=%lu failed=%lu",
+        "Traffic submissions logical=%lu ack=%lu ack_request_fail=%lu presence=%lu logical_mac_success=%lu logical_mac_fail=%lu logical_tx_missing=%lu ack_mac_success=%lu ack_mac_fail=%lu ack_tx_missing=%lu ack_queue_overflow=%lu delivered=%lu failed=%lu",
         static_cast<unsigned long>(
             traffic_.logical_payload_tx_submissions),
         static_cast<unsigned long>(traffic_.ack_tx_submissions),
+        static_cast<unsigned long>(
+            traffic_.ack_send_request_failures),
         static_cast<unsigned long>(traffic_.presence_tx_submissions),
         static_cast<unsigned long>(traffic_.logical_mac_successes),
         static_cast<unsigned long>(traffic_.logical_mac_failures),
