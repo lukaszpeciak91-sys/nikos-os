@@ -144,6 +144,7 @@ private:
     struct TrafficCounters {
         std::uint32_t logical_payload_tx_submissions = 0;
         std::uint32_t ack_tx_submissions = 0;
+        std::uint32_t ack_send_request_failures = 0;
         std::uint32_t presence_tx_submissions = 0;
         std::uint32_t logical_mac_successes = 0;
         std::uint32_t logical_mac_failures = 0;
