@@ -106,8 +106,11 @@ extern "C" void app_main(void)
 
         if (state == RuntimeState::Launcher) {
             nikos::messaging::IncomingMessage incoming;
-            if (messaging.poll_incoming(incoming)
+            if (messaging.peek_incoming(incoming)
                 && communicator.accept_incoming(incoming)) {
+                (void)messaging.consume_incoming(
+                    incoming.logical_message_id);
+
                 if (!communicator.begin()) {
                     ESP_LOGW(
                         kTag,

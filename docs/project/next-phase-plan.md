@@ -20,6 +20,7 @@ The first infrastructure phase intentionally supports one known peer and keeps m
 - [x] Retry one outgoing logical message until its matching application ACK.
 - [x] Suspend retransmission while the known peer is stale/unreachable and resume the same logical message ID after recovery.
 - [x] Dedupe received logical messages while ACKing duplicate copies again.
+- [x] Keep incoming logical events retained until Communicator accepts them; use non-destructive peek plus explicit consume.
 - [x] Keep dedupe in long-lived RAM state across foreground app changes and RadioLab pause/resume, while documenting that it resets on full reboot.
 - [x] Keep messaging state independent of foreground UI.
 - [x] Pause messaging transport while RadioLab owns the radio and resume it afterwards.
@@ -123,6 +124,7 @@ The wire and reliable delivery foundation supports RING, but audible UI behavior
 - [x] Implement received-message decoding into local visible strings.
 - [x] Implement the dedicated receive notification UI.
 - [x] Implement contextual preset responses and the deterministic human-OK flow.
+- [x] Treat `CZEŚĆ!` as conversation-level fire-and-forget; optional `Cześć!` reply is terminal and requires no human OK.
 - [ ] Implement audible RING behavior after basic messaging UX is stable.
 - [x] Keep retry/dedupe/delivery semantics in `messaging::Service`, not in the UI.
 - [x] Avoid chat history and avoid expanding this into a generic messaging framework without a proven requirement.

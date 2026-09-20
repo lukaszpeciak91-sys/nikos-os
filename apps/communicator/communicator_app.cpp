@@ -106,6 +106,18 @@ bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
         return false;
     }
 
+    if (state_ == State::Main
+        && response == catalogue::ResponseId::GreetingHello
+        && last_greeting_message_id_ != 0
+        && message.reference_message_id == last_greeting_message_id_) {
+        current_incoming_ = message;
+        incoming_response_ = response;
+        last_greeting_message_id_ = 0;
+        state_ = State::IncomingResponse;
+        notify_incoming();
+        return true;
+    }
+
     if (state_ == State::WaitingForHumanAck
         && response == catalogue::ResponseId::HumanOk
         && message.reference_message_id == expected_human_ack_reference_) {
@@ -148,8 +160,9 @@ void CommunicatorApp::poll_expected_incoming()
     }
 
     messaging::IncomingMessage incoming;
-    if (messaging_.poll_incoming(incoming)) {
-        (void)accept_incoming(incoming);
+    if (messaging_.peek_incoming(incoming)
+        && accept_incoming(incoming)) {
+        (void)messaging_.consume_incoming(incoming.logical_message_id);
     }
 }
 
@@ -230,6 +243,14 @@ void CommunicatorApp::handle_response_choice_input(
 void CommunicatorApp::handle_incoming_response_input(
     const board::InputState& input)
 {
+    if (incoming_response_ == catalogue::ResponseId::GreetingHello) {
+        if (input.primary_short || input.secondary_short) {
+            state_ = State::Main;
+            render_main();
+        }
+        return;
+    }
+
     if (input.primary_short) {
         if (send_human_ok(current_incoming_.logical_message_id)) {
             state_ = State::Main;
@@ -286,8 +307,17 @@ bool CommunicatorApp::send_selected_preset()
     }
 
     sent_preset_ = preset;
-    expected_response_reference_ =
+    const std::uint32_t logical_message_id =
         messaging_.outgoing_logical_message_id();
+
+    if (preset == catalogue::PresetId::Greeting) {
+        last_greeting_message_id_ = logical_message_id;
+        state_ = State::Main;
+        render_main();
+        return true;
+    }
+
+    expected_response_reference_ = logical_message_id;
     state_ = State::WaitingForResponse;
     render_waiting_for_response();
     return true;
@@ -307,6 +337,12 @@ bool CommunicatorApp::send_selected_response()
             static_cast<std::uint16_t>(response),
             current_incoming_.logical_message_id)) {
         return false;
+    }
+
+    if (incoming_preset_ == catalogue::PresetId::Greeting) {
+        state_ = State::Main;
+        render_main();
+        return true;
     }
 
     expected_human_ack_reference_ =
@@ -696,8 +732,10 @@ void CommunicatorApp::render_incoming_response()
         112,
         224,
         18,
-        "M5 OK",
-        2,
+        incoming_response_ == catalogue::ResponseId::GreetingHello
+            ? "M5 / SIDE = ZAMKNIJ"
+            : "M5 OK",
+        incoming_response_ == catalogue::ResponseId::GreetingHello ? 1 : 2,
         board::DisplayColor::AccentGreen,
         board::DisplayColor::Navy);
 }

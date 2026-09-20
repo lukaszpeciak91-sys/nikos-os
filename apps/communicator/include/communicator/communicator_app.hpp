@@ -94,6 +94,7 @@ private:
     messaging::IncomingMessage current_incoming_{};
     std::uint32_t expected_response_reference_ = 0;
     std::uint32_t expected_human_ack_reference_ = 0;
+    std::uint32_t last_greeting_message_id_ = 0;
 
     bool rendered_peer_state_valid_ = false;
     bool rendered_peer_reachable_ = false;

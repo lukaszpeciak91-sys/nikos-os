@@ -241,13 +241,24 @@ bool Service::latest_peer_rssi(std::int8_t& rssi) const
     return true;
 }
 
-bool Service::poll_incoming(IncomingMessage& message)
+bool Service::peek_incoming(IncomingMessage& message) const
 {
     if (incoming_count_ == 0) {
         return false;
     }
 
     message = incoming_queue_[incoming_head_];
+    return true;
+}
+
+bool Service::consume_incoming(std::uint32_t logical_message_id)
+{
+    if (incoming_count_ == 0
+        || incoming_queue_[incoming_head_].logical_message_id
+            != logical_message_id) {
+        return false;
+    }
+
     incoming_head_ = (incoming_head_ + 1U) % kIncomingQueueDepth;
     --incoming_count_;
     return true;
@@ -359,21 +370,26 @@ void Service::process_rx(const radio::RxEvent& event)
         return;
     }
 
-    // ACK every copy, including duplicates. Dedupe only suppresses re-notification.
-    send_ack(message.message_id);
-
     if (is_duplicate(message.message_id)) {
+        // Duplicate copies are still ACKed but are not surfaced again.
+        send_ack(message.message_id);
         return;
     }
-
-    remember_received(message.message_id);
 
     IncomingMessage incoming;
     incoming.kind = to_incoming_kind(message.type);
     incoming.logical_message_id = message.message_id;
     incoming.reference_message_id = message.reference_id;
     incoming.value_id = message.value_id;
-    enqueue_incoming(incoming);
+
+    // Do not application-ACK/dedupe a new logical message until it has been
+    // retained locally. If this small queue is full, the sender will retry.
+    if (!enqueue_incoming(incoming)) {
+        return;
+    }
+
+    remember_received(message.message_id);
+    send_ack(message.message_id);
 }
 
 void Service::record_peer_rx(const radio::RxEvent& event)
@@ -496,17 +512,17 @@ void Service::remember_received(std::uint32_t logical_message_id)
     }
 }
 
-void Service::enqueue_incoming(const IncomingMessage& message)
+bool Service::enqueue_incoming(const IncomingMessage& message)
 {
     if (incoming_count_ == kIncomingQueueDepth) {
-        incoming_head_ = (incoming_head_ + 1U) % kIncomingQueueDepth;
-        --incoming_count_;
+        return false;
     }
 
     const std::size_t tail =
         (incoming_head_ + incoming_count_) % kIncomingQueueDepth;
     incoming_queue_[tail] = message;
     ++incoming_count_;
+    return true;
 }
 
 void Service::publish_delivery()

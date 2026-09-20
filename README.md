@@ -60,7 +60,11 @@ Incoming preset messages/responses wake the display, play one short ~90 ms alert
 
 Human-visible `OK` is a PRESET_RESPONSE used by the conversation flow and is separate from the internal application ACK used by `messaging::Service` for reliable delivery.
 
+The `CZEŚĆ!` preset is fire-and-forget at the conversation level: the sender remains on the main screen. The receiver may dismiss it or optionally answer `Cześć!`; that optional reply is itself terminal and does not require human `OK`.
+
 Special responses `Za chwilę`, `Później`, and `Sprawdzę` allow the initiator to choose `OK` or send the same `ZACZEKAĆ?` preset used by the main catalogue.
+
+Incoming logical events are inspected non-destructively and are consumed from `messaging::Service` only after Communicator has retained/accepted them. A full small incoming queue does not discard an already retained event; an unretained new logical message remains un-ACKed so the existing sender retry can deliver it later.
 
 SYGNAŁ/RING UI and audible attention behavior are intentionally not part of this Communicator v0.1 core UX PR.
 

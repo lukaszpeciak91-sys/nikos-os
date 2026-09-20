@@ -82,7 +82,8 @@ public:
     const radio::MacAddress& peer_mac() const;
     bool latest_peer_rssi(std::int8_t& rssi) const;
 
-    bool poll_incoming(IncomingMessage& message);
+    bool peek_incoming(IncomingMessage& message) const;
+    bool consume_incoming(std::uint32_t logical_message_id);
     bool poll_delivery(DeliveryReceipt& receipt);
 
 private:
@@ -113,7 +114,7 @@ private:
 
     bool is_duplicate(std::uint32_t logical_message_id) const;
     void remember_received(std::uint32_t logical_message_id);
-    void enqueue_incoming(const IncomingMessage& message);
+    bool enqueue_incoming(const IncomingMessage& message);
     void publish_delivery();
 
     std::uint32_t next_logical_message_id();
