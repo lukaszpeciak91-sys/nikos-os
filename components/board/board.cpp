@@ -9,6 +9,17 @@ namespace {
 
 constexpr char kTag[] = "board";
 constexpr std::uint32_t kHoldThresholdMs = 600;
+
+// Nikoś OS base reference palette. Keep these direct RGB565 values local to
+// the board semantic color boundary so they remain easy to tune after LCD
+// testing without introducing a runtime theme system.
+constexpr std::uint16_t kNavyRgb565 = 0x10A5;        // #11162F
+constexpr std::uint16_t kPanelNavyRgb565 = 0x1908;   // #1A2144
+constexpr std::uint16_t kIvoryRgb565 = 0xF75B;       // #F1EBDD
+constexpr std::uint16_t kAccentGreenRgb565 = 0x8DF5; // #88BDA8
+constexpr std::uint16_t kMutedBlueRgb565 = 0x6391;   // #65708B
+constexpr std::uint16_t kOrangeRgb565 = 0xFD20;      // attention accent
+
 constexpr char kPolishFontSanityText[] =
     u8"ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
 
@@ -22,17 +33,17 @@ std::uint32_t to_display_color(nikos::board::DisplayColor color)
         case nikos::board::DisplayColor::Green:
             return TFT_GREEN;
         case nikos::board::DisplayColor::Navy:
-            return 0x08C4;
+            return kNavyRgb565;
         case nikos::board::DisplayColor::PanelNavy:
-            return 0x0927;
+            return kPanelNavyRgb565;
         case nikos::board::DisplayColor::Ivory:
-            return 0xF75B;
+            return kIvoryRgb565;
         case nikos::board::DisplayColor::AccentGreen:
-            return 0x9E91;
+            return kAccentGreenRgb565;
         case nikos::board::DisplayColor::Orange:
-            return 0xFD20;
+            return kOrangeRgb565;
         case nikos::board::DisplayColor::MutedBlue:
-            return 0x7C95;
+            return kMutedBlueRgb565;
         case nikos::board::DisplayColor::Black:
         default:
             return TFT_BLACK;

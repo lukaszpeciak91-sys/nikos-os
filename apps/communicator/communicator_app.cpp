@@ -1167,9 +1167,7 @@ void CommunicatorApp::render_options()
         14,
         mode_text,
         1,
-        mode_selected
-            ? board::DisplayColor::AccentGreen
-            : board::DisplayColor::Ivory,
+        board::DisplayColor::Ivory,
         mode_selected
             ? board::DisplayColor::PanelNavy
             : board::DisplayColor::Navy);

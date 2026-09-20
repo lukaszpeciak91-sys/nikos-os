@@ -307,19 +307,19 @@ void Launcher::render_main()
     clear_shell(board_);
     rendered_battery_valid_ = false;
 
-    board_.draw_text_region(
+    board_.draw_polish_ui_text_region(
         10,
         6,
-        118,
+        60,
         18,
-        "NIKOS",
+        u8"NIKOŚ",
         2,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
-    board_.draw_text_region(
-        117,
+    board_.draw_polish_ui_text_region(
+        72,
         6,
-        34,
+        30,
         18,
         "OS",
         2,

@@ -19,6 +19,7 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - The separate power button is not part of launcher or application navigation.
 - Launcher `WYŁĄCZ` now provides explicit whole-device shutdown through a default-NIE confirmation; shutdown cleanup is orchestrated by `app_main`, while M5-specific power-off remains inside `board`.
 - The board rendering layer includes a small embedded DejaVu Sans subset for ASCII plus Polish UI letters, exposed only through a scoped Polish UTF-8 text API.
+- The first Nikoś OS reference theme now uses a near-black navy base, dark-navy selection surfaces, warm ivory text, restrained mint status/selection accents, subdued cool secondary text, and orange reserved for attention actions such as `SYGNAŁ`.
 - ESP-NOW callback-owned RX data and metadata are copied into a FreeRTOS queue before callback return.
 - A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, retry/ACK delivery, dedupe, and experimental RX profiles above `radio`.
 - Communicator background messaging starts OFF after boot and is explicitly enabled/disabled from the launcher for the current OS session only; the state is not persisted.
@@ -66,3 +67,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-20 — Added explicit Communicator session lifecycle: messaging OFF after boot, volatile launcher-controlled enable/disable, foreground/background lifetime separation, clean session reset, and conditional RadioLab pause/resume.
 - 2026-09-20 — Added explicit confirmed whole-device shutdown from the launcher with orderly app/radio cleanup and board-owned M5Unified power-off.
 - 2026-09-20 — Added a minimal Communicator `STANDARD/LR` option that switches the existing radio mode through messaging while preserving duty-cycle schedules and delivery state and forcing fresh peer discovery.
+- 2026-09-20 — Refined the base Nikoś OS reference palette after physical LCD testing and grouped the launcher header into a compact Polish `NIKOŚ OS` wordmark.
