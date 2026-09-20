@@ -862,7 +862,7 @@ void CommunicatorApp::render_main()
         33,
         150,
         12,
-        reachable ? u8"DOSTĘPNY" : u8"NIEDOSTĘPNY",
+        reachable ? "DOSTĘPNY" : "NIEDOSTĘPNY",
         1,
         reachable
             ? board::DisplayColor::AccentGreen
@@ -943,7 +943,7 @@ void CommunicatorApp::render_main()
         77,
         150,
         22,
-        u8"SYGNAŁ",
+        "SYGNAŁ",
         2,
         signal_color,
         signal_selected
@@ -1019,7 +1019,7 @@ void CommunicatorApp::render_main()
         111,
         170,
         12,
-        u8"POWRÓT",
+        "POWRÓT",
         1,
         return_color,
         return_background);
@@ -1037,13 +1037,13 @@ void CommunicatorApp::render_main()
     if (options_selected) {
         footer = "M5 OPCJE  |  SIDE DALEJ";
     } else if (return_selected) {
-        footer = u8"M5 POWRÓT  |  SIDE DALEJ";
+        footer = "M5 POWRÓT  |  SIDE DALEJ";
     } else if (signal_selected) {
-        footer = u8"M5 SYGNAŁ  |  SIDE DALEJ";
+        footer = "M5 SYGNAŁ  |  SIDE DALEJ";
     } else {
         footer = reachable
-            ? u8"M5 WYŚLIJ  |  SIDE DALEJ"
-            : u8"BRAK ŁĄCZNOŚCI  |  SIDE DALEJ";
+            ? "M5 WYŚLIJ  |  SIDE DALEJ"
+            : "BRAK ŁĄCZNOŚCI  |  SIDE DALEJ";
     }
 
     board_.draw_polish_ui_text_region(
@@ -1125,7 +1125,7 @@ void CommunicatorApp::render_options()
         69,
         216,
         20,
-        u8"POWRÓT",
+        "POWRÓT",
         1,
         return_selected
             ? board::DisplayColor::Ivory
@@ -1149,7 +1149,7 @@ void CommunicatorApp::render_options()
         204,
         14,
         radio_mode_change_failed_
-            ? u8"NIE UDAŁO SIĘ"
+            ? "NIE UDAŁO SIĘ"
             : "USTAW TAK SAMO NA OBU",
         1,
         radio_mode_change_failed_
@@ -1162,7 +1162,7 @@ void CommunicatorApp::render_options()
         120,
         224,
         12,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -1199,7 +1199,7 @@ void CommunicatorApp::render_waiting_for_response()
         78,
         216,
         18,
-        u8"CZEKAM NA ODPOWIEDŹ...",
+        "CZEKAM NA ODPOWIEDŹ...",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -1217,7 +1217,7 @@ void CommunicatorApp::render_waiting_for_response()
 void CommunicatorApp::render_incoming_preset()
 {
     clear_screen();
-    draw_header(u8"WIADOMOŚĆ");
+    draw_header("WIADOMOŚĆ");
 
     board_.draw_polish_ui_text_region(
         12,
@@ -1238,8 +1238,8 @@ void CommunicatorApp::render_incoming_preset()
         224,
         18,
         can_dismiss
-            ? u8"M5 ODPOWIEDŹ  |  SIDE ZAMKNIJ"
-            : u8"M5 ODPOWIEDŹ",
+            ? "M5 ODPOWIEDŹ  |  SIDE ZAMKNIJ"
+            : "M5 ODPOWIEDŹ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -1248,7 +1248,7 @@ void CommunicatorApp::render_incoming_preset()
 void CommunicatorApp::render_response_choices()
 {
     clear_screen();
-    draw_header(u8"ODPOWIEDŹ");
+    draw_header("ODPOWIEDŹ");
 
     board_.draw_polish_ui_text_region(
         10,
@@ -1294,7 +1294,7 @@ void CommunicatorApp::render_response_choices()
         116,
         224,
         14,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -1310,7 +1310,7 @@ void CommunicatorApp::render_waiting_for_human_ack()
         42,
         216,
         22,
-        u8"ODPOWIEDŹ WYSŁANA",
+        "ODPOWIEDŹ WYSŁANA",
         1,
         board::DisplayColor::Ivory,
         board::DisplayColor::Navy);
@@ -1337,7 +1337,7 @@ void CommunicatorApp::render_waiting_for_human_ack()
 void CommunicatorApp::render_incoming_response()
 {
     clear_screen();
-    draw_header(u8"ODPOWIEDŹ");
+    draw_header("ODPOWIEDŹ");
 
     board_.draw_polish_ui_text_region(
         12,
@@ -1364,7 +1364,7 @@ void CommunicatorApp::render_incoming_response()
 void CommunicatorApp::render_wait_decision()
 {
     clear_screen();
-    draw_header(u8"ODPOWIEDŹ");
+    draw_header("ODPOWIEDŹ");
 
     board_.draw_polish_ui_text_region(
         10,
@@ -1385,7 +1385,7 @@ void CommunicatorApp::render_wait_decision()
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
 
-    const char* choices[2] = {"OK", u8"ZACZEKAĆ?"};
+    const char* choices[2] = {"OK", "ZACZEKAĆ?"};
     for (std::uint8_t index = 0; index < 2; ++index) {
         const bool selected = index == selected_wait_decision_index_;
         const std::int16_t y =
@@ -1411,7 +1411,7 @@ void CommunicatorApp::render_wait_decision()
         116,
         224,
         14,
-        u8"M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ  |  SIDE DALEJ",
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
@@ -1458,7 +1458,7 @@ void CommunicatorApp::render_signal_alert(bool wide_arcs)
         88,
         146,
         30,
-        u8"SYGNAŁ",
+        "SYGNAŁ",
         3,
         board::DisplayColor::Orange,
         board::DisplayColor::Navy);
