@@ -3,13 +3,31 @@
 #include <algorithm>
 #include <cstddef>
 
+#include "esp_timer.h"
+
 namespace {
 
 constexpr std::uint32_t kNotificationToneMs = 90;
 constexpr float kNotificationToneHz = 2600.0F;
 
+constexpr std::uint32_t kSignalToneMs = 180;
+constexpr std::uint32_t kSignalShortSilenceMs = 180;
+constexpr std::uint32_t kSignalLongSilenceMs = 500;
+constexpr std::uint8_t kSignalStepsPerRepeat = 4;
+constexpr std::uint8_t kSignalRepeatCount = 3;
+constexpr std::uint8_t kSignalStepCount =
+    kSignalStepsPerRepeat * kSignalRepeatCount;
+constexpr std::uint32_t kSignalAnimationMs = 120;
+constexpr float kSignalToneOneHz = 2400.0F;
+constexpr float kSignalToneTwoHz = 2800.0F;
+
 constexpr std::int16_t kScreenWidth = 240;
 constexpr std::int16_t kScreenHeight = 135;
+
+std::uint32_t now_ms()
+{
+    return static_cast<std::uint32_t>(esp_timer_get_time() / 1000U);
+}
 
 }  // namespace
 
@@ -30,12 +48,21 @@ bool CommunicatorApp::begin()
     active_ = true;
     const bool profile_ok =
         messaging_.set_rx_profile(messaging::RxProfile::Foreground);
-    render_current();
+    if (!signal_alert_active_) {
+        render_current();
+    }
     return profile_ok;
 }
 
 bool CommunicatorApp::end()
 {
+    if (signal_alert_active_) {
+        board_.stop_tone();
+        signal_alert_active_ = false;
+        signal_pattern_running_ = false;
+        signal_return_to_launcher_ = false;
+    }
+
     active_ = false;
 
     if (state_ == State::HumanOkReceived) {
@@ -54,7 +81,24 @@ CommunicatorApp::UpdateResult CommunicatorApp::update()
     messaging::DeliveryReceipt receipt;
     (void)messaging_.poll_delivery(receipt);
 
-    (void)process_incoming();
+    if (!signal_alert_active_) {
+        (void)process_incoming();
+    }
+
+    if (signal_alert_active_) {
+        update_signal_alert(now_ms());
+
+        const board::InputState input = board_.poll_input();
+        if (any_user_button(input)) {
+            const bool return_to_launcher = signal_return_to_launcher_;
+            dismiss_signal_alert();
+            return return_to_launcher
+                ? UpdateResult::ExitRequested
+                : UpdateResult::Running;
+        }
+
+        return UpdateResult::Running;
+    }
 
     if (state_ == State::Main) {
         render_main_if_status_changed();
@@ -73,8 +117,12 @@ CommunicatorApp::UpdateResult CommunicatorApp::update()
 bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
 {
     if (message.kind == messaging::IncomingKind::Ring) {
-        // SYGNAŁ/RING UX is intentionally outside Communicator v0.1 core UX.
-        return false;
+        if (signal_alert_active_) {
+            return false;
+        }
+
+        start_signal_alert();
+        return true;
     }
 
     if (message.kind == messaging::IncomingKind::PresetMessage) {
@@ -200,6 +248,10 @@ bool CommunicatorApp::process_incoming()
 bool CommunicatorApp::can_defer_incoming(
     const messaging::IncomingMessage& message) const
 {
+    if (message.kind == messaging::IncomingKind::Ring) {
+        return true;
+    }
+
     if (message.kind == messaging::IncomingKind::PresetMessage) {
         catalogue::PresetId preset;
         return catalogue::preset_from_wire(message.value_id, preset);
@@ -319,16 +371,27 @@ void CommunicatorApp::handle_input(const board::InputState& input)
 
 void CommunicatorApp::handle_main_input(const board::InputState& input)
 {
+    const bool reachable = messaging_.peer_reachable();
+    const std::uint8_t choice_count = static_cast<std::uint8_t>(
+        catalogue::kPresetOrder.size() + (reachable ? 1U : 0U));
+
     if (input.secondary_short) {
-        selected_preset_index_ = static_cast<std::uint8_t>(
-            (selected_preset_index_ + 1U) % catalogue::kPresetOrder.size());
+        selected_main_index_ = static_cast<std::uint8_t>(
+            (selected_main_index_ + 1U) % choice_count);
         render_main();
         return;
     }
 
-    if (input.primary_short && messaging_.peer_reachable()) {
-        (void)send_selected_preset();
+    if (!input.primary_short || !reachable) {
+        return;
     }
+
+    if (selected_main_index_ == catalogue::kPresetOrder.size()) {
+        (void)send_signal();
+        return;
+    }
+
+    (void)send_selected_preset();
 }
 
 void CommunicatorApp::handle_incoming_preset_input(
@@ -425,8 +488,12 @@ bool CommunicatorApp::send_selected_preset()
         return false;
     }
 
+    if (selected_main_index_ >= catalogue::kPresetOrder.size()) {
+        return false;
+    }
+
     const catalogue::PresetId preset =
-        catalogue::kPresetOrder[selected_preset_index_];
+        catalogue::kPresetOrder[selected_main_index_];
 
     if (!messaging_.send_preset_message(
             static_cast<std::uint16_t>(preset))) {
@@ -448,6 +515,17 @@ bool CommunicatorApp::send_selected_preset()
     state_ = State::WaitingForResponse;
     render_waiting_for_response();
     return true;
+}
+
+bool CommunicatorApp::send_signal()
+{
+    if (!messaging_.peer_reachable()) {
+        return false;
+    }
+
+    // SYGNAŁ is intentionally outside the preset catalogue and conversation
+    // state machine. Delivery still uses messaging RING retry/ACK/dedupe.
+    return messaging_.send_ring();
 }
 
 bool CommunicatorApp::send_selected_response()
@@ -516,6 +594,120 @@ void CommunicatorApp::notify_incoming()
     }
 }
 
+void CommunicatorApp::start_signal_alert()
+{
+    signal_return_to_launcher_ = !active_;
+    signal_alert_active_ = true;
+    signal_pattern_running_ = true;
+    signal_animation_wide_ = false;
+    signal_audio_step_ = 0;
+
+    const std::uint32_t now = now_ms();
+    signal_step_started_ms_ = now;
+    signal_last_animation_ms_ = now;
+
+    board_.wake_display();
+    board_.stop_tone();
+    board_.tone(kSignalToneOneHz, kSignalToneMs);
+    render_signal_alert(signal_animation_wide_);
+}
+
+void CommunicatorApp::update_signal_alert(std::uint32_t now)
+{
+    if (!signal_alert_active_) {
+        return;
+    }
+
+    if (signal_pattern_running_) {
+        while (signal_pattern_running_) {
+            const std::uint8_t phase =
+                static_cast<std::uint8_t>(
+                    signal_audio_step_ % kSignalStepsPerRepeat);
+            const std::uint32_t duration =
+                phase == 3
+                    ? kSignalLongSilenceMs
+                    : kSignalToneMs;
+
+            if (phase == 1) {
+                // The short silent segment has the same 180 ms duration.
+                if (now - signal_step_started_ms_ < kSignalShortSilenceMs) {
+                    break;
+                }
+            } else if (now - signal_step_started_ms_ < duration) {
+                break;
+            }
+
+            signal_step_started_ms_ +=
+                phase == 1 ? kSignalShortSilenceMs : duration;
+            ++signal_audio_step_;
+
+            if (signal_audio_step_ >= kSignalStepCount) {
+                signal_pattern_running_ = false;
+                board_.stop_tone();
+                render_signal_alert(false);
+                break;
+            }
+
+            advance_signal_audio_step(now);
+        }
+    }
+
+    if (signal_pattern_running_
+        && now - signal_last_animation_ms_ >= kSignalAnimationMs) {
+        signal_last_animation_ms_ = now;
+        signal_animation_wide_ = !signal_animation_wide_;
+        render_signal_alert(signal_animation_wide_);
+    }
+}
+
+void CommunicatorApp::advance_signal_audio_step(std::uint32_t)
+{
+    const std::uint8_t phase =
+        static_cast<std::uint8_t>(
+            signal_audio_step_ % kSignalStepsPerRepeat);
+
+    switch (phase) {
+        case 0:
+            board_.tone(kSignalToneOneHz, kSignalToneMs);
+            break;
+        case 1:
+            board_.stop_tone();
+            break;
+        case 2:
+            board_.tone(kSignalToneTwoHz, kSignalToneMs);
+            break;
+        case 3:
+        default:
+            board_.stop_tone();
+            break;
+    }
+}
+
+void CommunicatorApp::dismiss_signal_alert()
+{
+    board_.stop_tone();
+    signal_alert_active_ = false;
+    signal_pattern_running_ = false;
+    signal_audio_step_ = 0;
+    signal_animation_wide_ = false;
+
+    const bool return_to_launcher = signal_return_to_launcher_;
+    signal_return_to_launcher_ = false;
+
+    if (!return_to_launcher) {
+        render_current();
+    }
+}
+
+bool CommunicatorApp::any_user_button(
+    const board::InputState& input) const
+{
+    return input.primary_short
+        || input.primary_long
+        || input.secondary_short
+        || input.secondary_long;
+}
+
 std::uint8_t CommunicatorApp::signal_bars() const
 {
     if (!messaging_.peer_reachable()) {
@@ -574,6 +766,11 @@ void CommunicatorApp::render_main()
 
     const bool reachable = messaging_.peer_reachable();
     const std::uint8_t bars = signal_bars();
+    const std::size_t signal_index = catalogue::kPresetOrder.size();
+
+    if (!reachable && selected_main_index_ >= signal_index) {
+        selected_main_index_ = 0;
+    }
 
     board_.draw_polish_ui_text_region(
         10,
@@ -607,58 +804,98 @@ void CommunicatorApp::render_main()
         47,
         board::DisplayColor::MutedBlue);
 
-    const std::size_t selected = selected_preset_index_;
-    std::size_t first = selected > 0 ? selected - 1U : 0U;
-    const std::size_t max_first = catalogue::kPresetOrder.size() - 3U;
+    const std::size_t selected_preset =
+        selected_main_index_ < signal_index
+            ? selected_main_index_
+            : signal_index - 1U;
+    std::size_t first = selected_preset > 0
+        ? selected_preset - 1U
+        : 0U;
+    const std::size_t max_first = catalogue::kPresetOrder.size() - 2U;
     first = std::min(first, max_first);
 
-    for (std::size_t slot = 0; slot < 3; ++slot) {
+    for (std::size_t slot = 0; slot < 2; ++slot) {
         const std::size_t index = first + slot;
-        const bool selected_row = index == selected;
+        const bool selected_row =
+            reachable && selected_main_index_ == index;
         const std::int16_t y =
-            static_cast<std::int16_t>(53 + slot * 20);
-
-        const board::DisplayColor foreground =
-            reachable && selected_row
-                ? board::DisplayColor::Ivory
-                : board::DisplayColor::MutedBlue;
-        const board::DisplayColor background =
-            reachable && selected_row
-                ? board::DisplayColor::PanelNavy
-                : board::DisplayColor::Navy;
+            static_cast<std::int16_t>(52 + slot * 18);
 
         board_.draw_polish_ui_text_region(
             12,
             y,
             216,
-            17,
+            15,
             catalogue::preset_text(catalogue::kPresetOrder[index]),
             1,
-            foreground,
-            background);
+            selected_row
+                ? board::DisplayColor::Ivory
+                : board::DisplayColor::MutedBlue,
+            selected_row
+                ? board::DisplayColor::PanelNavy
+                : board::DisplayColor::Navy);
 
-        if (reachable && selected_row) {
+        if (selected_row) {
             board_.draw_line(
                 8,
                 y,
                 8,
-                static_cast<std::int16_t>(y + 13),
+                static_cast<std::int16_t>(y + 12),
                 board::DisplayColor::AccentGreen);
         }
     }
 
+    board_.draw_line(
+        8,
+        88,
+        231,
+        88,
+        board::DisplayColor::MutedBlue);
+
+    const bool signal_selected =
+        reachable && selected_main_index_ == signal_index;
+    const board::DisplayColor signal_color =
+        reachable
+            ? board::DisplayColor::Orange
+            : board::DisplayColor::MutedBlue;
+
+    draw_bell_glyph(
+        24,
+        101,
+        1,
+        signal_color);
+
+    board_.draw_polish_ui_text_region(
+        44,
+        91,
+        150,
+        22,
+        u8"SYGNAŁ",
+        2,
+        signal_color,
+        signal_selected
+            ? board::DisplayColor::PanelNavy
+            : board::DisplayColor::Navy);
+
+    if (signal_selected) {
+        board_.draw_line(
+            8,
+            92,
+            8,
+            109,
+            board::DisplayColor::Orange);
+    }
+
     board_.draw_polish_ui_text_region(
         8,
-        116,
+        117,
         224,
-        14,
+        13,
         reachable
             ? u8"M5 WYŚLIJ  |  SIDE DALEJ"
             : u8"BRAK ŁĄCZNOŚCI  |  SIDE DALEJ",
         1,
-        reachable
-            ? board::DisplayColor::MutedBlue
-            : board::DisplayColor::MutedBlue,
+        board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
 
     rendered_peer_state_valid_ = true;
@@ -938,6 +1175,123 @@ void CommunicatorApp::render_human_ok_received()
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);
+}
+
+void CommunicatorApp::render_signal_alert(bool wide_arcs)
+{
+    clear_screen();
+
+    draw_ringing_arcs(wide_arcs);
+    draw_bell_glyph(
+        120,
+        55,
+        3,
+        board::DisplayColor::Orange);
+
+    board_.draw_polish_ui_text_region(
+        47,
+        88,
+        146,
+        30,
+        u8"SYGNAŁ",
+        3,
+        board::DisplayColor::Orange,
+        board::DisplayColor::Navy);
+
+    board_.draw_polish_ui_text_region(
+        34,
+        120,
+        172,
+        12,
+        "DOWOLNY PRZYCISK = ZAMKNIJ",
+        1,
+        board::DisplayColor::MutedBlue,
+        board::DisplayColor::Navy);
+}
+
+void CommunicatorApp::draw_bell_glyph(
+    std::int16_t center_x,
+    std::int16_t center_y,
+    std::int16_t scale,
+    board::DisplayColor color)
+{
+    const std::int16_t half =
+        static_cast<std::int16_t>(4 * scale);
+    const std::int16_t top =
+        static_cast<std::int16_t>(center_y - 5 * scale);
+    const std::int16_t shoulder =
+        static_cast<std::int16_t>(center_y - 3 * scale);
+    const std::int16_t bottom =
+        static_cast<std::int16_t>(center_y + 4 * scale);
+
+    board_.draw_line(
+        center_x,
+        static_cast<std::int16_t>(top - scale),
+        center_x,
+        top,
+        color);
+    board_.draw_line(
+        static_cast<std::int16_t>(center_x - 2 * scale),
+        shoulder,
+        static_cast<std::int16_t>(center_x - half),
+        bottom,
+        color);
+    board_.draw_line(
+        static_cast<std::int16_t>(center_x + 2 * scale),
+        shoulder,
+        static_cast<std::int16_t>(center_x + half),
+        bottom,
+        color);
+    board_.draw_line(
+        static_cast<std::int16_t>(center_x - 2 * scale),
+        shoulder,
+        static_cast<std::int16_t>(center_x + 2 * scale),
+        shoulder,
+        color);
+    board_.draw_line(
+        static_cast<std::int16_t>(center_x - half - scale),
+        bottom,
+        static_cast<std::int16_t>(center_x + half + scale),
+        bottom,
+        color);
+    board_.fill_circle(
+        center_x,
+        static_cast<std::int16_t>(bottom + 2 * scale),
+        scale,
+        color);
+}
+
+void CommunicatorApp::draw_ringing_arcs(bool wide_arcs)
+{
+    const std::int16_t offset = wide_arcs ? 42 : 34;
+    const std::int16_t upper_y = wide_arcs ? 34 : 38;
+    const std::int16_t lower_y = wide_arcs ? 72 : 68;
+
+    board_.draw_line(
+        static_cast<std::int16_t>(120 - offset),
+        upper_y,
+        static_cast<std::int16_t>(120 - offset - 7),
+        48,
+        board::DisplayColor::Orange);
+    board_.draw_line(
+        static_cast<std::int16_t>(120 - offset - 7),
+        48,
+        static_cast<std::int16_t>(120 - offset),
+        lower_y,
+        board::DisplayColor::Orange);
+
+    board_.draw_line(
+        static_cast<std::int16_t>(120 + offset),
+        upper_y,
+        static_cast<std::int16_t>(120 + offset + 7),
+        48,
+        board::DisplayColor::Orange);
+    board_.draw_line(
+        static_cast<std::int16_t>(120 + offset + 7),
+        48,
+        static_cast<std::int16_t>(120 + offset),
+        lower_y,
+        board::DisplayColor::Orange);
 }
 
 void CommunicatorApp::clear_screen()

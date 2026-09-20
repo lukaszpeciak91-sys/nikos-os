@@ -68,7 +68,29 @@ Incoming logical events are inspected non-destructively and are consumed from `m
 
 True simultaneous conversational initiation uses one deterministic collision rule: when both sides are waiting for a response and receive the other's new conversational preset, the device with the lexicographically lower self MAC yields. It preserves exactly one original WaitingForResponse context, handles the peer's short exchange through its normal response/human-OK flow, then restores its original wait. The higher-MAC device keeps its own exchange active and later surfaces its already deferred peer question. No protocol synchronization is added.
 
-SYGNAŁ/RING UI and audible attention behavior are intentionally not part of this Communicator v0.1 core UX PR.
+### SYGNAŁ attention action
+
+Communicator exposes a separate orange `SYGNAŁ` action below the preset-message area. It is not part of the preset catalogue and does not enter the conversation state machine.
+
+Sender behavior:
+- `SYGNAŁ` is selectable only while the known peer is reachable;
+- the UI uses a custom line/circle bell glyph rather than an emoji font;
+- sending reuses the existing internal RING delivery type and its logical ID / retry / application-ACK / dedupe semantics.
+
+Receiver behavior:
+- a dedicated full-screen `SYGNAŁ` alert temporarily overlays the current Communicator state;
+- the display is woken;
+- a large custom bell and simple alternating ringing arcs are rendered;
+- the buzzer plays three non-blocking repeats of:
+  - 2.4 kHz for 180 ms;
+  - 180 ms silence;
+  - 2.8 kHz for 180 ms;
+  - 500 ms silence;
+- the complete pattern is approximately 3.12 seconds and does not continue after the third repeat;
+- any normal user-button event immediately stops audio and dismisses the alert;
+- after dismissal, the previous Communicator screen/state is restored, or the launcher is restored when the alert originally surfaced from the launcher.
+
+The alert does not create a conversation, response, or human-OK flow. Retransmitted duplicates remain handled by messaging dedupe, so they are ACKed without reopening/restarting the alert.
 
 ## RadioLab v0.1 foundation
 

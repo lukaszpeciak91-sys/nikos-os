@@ -64,12 +64,19 @@ private:
     void handle_human_ok_input(const board::InputState& input);
 
     bool send_selected_preset();
+    bool send_signal();
     bool send_selected_response();
     bool send_human_ok(std::uint32_t reference_message_id);
     bool send_wait_followup();
 
     bool can_accept_incoming() const;
     void notify_incoming();
+
+    void start_signal_alert();
+    void update_signal_alert(std::uint32_t now_ms);
+    void advance_signal_audio_step(std::uint32_t now_ms);
+    void dismiss_signal_alert();
+    bool any_user_button(const board::InputState& input) const;
 
     std::uint8_t signal_bars() const;
     void render_current();
@@ -82,6 +89,13 @@ private:
     void render_incoming_response();
     void render_wait_decision();
     void render_human_ok_received();
+    void render_signal_alert(bool wide_arcs);
+    void draw_bell_glyph(
+        std::int16_t center_x,
+        std::int16_t center_y,
+        std::int16_t scale,
+        board::DisplayColor color);
+    void draw_ringing_arcs(bool wide_arcs);
 
     void clear_screen();
     void draw_header(const char* title);
@@ -94,7 +108,7 @@ private:
     bool active_ = false;
     State state_ = State::Main;
 
-    std::uint8_t selected_preset_index_ = 0;
+    std::uint8_t selected_main_index_ = 0;
     std::uint8_t selected_response_index_ = 0;
     std::uint8_t selected_wait_decision_index_ = 0;
 
@@ -112,6 +126,14 @@ private:
     std::uint32_t expected_response_reference_ = 0;
     std::uint32_t expected_human_ack_reference_ = 0;
     std::uint32_t last_greeting_message_id_ = 0;
+
+    bool signal_alert_active_ = false;
+    bool signal_return_to_launcher_ = false;
+    bool signal_pattern_running_ = false;
+    bool signal_animation_wide_ = false;
+    std::uint8_t signal_audio_step_ = 0;
+    std::uint32_t signal_step_started_ms_ = 0;
+    std::uint32_t signal_last_animation_ms_ = 0;
 
     bool rendered_peer_state_valid_ = false;
     bool rendered_peer_reachable_ = false;

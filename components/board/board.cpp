@@ -29,6 +29,8 @@ std::uint32_t to_display_color(nikos::board::DisplayColor color)
             return 0xF75B;
         case nikos::board::DisplayColor::AccentGreen:
             return 0x9E91;
+        case nikos::board::DisplayColor::Orange:
+            return 0xFD20;
         case nikos::board::DisplayColor::MutedBlue:
             return 0x7C95;
         case nikos::board::DisplayColor::Black:
@@ -114,6 +116,11 @@ void Board::tone(float frequency_hz, std::uint32_t duration_ms)
     if (!M5.Speaker.tone(frequency_hz, duration_ms)) {
         ESP_LOGW(kTag, "Buzzer tone request was not accepted");
     }
+}
+
+void Board::stop_tone()
+{
+    M5.Speaker.stop();
 }
 
 void Board::wake_display()

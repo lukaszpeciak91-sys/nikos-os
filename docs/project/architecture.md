@@ -129,6 +129,8 @@ RadioLab v0.1 uses equal peers running the same firmware. It does not assign per
 
 Communicator is a foreground UI over the long-lived `messaging::Service`. Entering Communicator selects the experimental foreground messaging RX profile; exiting restores the background profile. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state. To prevent FIFO head-of-line blocking during one active exchange, Communicator may hold exactly one temporarily incompatible incoming logical event locally while later service-queue traffic is inspected; this is current-exchange state, not a general inbox/router.
 
+The separate `SYGNAŁ` attention feature is a transient UI/audio overlay over the current foreground state. It reuses the existing RING delivery type but is not a preset message and does not enter the deterministic conversation state machine. Its short buzzer/animation sequence is advanced from the normal application update loop rather than a blocking delay or separate audio/animation framework.
+
 RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
 
 ## Architectural invariants
@@ -147,6 +149,7 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Communicator may retain at most one deferred incoming event to avoid head-of-line blocking; it must not overwrite that slot or expand it into a general inbox/reordering layer.
 - True simultaneous conversational initiation uses deterministic MAC ordering: the lower self MAC temporarily yields and may suspend exactly one WaitingForResponse context until the peer's short exchange completes; this is collision handling, not multi-conversation scheduling.
 - Human-visible conversation `OK` remains distinct from transport/application ACK.
+- `SYGNAŁ` remains outside preset conversation semantics; it is a bounded transient attention overlay using existing RING delivery semantics.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - ESP-NOW MAC send success is not application-level delivery.
