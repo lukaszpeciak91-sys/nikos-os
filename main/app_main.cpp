@@ -114,8 +114,9 @@ extern "C" void app_main(void)
     launcher.begin(communicator_enabled);
 
     while (true) {
-        // update() is a no-op while messaging is disabled or while RadioLab
-        // temporarily owns the radio transport.
+        // update() advances delivery only while messaging owns active
+        // transport. A RadioLab handoff intentionally freezes retry/deadline
+        // timing until messaging transport resumes.
         messaging.update();
         signal_sound.update();
 
