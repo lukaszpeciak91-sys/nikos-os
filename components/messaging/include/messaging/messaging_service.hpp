@@ -113,6 +113,7 @@ private:
         std::uint32_t started_ms = 0;
         std::uint32_t last_send_ms = 0;
         std::uint32_t retry_delay_ms = 0;
+        std::uint32_t paused_since_ms = 0;
         std::uint32_t attempts = 0;
         std::uint32_t send_request_failures = 0;
     };
