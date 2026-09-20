@@ -88,6 +88,7 @@ bool Service::begin(const Config& config)
         || config.retry_interval_ms == 0
         || config.max_send_attempts == 0
         || config.delivery_timeout_ms == 0
+        || config.tx_result_timeout_ms == 0
         || config.foreground_rx.interval_ms == 0
         || config.foreground_rx.wake_window_ms == 0
         || config.foreground_rx.wake_window_ms > config.foreground_rx.interval_ms
@@ -105,11 +106,13 @@ bool Service::begin(const Config& config)
 
     ESP_LOGI(
         kTag,
-        "Delivery policy retry=%lums jitter<=%ums max_attempts=%u timeout=%lums",
+        "Delivery policy retry=%lums jitter<=%ums max_attempts=%u timeout=%lums tx_result_guard=%ums ack_grace_margin=%ums",
         static_cast<unsigned long>(config_.retry_interval_ms),
         static_cast<unsigned>(config_.retry_jitter_ms),
         static_cast<unsigned>(config_.max_send_attempts),
-        static_cast<unsigned long>(config_.delivery_timeout_ms));
+        static_cast<unsigned long>(config_.delivery_timeout_ms),
+        static_cast<unsigned>(config_.tx_result_timeout_ms),
+        static_cast<unsigned>(config_.mac_success_ack_grace_margin_ms));
 
     started_ = true;
     if (!start_transport()) {
@@ -147,7 +150,12 @@ bool Service::stop()
 
     next_message_id_ = 1;
     outgoing_ = OutgoingState{};
+    unicast_in_flight_ = UnicastInFlight{};
     traffic_ = TrafficCounters{};
+
+    pending_ack_references_ = {};
+    pending_ack_head_ = 0;
+    pending_ack_count_ = 0;
 
     recent_received_ids_ = {};
     recent_received_count_ = 0;
@@ -171,20 +179,20 @@ void Service::update()
 
     process_radio_events();
 
-    const std::uint32_t now = now_ms();
+    std::uint32_t now = now_ms();
+
+    if (unicast_in_flight_.active
+        && now - unicast_in_flight_.submitted_ms
+            >= config_.tx_result_timeout_ms) {
+        handle_missing_tx_result(now, true);
+        if (!transport_active_) {
+            return;
+        }
+        now = now_ms();
+    }
 
     if (outgoing_.active
         && now - outgoing_.started_ms >= config_.delivery_timeout_ms) {
-        finish_outgoing(DeliveryOutcome::Failed, now);
-    }
-
-    const bool retry_due =
-        outgoing_.active
-        && (outgoing_.last_send_ms == 0
-            || now - outgoing_.last_send_ms >= outgoing_.retry_delay_ms);
-
-    if (retry_due
-        && outgoing_.attempts >= config_.max_send_attempts) {
         finish_outgoing(DeliveryOutcome::Failed, now);
     }
 
@@ -193,9 +201,7 @@ void Service::update()
         send_presence(now);
     }
 
-    if (outgoing_.active && retry_due && peer_reachable()) {
-        send_outgoing(now);
-    }
+    service_unicast(now);
 }
 
 bool Service::pause_transport()
@@ -204,7 +210,17 @@ bool Service::pause_transport()
         return true;
     }
 
+    // Drain callbacks already queued before deliberately handing the radio
+    // to RadioLab. Any accepted unicast still unresolved after this drain
+    // cannot retain its callback across radio_.stop(), so resolve it
+    // conservatively as a missing TxResult before freezing logical clocks.
+    process_radio_events();
+
     const std::uint32_t paused_at_ms = now_ms();
+    if (unicast_in_flight_.active) {
+        handle_missing_tx_result(paused_at_ms, false);
+    }
+
     const bool stopped = radio_.stop();
     transport_active_ = false;
 
@@ -457,10 +473,7 @@ bool Service::start_transport()
 
 radio::RxPowerConfig Service::rx_power_for(RxProfile profile) const
 {
-    const RxSchedule& schedule =
-        profile == RxProfile::Foreground
-            ? config_.foreground_rx
-            : config_.background_rx;
+    const RxSchedule& schedule = rx_schedule_for(profile);
 
     radio::RxPowerConfig power;
     power.mode = radio::RxPowerMode::DutyCycled;
@@ -469,14 +482,37 @@ radio::RxPowerConfig Service::rx_power_for(RxProfile profile) const
     return power;
 }
 
+const RxSchedule& Service::rx_schedule_for(RxProfile profile) const
+{
+    return profile == RxProfile::Foreground
+        ? config_.foreground_rx
+        : config_.background_rx;
+}
+
 void Service::process_radio_events()
 {
     radio::Event event;
     while (radio_.poll(event)) {
         if (event.type == radio::EventType::Rx) {
             process_rx(event.rx);
+        } else if (event.type == radio::EventType::TxResult) {
+            process_tx_result(event.tx);
         }
     }
+}
+
+void Service::process_tx_result(const radio::TxEvent& event)
+{
+    if (!unicast_in_flight_.active
+        || !radio::mac_equal(
+            event.destination,
+            unicast_in_flight_.destination)) {
+        // Broadcast PRESENCE callbacks and any unrelated/stale result are
+        // intentionally outside messaging-unicast attribution.
+        return;
+    }
+
+    resolve_in_flight(event.success, now_ms());
 }
 
 void Service::process_rx(const radio::RxEvent& event)
@@ -594,9 +630,44 @@ void Service::send_presence(std::uint32_t now_ms)
 
 void Service::send_ack(std::uint32_t reference_message_id)
 {
-    if (!peer_known_) {
-        return;
+    (void)enqueue_ack(reference_message_id);
+}
+
+bool Service::enqueue_ack(std::uint32_t reference_message_id)
+{
+    if (!peer_known_ || reference_message_id == 0) {
+        return false;
     }
+
+    if (pending_ack_count_ == kPendingAckDepth) {
+        ++traffic_.ack_queue_overflows;
+        ESP_LOGW(
+            kTag,
+            "Pending ACK queue full; dropping ref=%lu (sender retry/dedupe will recover)",
+            static_cast<unsigned long>(reference_message_id));
+        return false;
+    }
+
+    const std::size_t tail =
+        (pending_ack_head_ + pending_ack_count_) % kPendingAckDepth;
+    pending_ack_references_[tail] = reference_message_id;
+    ++pending_ack_count_;
+    return true;
+}
+
+bool Service::submit_next_ack(std::uint32_t now_ms)
+{
+    if (pending_ack_count_ == 0
+        || unicast_in_flight_.active
+        || !peer_known_) {
+        return false;
+    }
+
+    const std::uint32_t reference_message_id =
+        pending_ack_references_[pending_ack_head_];
+    pending_ack_head_ =
+        (pending_ack_head_ + 1U) % kPendingAckDepth;
+    --pending_ack_count_;
 
     communicator_protocol::Message message;
     message.type = communicator_protocol::MessageType::Ack;
@@ -604,10 +675,32 @@ void Service::send_ack(std::uint32_t reference_message_id)
     message.reference_id = reference_message_id;
 
     std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
-    if (communicator_protocol::encode(message, wire.data(), wire.size())
-        && radio_.send_peer(wire.data(), wire.size())) {
-        ++traffic_.ack_tx_submissions;
+    if (!communicator_protocol::encode(
+            message,
+            wire.data(),
+            wire.size())) {
+        ESP_LOGE(
+            kTag,
+            "Failed to encode application ACK ref=%lu",
+            static_cast<unsigned long>(reference_message_id));
+        return false;
     }
+
+    if (!radio_.send_peer(wire.data(), wire.size())) {
+        ESP_LOGW(
+            kTag,
+            "Application ACK send request rejected ref=%lu",
+            static_cast<unsigned long>(reference_message_id));
+        return false;
+    }
+
+    ++traffic_.ack_tx_submissions;
+    unicast_in_flight_.active = true;
+    unicast_in_flight_.kind = UnicastKind::ApplicationAck;
+    unicast_in_flight_.destination = peer_mac_;
+    unicast_in_flight_.submitted_ms = now_ms;
+    unicast_in_flight_.logical_message_id = reference_message_id;
+    return true;
 }
 
 bool Service::start_outgoing(
@@ -615,7 +708,10 @@ bool Service::start_outgoing(
     std::uint16_t value_id,
     std::uint32_t reference_message_id)
 {
-    if (!started_ || !peer_known_ || outgoing_.active) {
+    if (!started_
+        || !peer_known_
+        || outgoing_.active
+        || outgoing_.completion_pending_transport) {
         return false;
     }
 
@@ -628,7 +724,7 @@ bool Service::start_outgoing(
     outgoing_.started_ms = now_ms();
 
     if (transport_active_) {
-        send_outgoing(outgoing_.started_ms);
+        service_unicast(outgoing_.started_ms);
     } else {
         // A logical delivery created during an intentional transport handoff
         // starts with its delivery/retry clocks paused.
@@ -642,6 +738,7 @@ void Service::send_outgoing(std::uint32_t now_ms)
 {
     if (!transport_active_
         || !outgoing_.active
+        || unicast_in_flight_.active
         || !peer_known_
         || !peer_reachable()) {
         return;
@@ -661,14 +758,172 @@ void Service::send_outgoing(std::uint32_t now_ms)
     }
 
     ++outgoing_.attempts;
-    if (radio_.send_peer(wire.data(), wire.size())) {
-        ++traffic_.logical_payload_tx_submissions;
-    } else {
+    outgoing_.last_send_ms = now_ms;
+
+    if (!radio_.send_peer(wire.data(), wire.size())) {
         ++outgoing_.send_request_failures;
+        outgoing_.retry_delay_ms = next_retry_delay_ms();
+        return;
     }
 
-    outgoing_.last_send_ms = now_ms;
-    outgoing_.retry_delay_ms = next_retry_delay_ms();
+    ++outgoing_.accepted_submissions;
+    ++traffic_.logical_payload_tx_submissions;
+
+    unicast_in_flight_.active = true;
+    unicast_in_flight_.kind = UnicastKind::OutgoingPayload;
+    unicast_in_flight_.destination = peer_mac_;
+    unicast_in_flight_.submitted_ms = now_ms;
+    unicast_in_flight_.logical_message_id =
+        outgoing_.message.message_id;
+}
+
+void Service::service_unicast(std::uint32_t now_ms)
+{
+    if (!transport_active_ || unicast_in_flight_.active) {
+        return;
+    }
+
+    const bool outgoing_retry_due =
+        outgoing_.active
+        && (outgoing_.last_send_ms == 0
+            || now_ms - outgoing_.last_send_ms
+                >= outgoing_.retry_delay_ms);
+
+    // Attempt-budget completion is not a transmission, so it is resolved
+    // before choosing the next unicast submission.
+    if (outgoing_retry_due
+        && outgoing_.attempts >= config_.max_send_attempts) {
+        finish_outgoing(DeliveryOutcome::Failed, now_ms);
+    }
+
+    if (unicast_in_flight_.active) {
+        return;
+    }
+
+    // Receiver ACKs have priority over a due outgoing payload attempt.
+    if (pending_ack_count_ > 0 && peer_known_) {
+        (void)submit_next_ack(now_ms);
+        return;
+    }
+
+    if (outgoing_.active
+        && outgoing_retry_due
+        && peer_reachable()) {
+        send_outgoing(now_ms);
+    }
+}
+
+void Service::handle_missing_tx_result(
+    std::uint32_t now_ms,
+    bool restart_transport)
+{
+    if (!unicast_in_flight_.active) {
+        return;
+    }
+
+    const UnicastInFlight missing = unicast_in_flight_;
+    unicast_in_flight_ = UnicastInFlight{};
+
+    if (missing.kind == UnicastKind::OutgoingPayload) {
+        ++traffic_.logical_tx_result_timeouts;
+
+        if (outgoing_.message.message_id == missing.logical_message_id) {
+            ++outgoing_.tx_result_timeouts;
+            if (outgoing_.active) {
+                outgoing_.last_send_ms = now_ms;
+                outgoing_.retry_delay_ms = next_retry_delay_ms();
+            }
+        }
+
+        ESP_LOGW(
+            kTag,
+            "Outgoing TxResult missing id=%lu reason=%s",
+            static_cast<unsigned long>(missing.logical_message_id),
+            restart_transport ? "guard_timeout" : "transport_pause");
+    } else {
+        ++traffic_.ack_tx_result_timeouts;
+        ESP_LOGW(
+            kTag,
+            "Application ACK TxResult missing ref=%lu reason=%s",
+            static_cast<unsigned long>(missing.logical_message_id),
+            restart_transport ? "guard_timeout" : "transport_pause");
+    }
+
+    if (outgoing_.completion_pending_transport
+        && outgoing_.message.message_id == missing.logical_message_id) {
+        finalize_outgoing_metrics();
+    }
+
+    if (!restart_transport) {
+        return;
+    }
+
+    // A timed-out callback cannot be safely distinguished from a later
+    // unicast callback using destination MAC alone. Resetting the messaging
+    // radio transport is the attribution barrier: unregister/deinit clears
+    // the old callback/event queue before any newer unicast is submitted.
+    const bool stopped = radio_.stop();
+    transport_active_ = false;
+    if (!stopped) {
+        ESP_LOGW(
+            kTag,
+            "Radio cleanup reported errors during TxResult recovery");
+    }
+
+    if (!start_transport()) {
+        ESP_LOGE(
+            kTag,
+            "Radio restart failed during TxResult recovery");
+    }
+}
+
+void Service::resolve_in_flight(
+    bool success,
+    std::uint32_t resolved_ms)
+{
+    if (!unicast_in_flight_.active) {
+        return;
+    }
+
+    const UnicastInFlight resolved = unicast_in_flight_;
+    unicast_in_flight_ = UnicastInFlight{};
+
+    if (resolved.kind == UnicastKind::ApplicationAck) {
+        if (success) {
+            ++traffic_.ack_mac_successes;
+        } else {
+            ++traffic_.ack_mac_failures;
+        }
+        return;
+    }
+
+    if (outgoing_.message.message_id != resolved.logical_message_id) {
+        ESP_LOGW(
+            kTag,
+            "Ignoring TxResult for stale logical id=%lu",
+            static_cast<unsigned long>(resolved.logical_message_id));
+        return;
+    }
+
+    if (success) {
+        ++outgoing_.mac_successes;
+        ++traffic_.logical_mac_successes;
+        if (outgoing_.active) {
+            outgoing_.last_send_ms = resolved_ms;
+            outgoing_.retry_delay_ms = mac_success_ack_grace_ms();
+        }
+    } else {
+        ++outgoing_.mac_failures;
+        ++traffic_.logical_mac_failures;
+        if (outgoing_.active) {
+            outgoing_.last_send_ms = resolved_ms;
+            outgoing_.retry_delay_ms = next_retry_delay_ms();
+        }
+    }
+
+    if (outgoing_.completion_pending_transport) {
+        finalize_outgoing_metrics();
+    }
 }
 
 std::uint32_t Service::next_retry_delay_ms() const
@@ -679,6 +934,13 @@ std::uint32_t Service::next_retry_delay_ms() const
             : esp_random()
                 % (static_cast<std::uint32_t>(config_.retry_jitter_ms) + 1U);
     return config_.retry_interval_ms + jitter;
+}
+
+std::uint32_t Service::mac_success_ack_grace_ms() const
+{
+    return static_cast<std::uint32_t>(
+        rx_schedule_for(rx_profile_).interval_ms)
+        + config_.mac_success_ack_grace_margin_ms;
 }
 
 void Service::finish_outgoing(
@@ -705,23 +967,55 @@ void Service::finish_outgoing(
         ++traffic_.failed_logical_messages;
     }
 
+    outgoing_.active = false;
+    outgoing_.completed_outcome = outcome;
+    outgoing_.completed_ms = completed_ms;
+    outgoing_.completion_pending_transport =
+        unicast_in_flight_.active
+        && unicast_in_flight_.kind == UnicastKind::OutgoingPayload
+        && unicast_in_flight_.logical_message_id
+            == outgoing_.message.message_id;
+
+    if (!outgoing_.completion_pending_transport) {
+        finalize_outgoing_metrics();
+    }
+}
+
+void Service::finalize_outgoing_metrics()
+{
+    if (outgoing_.message.message_id == 0) {
+        return;
+    }
+
     ESP_LOGI(
         kTag,
-        "Logical delivery id=%lu kind=%s outcome=%s attempts=%lu send_request_failures=%lu latency_ms=%lu",
-        static_cast<unsigned long>(delivery_receipt_.logical_message_id),
-        delivery_kind_name(delivery_receipt_.kind),
-        delivery_outcome_name(delivery_receipt_.outcome),
-        static_cast<unsigned long>(delivery_receipt_.send_attempt_count),
+        "Logical delivery id=%lu kind=%s outcome=%s attempts=%lu accepted=%lu send_request_failures=%lu mac_success=%lu mac_fail=%lu tx_result_missing=%lu latency_ms=%lu",
+        static_cast<unsigned long>(outgoing_.message.message_id),
+        delivery_kind_name(to_delivery_kind(outgoing_.message.type)),
+        delivery_outcome_name(outgoing_.completed_outcome),
+        static_cast<unsigned long>(outgoing_.attempts),
+        static_cast<unsigned long>(outgoing_.accepted_submissions),
+        static_cast<unsigned long>(outgoing_.send_request_failures),
+        static_cast<unsigned long>(outgoing_.mac_successes),
+        static_cast<unsigned long>(outgoing_.mac_failures),
+        static_cast<unsigned long>(outgoing_.tx_result_timeouts),
         static_cast<unsigned long>(
-            delivery_receipt_.send_request_failure_count),
-        static_cast<unsigned long>(delivery_receipt_.latency_ms));
+            outgoing_.completed_ms - outgoing_.started_ms));
     ESP_LOGI(
         kTag,
-        "Traffic submissions logical=%lu ack=%lu presence=%lu delivered=%lu failed=%lu",
+        "Traffic submissions logical=%lu ack=%lu presence=%lu logical_mac_success=%lu logical_mac_fail=%lu logical_tx_missing=%lu ack_mac_success=%lu ack_mac_fail=%lu ack_tx_missing=%lu ack_queue_overflow=%lu delivered=%lu failed=%lu",
         static_cast<unsigned long>(
             traffic_.logical_payload_tx_submissions),
         static_cast<unsigned long>(traffic_.ack_tx_submissions),
         static_cast<unsigned long>(traffic_.presence_tx_submissions),
+        static_cast<unsigned long>(traffic_.logical_mac_successes),
+        static_cast<unsigned long>(traffic_.logical_mac_failures),
+        static_cast<unsigned long>(
+            traffic_.logical_tx_result_timeouts),
+        static_cast<unsigned long>(traffic_.ack_mac_successes),
+        static_cast<unsigned long>(traffic_.ack_mac_failures),
+        static_cast<unsigned long>(traffic_.ack_tx_result_timeouts),
+        static_cast<unsigned long>(traffic_.ack_queue_overflows),
         static_cast<unsigned long>(
             traffic_.delivered_logical_messages),
         static_cast<unsigned long>(traffic_.failed_logical_messages));
