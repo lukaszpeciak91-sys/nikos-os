@@ -29,6 +29,8 @@ struct Config {
     std::uint16_t retry_jitter_ms = 250;
     std::uint8_t max_send_attempts = 8;
     std::uint32_t delivery_timeout_ms = 12000;
+    std::uint16_t tx_result_timeout_ms = 500;
+    std::uint16_t mac_success_ack_grace_margin_ms = 250;
     RxSchedule foreground_rx{1000, 500, 7000};
     RxSchedule background_rx{3000, 500, 20000};
 };
@@ -106,44 +108,85 @@ public:
 private:
     static constexpr std::size_t kDedupeDepth = 8;
     static constexpr std::size_t kIncomingQueueDepth = 4;
+    static constexpr std::size_t kPendingAckDepth = 4;
+
+    enum class UnicastKind : std::uint8_t {
+        OutgoingPayload,
+        ApplicationAck,
+    };
+
+    struct UnicastInFlight {
+        bool active = false;
+        UnicastKind kind = UnicastKind::OutgoingPayload;
+        radio::MacAddress destination{};
+        std::uint32_t submitted_ms = 0;
+        std::uint32_t logical_message_id = 0;
+    };
 
     struct OutgoingState {
         bool active = false;
+        bool completion_pending_transport = false;
         communicator_protocol::Message message{};
+        DeliveryOutcome completed_outcome = DeliveryOutcome::Failed;
+        std::uint32_t completed_ms = 0;
         std::uint32_t started_ms = 0;
         std::uint32_t last_send_ms = 0;
         std::uint32_t retry_delay_ms = 0;
         std::uint32_t paused_since_ms = 0;
         std::uint32_t attempts = 0;
+        std::uint32_t accepted_submissions = 0;
         std::uint32_t send_request_failures = 0;
+        std::uint32_t mac_successes = 0;
+        std::uint32_t mac_failures = 0;
+        std::uint32_t tx_result_timeouts = 0;
     };
 
     struct TrafficCounters {
         std::uint32_t logical_payload_tx_submissions = 0;
         std::uint32_t ack_tx_submissions = 0;
         std::uint32_t presence_tx_submissions = 0;
+        std::uint32_t logical_mac_successes = 0;
+        std::uint32_t logical_mac_failures = 0;
+        std::uint32_t logical_tx_result_timeouts = 0;
+        std::uint32_t ack_mac_successes = 0;
+        std::uint32_t ack_mac_failures = 0;
+        std::uint32_t ack_tx_result_timeouts = 0;
+        std::uint32_t ack_queue_overflows = 0;
         std::uint32_t delivered_logical_messages = 0;
         std::uint32_t failed_logical_messages = 0;
     };
 
     bool start_transport();
     radio::RxPowerConfig rx_power_for(RxProfile profile) const;
+    const RxSchedule& rx_schedule_for(RxProfile profile) const;
 
     void process_radio_events();
     void process_rx(const radio::RxEvent& event);
+    void process_tx_result(const radio::TxEvent& event);
     void record_peer_rx(const radio::RxEvent& event);
 
     void send_presence(std::uint32_t now_ms);
     void send_ack(std::uint32_t reference_message_id);
+    bool enqueue_ack(std::uint32_t reference_message_id);
+    bool submit_next_ack(std::uint32_t now_ms);
     bool start_outgoing(
         communicator_protocol::MessageType type,
         std::uint16_t value_id,
         std::uint32_t reference_message_id);
     void send_outgoing(std::uint32_t now_ms);
+    void service_unicast(std::uint32_t now_ms);
+    void handle_missing_tx_result(
+        std::uint32_t now_ms,
+        bool restart_transport);
+    void resolve_in_flight(
+        bool success,
+        std::uint32_t resolved_ms);
     std::uint32_t next_retry_delay_ms() const;
+    std::uint32_t mac_success_ack_grace_ms() const;
     void finish_outgoing(
         DeliveryOutcome outcome,
         std::uint32_t completed_ms);
+    void finalize_outgoing_metrics();
 
     bool is_duplicate(std::uint32_t logical_message_id) const;
     void remember_received(std::uint32_t logical_message_id);
@@ -168,7 +211,12 @@ private:
 
     std::uint32_t next_message_id_ = 1;
     OutgoingState outgoing_{};
+    UnicastInFlight unicast_in_flight_{};
     TrafficCounters traffic_{};
+
+    std::array<std::uint32_t, kPendingAckDepth> pending_ack_references_{};
+    std::size_t pending_ack_head_ = 0;
+    std::size_t pending_ack_count_ = 0;
 
     std::array<std::uint32_t, kDedupeDepth> recent_received_ids_{};
     std::size_t recent_received_count_ = 0;
