@@ -862,6 +862,12 @@ void Service::handle_missing_tx_result(
     // unicast callback using destination MAC alone. Resetting the messaging
     // radio transport is the attribution barrier: unregister/deinit clears
     // the old callback/event queue before any newer unicast is submitted.
+    // Preserve the existing Presence schedule across this exceptional reset.
+    const std::uint32_t saved_last_presence_tx_ms =
+        last_presence_tx_ms_;
+    const std::uint32_t saved_presence_delay_ms =
+        current_presence_delay_ms_;
+
     const bool stopped = radio_.stop();
     transport_active_ = false;
     if (!stopped) {
@@ -874,7 +880,11 @@ void Service::handle_missing_tx_result(
         ESP_LOGE(
             kTag,
             "Radio restart failed during TxResult recovery");
+        return;
     }
+
+    last_presence_tx_ms_ = saved_last_presence_tx_ms;
+    current_presence_delay_ms_ = saved_presence_delay_ms;
 }
 
 void Service::resolve_in_flight(
