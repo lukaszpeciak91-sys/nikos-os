@@ -10,7 +10,7 @@ The conceptual model is:
 
 Applications may initially be compiled into a single firmware image. No dynamic APK-style or plugin system is required.
 
-The current runtime starts with a lightweight launcher. The launcher has four fixed entries: Communicator, RadioLab, Minutnik, and Rozrywka. Communicator and RadioLab are real applications; Minutnik and Rozrywka remain placeholders. This is still a static shape, not an application registry or plugin framework.
+The current runtime starts with a lightweight launcher. The launcher has five fixed entries: Communicator, RadioLab, Minutnik, Rozrywka, and the final whole-device `WYŁĄCZ` action. Communicator and RadioLab are real applications; Minutnik and Rozrywka remain placeholders. This is still a static shape, not an application registry or plugin framework. The launcher uses a small local four-row viewport so the fifth entry does not overlap the header/footer.
 
 ## Initial ownership boundaries
 
@@ -113,13 +113,15 @@ Future owner of product-level:
 - display and backlight power policy
 - radio power policy
 
+Whole-device shutdown is intentionally narrower than a power-policy framework: the launcher emits only a shutdown request, `app_main` performs orderly runtime cleanup, and the board layer owns the M5-specific `M5.Power.powerOff()` call.
+
 The current messaging RX schedules are experimental transport configuration, not permanent power architecture.
 
 ### launcher
 
 Owns only the current top-level selection UI and fixed launcher navigation.
 
-It does not own radio lifecycle internals, application registries, persistence, profiles, or plugin loading.
+It does not own radio lifecycle internals, application registries, persistence, profiles, plugin loading, or hardware power control. The launcher may request whole-device shutdown only after explicit confirmation.
 
 ### applications
 
@@ -157,6 +159,8 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Human-visible conversation `OK` remains distinct from transport/application ACK.
 - `SYGNAŁ` remains outside preset conversation semantics; it is a bounded transient attention overlay using existing RING delivery semantics.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
+- Launcher `WYŁĄCZ` means whole-device shutdown and remains distinct from Communicator `WYŁĄCZ` (service disable) and Communicator `POWRÓT` (foreground-panel exit).
+- Whole-device shutdown orchestration belongs to `app_main`; M5-specific power-off belongs to `board`.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.

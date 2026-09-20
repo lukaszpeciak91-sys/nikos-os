@@ -10,13 +10,14 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Native ESP-IDF scaffold implemented for classic ESP32 / ESP32-PICO-D4.
 - ESP-IDF 5.5.5, M5Unified 0.2.22, and M5GFX 0.2.29 are pinned.
 - Minimal `board`, `radio`, and `protocol` boundaries implemented.
-- Boot shows a short deterministic branded signal-synchronization splash and enters a dark navy four-item launcher: Communicator, RadioLab, Minutnik, Rozrywka. The launcher shows a small cached battery percentage sampled about once per second.
+- Boot shows a short deterministic branded signal-synchronization splash and enters a dark navy five-entry launcher: Communicator, RadioLab, Minutnik, Rozrywka, WYŁĄCZ. A local four-row viewport keeps the header, battery indicator, and footer clear.
 - Communicator and RadioLab are real launcher applications; Minutnik and Rozrywka remain visible placeholders.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
 - Launcher controls use primary short = open/confirm and secondary short = next.
 - RadioLab controls use secondary short = PING, primary short = HELLO, primary long = NORMAL/LR, and secondary long = return to launcher.
 - The separate power button is not part of launcher or application navigation.
+- Launcher `WYŁĄCZ` now provides explicit whole-device shutdown through a default-NIE confirmation; shutdown cleanup is orchestrated by `app_main`, while M5-specific power-off remains inside `board`.
 - The board rendering layer includes a small embedded DejaVu Sans subset for ASCII plus Polish UI letters, exposed only through a scoped Polish UTF-8 text API.
 - ESP-NOW callback-owned RX data and metadata are copied into a FreeRTOS queue before callback return.
 - A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, retry/ACK delivery, dedupe, and experimental RX profiles above `radio`.
@@ -62,3 +63,4 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-20 — Added Communicator v0.1 core UX with fixed launcher integration, Polish preset/response catalogues, deterministic human-OK conversation state, reachability UI, and full-screen incoming cards.
 - 2026-09-20 — Added the separate non-blocking Communicator `SYGNAŁ` attention action using existing RING delivery semantics, custom bell/arcs rendering, and a bounded three-repeat buzzer pattern.
 - 2026-09-20 — Added explicit Communicator session lifecycle: messaging OFF after boot, volatile launcher-controlled enable/disable, foreground/background lifetime separation, clean session reset, and conditional RadioLab pause/resume.
+- 2026-09-20 — Added explicit confirmed whole-device shutdown from the launcher with orderly app/radio cleanup and board-owned M5Unified power-off.

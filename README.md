@@ -20,8 +20,9 @@ Launcher entries:
 2. RadioLab
 3. Minutnik
 4. Rozrywka
+5. WYŁĄCZ
 
-Communicator and RadioLab are real applications. Minutnik and Rozrywka remain visible placeholders. The launcher remains a fixed static list rather than an app registry/plugin system. Communicator background messaging starts OFF after boot and is enabled explicitly for the current OS session from the launcher. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
+Communicator and RadioLab are real applications. Minutnik and Rozrywka remain visible placeholders. The final `WYŁĄCZ` entry is whole-device shutdown and opens a `NIE/TAK` confirmation with `NIE` selected by default. The launcher remains a fixed static list rather than an app registry/plugin system. Communicator background messaging starts OFF after boot and is enabled explicitly for the current OS session from the launcher. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
 
 Launcher controls:
 

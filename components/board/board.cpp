@@ -128,6 +128,11 @@ void Board::wake_display()
     M5.Display.wakeup();
 }
 
+void Board::power_off()
+{
+    M5.Power.powerOff();
+}
+
 void Board::clear_screen()
 {
     M5.Display.fillScreen(TFT_BLACK);
