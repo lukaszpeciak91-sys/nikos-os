@@ -956,7 +956,16 @@ void CommunicatorApp::render_main()
     board_.draw_polish_ui_text_region(
         8,
         96,
-        80,
+        78,
+        21,
+        "",
+        1,
+        signal_color,
+        signal_background);
+    board_.draw_polish_ui_text_region(
+        11,
+        96,
+        75,
         21,
         "SYGNAŁ",
         2,
@@ -978,9 +987,18 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::Background;
 
     board_.draw_polish_ui_text_region(
-        88,
+        86,
         96,
-        64,
+        58,
+        21,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        options_background);
+    board_.draw_polish_ui_text_region(
+        89,
+        96,
+        55,
         21,
         "OPCJE",
         2,
@@ -991,9 +1009,9 @@ void CommunicatorApp::render_main()
 
     if (options_selected) {
         board_.draw_line(
-            88,
+            86,
             96,
-            88,
+            86,
             113,
             board::DisplayColor::Accent);
     }
@@ -1004,9 +1022,18 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::Background;
 
     board_.draw_polish_ui_text_region(
-        152,
+        144,
         96,
-        80,
+        88,
+        21,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        return_background);
+    board_.draw_polish_ui_text_region(
+        147,
+        96,
+        85,
         21,
         "POWRÓT",
         2,
@@ -1017,9 +1044,9 @@ void CommunicatorApp::render_main()
 
     if (return_selected) {
         board_.draw_line(
-            152,
+            144,
             96,
-            152,
+            144,
             113,
             board::DisplayColor::Accent);
     }
