@@ -90,7 +90,7 @@ The first Communicator infrastructure uses a separate versioned `communicator_pr
 
 A small `messaging::Service` lives above `radio` and independently of foreground UI.
 
-For the first implementation it supports one known peer, presence/reachability, latest peer RSSI, one outstanding outgoing logical message, retry until matching application ACK, and receiver dedupe. Retransmission is suspended while the known peer is stale/unreachable and resumes with the same logical message ID after valid peer traffic restores reachability. Duplicate copies are ACKed again but do not produce duplicate notification events.
+For the first implementation it supports one known peer, presence/reachability, latest peer RSSI, one outstanding outgoing logical message, bounded retry until matching application ACK, and receiver dedupe. Retransmission is suspended while the known peer is stale/unreachable and resumes with the same logical message ID after valid peer traffic restores reachability, while the absolute logical delivery deadline continues to advance. Duplicate copies are ACKed again but do not produce duplicate notification events.
 
 Presence cadence includes small bounded configurable jitter so deterministic schedules do not repeatedly alias with duty-cycled receive windows.
 
