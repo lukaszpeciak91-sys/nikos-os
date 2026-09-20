@@ -54,7 +54,13 @@ nikos::messaging::Config make_messaging_config(
     config.mode = mode;
     config.presence_interval_ms = 2000;
     config.presence_jitter_ms = 250;
-    config.retry_interval_ms = 500;
+
+    // Experimental logical-delivery policy. Keep these together so hardware
+    // tests can tune sender behavior without changing delivery architecture.
+    config.retry_interval_ms = 1000;
+    config.retry_jitter_ms = 250;
+    config.max_send_attempts = 8;
+    config.delivery_timeout_ms = 12000;
 
     // Experimental receive/reachability profiles. These are configuration
     // values for validation, not permanent platform timing policy.
