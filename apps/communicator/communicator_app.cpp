@@ -46,6 +46,7 @@ CommunicatorApp::CommunicatorApp(
 bool CommunicatorApp::begin()
 {
     active_ = true;
+    foreground_exit_requested_ = false;
     const bool profile_ok =
         messaging_.set_rx_profile(messaging::RxProfile::Foreground);
     if (!signal_alert_active_) {
@@ -81,6 +82,7 @@ void CommunicatorApp::reset_session()
     board_.stop_tone();
 
     active_ = false;
+    foreground_exit_requested_ = false;
     state_ = State::Main;
 
     selected_main_index_ = 0;
@@ -149,6 +151,12 @@ CommunicatorApp::UpdateResult CommunicatorApp::update()
     }
 
     handle_input(input);
+
+    if (foreground_exit_requested_) {
+        foreground_exit_requested_ = false;
+        return UpdateResult::ExitRequested;
+    }
+
     return UpdateResult::Running;
 }
 
@@ -410,21 +418,41 @@ void CommunicatorApp::handle_input(const board::InputState& input)
 void CommunicatorApp::handle_main_input(const board::InputState& input)
 {
     const bool reachable = messaging_.peer_reachable();
-    const std::uint8_t choice_count = static_cast<std::uint8_t>(
-        catalogue::kPresetOrder.size() + (reachable ? 1U : 0U));
+    const std::uint8_t signal_index =
+        static_cast<std::uint8_t>(catalogue::kPresetOrder.size());
+    const std::uint8_t return_index =
+        static_cast<std::uint8_t>(signal_index + 1U);
+    const std::uint8_t choice_count =
+        static_cast<std::uint8_t>(return_index + 1U);
 
     if (input.secondary_short) {
-        selected_main_index_ = static_cast<std::uint8_t>(
+        std::uint8_t next = static_cast<std::uint8_t>(
             (selected_main_index_ + 1U) % choice_count);
+
+        // SYGNAŁ is not selectable while the peer is unavailable.
+        if (!reachable && next == signal_index) {
+            next = return_index;
+        }
+
+        selected_main_index_ = next;
         render_main();
         return;
     }
 
-    if (!input.primary_short || !reachable) {
+    if (!input.primary_short) {
         return;
     }
 
-    if (selected_main_index_ == catalogue::kPresetOrder.size()) {
+    if (selected_main_index_ == return_index) {
+        foreground_exit_requested_ = true;
+        return;
+    }
+
+    if (!reachable) {
+        return;
+    }
+
+    if (selected_main_index_ == signal_index) {
         (void)send_signal();
         return;
     }
@@ -805,9 +833,11 @@ void CommunicatorApp::render_main()
     const bool reachable = messaging_.peer_reachable();
     const std::uint8_t bars = signal_bars();
     const std::size_t signal_index = catalogue::kPresetOrder.size();
+    const std::size_t return_index = signal_index + 1U;
 
-    if (!reachable && selected_main_index_ >= signal_index) {
-        selected_main_index_ = 0;
+    if (!reachable && selected_main_index_ == signal_index) {
+        selected_main_index_ =
+            static_cast<std::uint8_t>(return_index);
     }
 
     board_.draw_polish_ui_text_region(
@@ -857,13 +887,13 @@ void CommunicatorApp::render_main()
         const bool selected_row =
             reachable && selected_main_index_ == index;
         const std::int16_t y =
-            static_cast<std::int16_t>(52 + slot * 18);
+            static_cast<std::int16_t>(50 + slot * 16);
 
         board_.draw_polish_ui_text_region(
             12,
             y,
             216,
-            15,
+            13,
             catalogue::preset_text(catalogue::kPresetOrder[index]),
             1,
             selected_row
@@ -878,16 +908,16 @@ void CommunicatorApp::render_main()
                 8,
                 y,
                 8,
-                static_cast<std::int16_t>(y + 12),
+                static_cast<std::int16_t>(y + 11),
                 board::DisplayColor::AccentGreen);
         }
     }
 
     board_.draw_line(
         8,
-        88,
+        82,
         231,
-        88,
+        82,
         board::DisplayColor::MutedBlue);
 
     const bool signal_selected =
@@ -899,13 +929,13 @@ void CommunicatorApp::render_main()
 
     draw_bell_glyph(
         24,
-        101,
+        95,
         1,
         signal_color);
 
     board_.draw_polish_ui_text_region(
         44,
-        91,
+        84,
         150,
         22,
         u8"SYGNAŁ",
@@ -918,20 +948,88 @@ void CommunicatorApp::render_main()
     if (signal_selected) {
         board_.draw_line(
             8,
-            92,
+            86,
             8,
-            109,
+            103,
             board::DisplayColor::Orange);
+    }
+
+    const bool return_selected =
+        selected_main_index_ == return_index;
+    const board::DisplayColor return_color =
+        return_selected
+            ? board::DisplayColor::Ivory
+            : board::DisplayColor::MutedBlue;
+    const board::DisplayColor return_background =
+        return_selected
+            ? board::DisplayColor::PanelNavy
+            : board::DisplayColor::Navy;
+
+    board_.draw_polish_ui_text_region(
+        12,
+        106,
+        216,
+        14,
+        "",
+        1,
+        return_color,
+        return_background);
+
+    board_.draw_line(
+        22,
+        113,
+        28,
+        108,
+        return_color);
+    board_.draw_line(
+        22,
+        113,
+        28,
+        118,
+        return_color);
+    board_.draw_line(
+        22,
+        113,
+        35,
+        113,
+        return_color);
+
+    board_.draw_polish_ui_text_region(
+        42,
+        106,
+        170,
+        14,
+        u8"POWRÓT",
+        1,
+        return_color,
+        return_background);
+
+    if (return_selected) {
+        board_.draw_line(
+            8,
+            106,
+            8,
+            118,
+            board::DisplayColor::AccentGreen);
+    }
+
+    const char* footer = nullptr;
+    if (return_selected) {
+        footer = u8"M5 POWRÓT  |  SIDE DALEJ";
+    } else if (signal_selected) {
+        footer = u8"M5 SYGNAŁ  |  SIDE DALEJ";
+    } else {
+        footer = reachable
+            ? u8"M5 WYŚLIJ  |  SIDE DALEJ"
+            : u8"BRAK ŁĄCZNOŚCI  |  SIDE DALEJ";
     }
 
     board_.draw_polish_ui_text_region(
         8,
-        117,
+        122,
         224,
-        13,
-        reachable
-            ? u8"M5 WYŚLIJ  |  SIDE DALEJ"
-            : u8"BRAK ŁĄCZNOŚCI  |  SIDE DALEJ",
+        11,
+        footer,
         1,
         board::DisplayColor::MutedBlue,
         board::DisplayColor::Navy);

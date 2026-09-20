@@ -74,7 +74,10 @@ Preset messages use stable explicit IDs:
 Controls:
 - Secondary short: next item/choice.
 - Primary short: select/send/respond.
-- Secondary long: exit to launcher.
+- The main Communicator panel includes a normal selectable `POWRÓT` item directly below `SYGNAŁ`.
+- `POWRÓT` exits only the foreground panel and returns to the launcher; background messaging remains ACTIVE.
+- `POWRÓT` remains selectable even when the peer is unavailable.
+- Secondary long remains a shortcut to the same foreground-panel exit.
 - Power remains outside application navigation.
 
 The message list stays visible but inactive while the peer is unavailable. Communicator switches messaging to the experimental foreground RX profile while open and restores the background profile on exit.
