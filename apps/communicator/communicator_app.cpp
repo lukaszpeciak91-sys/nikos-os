@@ -403,7 +403,12 @@ void CommunicatorApp::handle_delivery_receipt(
         && receipt.logical_message_id
             == suspended_waiting_.expected_response_reference;
     if (failed_suspended_delivery) {
+        // The peer exchange that caused this outgoing request to be
+        // suspended is already the active conversation. Drop only the
+        // failed suspended context and leave that accepted exchange intact.
         suspended_waiting_ = SuspendedWaitingContext{};
+        delivery_failure_restore_suspended_ = false;
+        return;
     }
 
     delivery_failure_restore_suspended_ =
