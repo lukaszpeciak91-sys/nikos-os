@@ -3,6 +3,8 @@
 #include <cstdint>
 
 #include "board/board.hpp"
+#include "settings/settings.hpp"
+#include "signal_sound/signal_sound_player.hpp"
 
 namespace nikos::launcher {
 
@@ -17,7 +19,10 @@ enum class Action : std::uint8_t {
 
 class Launcher final {
 public:
-    explicit Launcher(board::Board& board);
+    Launcher(
+        board::Board& board,
+        settings::State& settings,
+        signal_sound::Player& signal_sound);
 
     void show_splash();
     void begin(bool communicator_active);
@@ -31,6 +36,7 @@ private:
         Entertainment,
         Clock,
         Settings,
+        SignalSound,
         EnableCommunicator,
         ActiveCommunicator,
         ShutdownConfirm,
@@ -43,16 +49,21 @@ private:
     void render_entertainment();
     void render_clock();
     void render_settings();
+    void render_signal_sound();
     void render_enable_communicator();
     void render_active_communicator();
     void render_shutdown_confirm();
     void render_battery_if_changed();
 
     board::Board& board_;
+    settings::State& settings_;
+    signal_sound::Player& signal_sound_;
     Screen screen_ = Screen::Main;
     bool communicator_active_ = false;
     std::uint8_t selected_index_ = 0;
     std::uint8_t tools_selection_ = 0;
+    std::uint8_t settings_selection_ = 0;
+    std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
 
     bool battery_sample_valid_ = false;

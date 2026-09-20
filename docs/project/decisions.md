@@ -178,3 +178,23 @@ A successful change uses the existing `RadioService::set_mode()` path without re
 - outstanding logical message and MessageId.
 
 **Rationale:** This allows controlled STANDARD-vs-LR validation under the real duty-cycled Communicator policy while holding messaging timing and delivery semantics constant.
+
+
+## D-016 — SYGNAŁ sound selection is volatile and shares one player
+
+**Status:** Accepted
+
+Settings v1 introduces the first real Nikoś OS setting: the Communicator `SYGNAŁ` sound.
+
+The selected value lives in a small composition-owned `settings::State` and is one of:
+- `Gentle` / `Łagodny` — default after boot;
+- `Classic` / `Klasyczny`;
+- `Pager`.
+
+The setting is volatile for the current OS boot and is not persisted in NVS.
+
+A small non-blocking `signal_sound::Player` owns the three fixed product patterns. Both Settings preview and received Communicator RING/`SYGNAŁ` playback use the same player and the same definitions. The player is advanced from the normal main loop and delegates actual buzzer hardware calls to `board`.
+
+The ordinary short incoming-message notification tone remains separate and unchanged.
+
+**Rationale:** This establishes one real user preference and one reusable SYGNAŁ playback source without prematurely introducing generic settings persistence, a theme system, or a generic audio/notification framework.

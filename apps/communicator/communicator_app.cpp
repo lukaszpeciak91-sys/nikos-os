@@ -10,16 +10,7 @@ namespace {
 constexpr std::uint32_t kNotificationToneMs = 90;
 constexpr float kNotificationToneHz = 2600.0F;
 
-constexpr std::uint32_t kSignalToneMs = 180;
-constexpr std::uint32_t kSignalShortSilenceMs = 180;
-constexpr std::uint32_t kSignalLongSilenceMs = 500;
-constexpr std::uint8_t kSignalStepsPerRepeat = 4;
-constexpr std::uint8_t kSignalRepeatCount = 3;
-constexpr std::uint8_t kSignalStepCount =
-    kSignalStepsPerRepeat * kSignalRepeatCount;
 constexpr std::uint32_t kSignalAnimationMs = 120;
-constexpr float kSignalToneOneHz = 2400.0F;
-constexpr float kSignalToneTwoHz = 2800.0F;
 
 constexpr std::int16_t kScreenWidth = 240;
 constexpr std::int16_t kScreenHeight = 135;
@@ -36,9 +27,11 @@ namespace nikos::communicator {
 CommunicatorApp::CommunicatorApp(
     board::Board& board,
     messaging::Service& messaging,
+    signal_sound::Player& signal_sound,
     const char* peer_label)
     : board_(board),
       messaging_(messaging),
+      signal_sound_(signal_sound),
       peer_label_(peer_label)
 {
 }
@@ -58,10 +51,10 @@ bool CommunicatorApp::begin()
 bool CommunicatorApp::end()
 {
     if (signal_alert_active_) {
-        board_.stop_tone();
+        signal_sound_.stop();
         signal_alert_active_ = false;
-        signal_pattern_running_ = false;
         signal_return_to_launcher_ = false;
+        signal_audio_complete_rendered_ = false;
     }
 
     active_ = false;
@@ -79,7 +72,7 @@ bool CommunicatorApp::end()
 
 void CommunicatorApp::reset_session()
 {
-    board_.stop_tone();
+    signal_sound_.stop();
 
     active_ = false;
     foreground_exit_requested_ = false;
@@ -108,10 +101,8 @@ void CommunicatorApp::reset_session()
 
     signal_alert_active_ = false;
     signal_return_to_launcher_ = false;
-    signal_pattern_running_ = false;
+    signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
-    signal_audio_step_ = 0;
-    signal_step_started_ms_ = 0;
     signal_last_animation_ms_ = 0;
 
     rendered_peer_state_valid_ = false;
@@ -713,6 +704,7 @@ bool CommunicatorApp::send_wait_followup()
 
 void CommunicatorApp::notify_incoming()
 {
+    signal_sound_.stop();
     board_.wake_display();
     board_.tone(kNotificationToneHz, kNotificationToneMs);
 
@@ -725,17 +717,14 @@ void CommunicatorApp::start_signal_alert()
 {
     signal_return_to_launcher_ = !active_;
     signal_alert_active_ = true;
-    signal_pattern_running_ = true;
+    signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
-    signal_audio_step_ = 0;
 
     const std::uint32_t now = now_ms();
-    signal_step_started_ms_ = now;
     signal_last_animation_ms_ = now;
 
     board_.wake_display();
-    board_.stop_tone();
-    board_.tone(kSignalToneOneHz, kSignalToneMs);
+    signal_sound_.play_selected();
     render_signal_alert(signal_animation_wide_);
 }
 
@@ -745,77 +734,27 @@ void CommunicatorApp::update_signal_alert(std::uint32_t now)
         return;
     }
 
-    if (signal_pattern_running_) {
-        while (signal_pattern_running_) {
-            const std::uint8_t phase =
-                static_cast<std::uint8_t>(
-                    signal_audio_step_ % kSignalStepsPerRepeat);
-            const std::uint32_t duration =
-                phase == 3
-                    ? kSignalLongSilenceMs
-                    : kSignalToneMs;
-
-            if (phase == 1) {
-                // The short silent segment has the same 180 ms duration.
-                if (now - signal_step_started_ms_ < kSignalShortSilenceMs) {
-                    break;
-                }
-            } else if (now - signal_step_started_ms_ < duration) {
-                break;
-            }
-
-            signal_step_started_ms_ +=
-                phase == 1 ? kSignalShortSilenceMs : duration;
-            ++signal_audio_step_;
-
-            if (signal_audio_step_ >= kSignalStepCount) {
-                signal_pattern_running_ = false;
-                board_.stop_tone();
-                render_signal_alert(false);
-                break;
-            }
-
-            advance_signal_audio_step(now);
+    if (signal_sound_.playing()) {
+        if (now - signal_last_animation_ms_ >= kSignalAnimationMs) {
+            signal_last_animation_ms_ = now;
+            signal_animation_wide_ = !signal_animation_wide_;
+            render_signal_alert(signal_animation_wide_);
         }
+        return;
     }
 
-    if (signal_pattern_running_
-        && now - signal_last_animation_ms_ >= kSignalAnimationMs) {
-        signal_last_animation_ms_ = now;
-        signal_animation_wide_ = !signal_animation_wide_;
-        render_signal_alert(signal_animation_wide_);
-    }
-}
-
-void CommunicatorApp::advance_signal_audio_step(std::uint32_t)
-{
-    const std::uint8_t phase =
-        static_cast<std::uint8_t>(
-            signal_audio_step_ % kSignalStepsPerRepeat);
-
-    switch (phase) {
-        case 0:
-            board_.tone(kSignalToneOneHz, kSignalToneMs);
-            break;
-        case 1:
-            board_.stop_tone();
-            break;
-        case 2:
-            board_.tone(kSignalToneTwoHz, kSignalToneMs);
-            break;
-        case 3:
-        default:
-            board_.stop_tone();
-            break;
+    if (!signal_audio_complete_rendered_) {
+        signal_audio_complete_rendered_ = true;
+        signal_animation_wide_ = false;
+        render_signal_alert(false);
     }
 }
 
 void CommunicatorApp::dismiss_signal_alert()
 {
-    board_.stop_tone();
+    signal_sound_.stop();
     signal_alert_active_ = false;
-    signal_pattern_running_ = false;
-    signal_audio_step_ = 0;
+    signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
 
     const bool return_to_launcher = signal_return_to_launcher_;

@@ -4,6 +4,8 @@
 #include "messaging/messaging_service.hpp"
 #include "radiolab/radiolab_app.hpp"
 #include "radio/radio.hpp"
+#include "settings/settings.hpp"
+#include "signal_sound/signal_sound_player.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -68,7 +70,12 @@ extern "C" void app_main(void)
     nikos::board::Board board;
     board.begin();
 
-    nikos::launcher::Launcher launcher(board);
+    nikos::settings::State settings;
+    nikos::signal_sound::Player signal_sound(board, settings);
+    nikos::launcher::Launcher launcher(
+        board,
+        settings,
+        signal_sound);
     launcher.show_splash();
     vTaskDelay(pdMS_TO_TICKS(kSplashDurationMs));
 
@@ -88,6 +95,7 @@ extern "C" void app_main(void)
     nikos::communicator::CommunicatorApp communicator(
         board,
         messaging,
+        signal_sound,
         "DRUGI M5");
     nikos::radiolab::RadioLabApp radiolab(board, radio);
 
@@ -101,6 +109,7 @@ extern "C" void app_main(void)
         // update() is a no-op while messaging is disabled or while RadioLab
         // temporarily owns the radio transport.
         messaging.update();
+        signal_sound.update();
 
         if (state == RuntimeState::Launcher) {
             if (communicator_enabled

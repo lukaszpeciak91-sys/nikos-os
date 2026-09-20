@@ -5,6 +5,7 @@
 #include "board/board.hpp"
 #include "communicator/communicator_catalogue.hpp"
 #include "messaging/messaging_service.hpp"
+#include "signal_sound/signal_sound_player.hpp"
 
 namespace nikos::communicator {
 
@@ -18,6 +19,7 @@ public:
     CommunicatorApp(
         board::Board& board,
         messaging::Service& messaging,
+        signal_sound::Player& signal_sound,
         const char* peer_label);
 
     bool begin();
@@ -76,7 +78,6 @@ private:
 
     void start_signal_alert();
     void update_signal_alert(std::uint32_t now_ms);
-    void advance_signal_audio_step(std::uint32_t now_ms);
     void dismiss_signal_alert();
     bool any_user_button(const board::InputState& input) const;
 
@@ -106,6 +107,7 @@ private:
 
     board::Board& board_;
     messaging::Service& messaging_;
+    signal_sound::Player& signal_sound_;
     const char* peer_label_;
 
     bool active_ = false;
@@ -136,10 +138,8 @@ private:
 
     bool signal_alert_active_ = false;
     bool signal_return_to_launcher_ = false;
-    bool signal_pattern_running_ = false;
+    bool signal_audio_complete_rendered_ = false;
     bool signal_animation_wide_ = false;
-    std::uint8_t signal_audio_step_ = 0;
-    std::uint32_t signal_step_started_ms_ = 0;
     std::uint32_t signal_last_animation_ms_ = 0;
 
     bool rendered_peer_state_valid_ = false;
