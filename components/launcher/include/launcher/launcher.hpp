@@ -21,11 +21,16 @@ public:
 
     void show_splash();
     void begin(bool communicator_active);
+    void begin_tools(bool communicator_active);
     Action update();
 
 private:
     enum class Screen : std::uint8_t {
         Main,
+        Tools,
+        Entertainment,
+        Clock,
+        Settings,
         EnableCommunicator,
         ActiveCommunicator,
         ShutdownConfirm,
@@ -34,6 +39,10 @@ private:
     void update_battery_sample(std::uint32_t now_ms);
     void render();
     void render_main();
+    void render_tools();
+    void render_entertainment();
+    void render_clock();
+    void render_settings();
     void render_enable_communicator();
     void render_active_communicator();
     void render_shutdown_confirm();
@@ -43,8 +52,8 @@ private:
     Screen screen_ = Screen::Main;
     bool communicator_active_ = false;
     std::uint8_t selected_index_ = 0;
+    std::uint8_t tools_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
-    std::uint8_t shutdown_selection_ = 0;
 
     bool battery_sample_valid_ = false;
     std::uint32_t last_battery_sample_ms_ = 0;

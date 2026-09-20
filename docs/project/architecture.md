@@ -10,7 +10,15 @@ The conceptual model is:
 
 Applications may initially be compiled into a single firmware image. No dynamic APK-style or plugin system is required.
 
-The current runtime starts with a lightweight launcher. The launcher has five fixed entries: Communicator, RadioLab, Minutnik, Rozrywka, and the final whole-device `WYŁĄCZ` action. Communicator and RadioLab are real applications; Minutnik and Rozrywka remain placeholders. This is still a static shape, not an application registry or plugin framework. The launcher uses a small local four-row viewport so the fifth entry does not overlap the header/footer.
+The current runtime starts with a lightweight launcher. Its frozen base top-level hierarchy is: `Komunikator`, `Narzędzia`, `Rozrywka`, `Zegar`, `Ustawienia`, and final whole-device `Wyłącz`. The launcher keeps a small local four-row viewport so the six fixed entries do not overlap the header/footer.
+
+The hierarchy is deliberately shallow and explicit:
+- `Komunikator` owns the existing communication lifecycle entry/enable UI.
+- `Narzędzia` contains `RadioLab` plus visible `Powrót`; RadioLab remains an application sibling of Communicator even though it is launched through the tools category.
+- `Rozrywka`, `Zegar`, and `Ustawienia` currently contain only visible `Powrót` rows and reserve semantic space for future entertainment, time-related tools, and configuration respectively.
+- `Wyłącz` remains whole-device shutdown with explicit confirmation.
+
+This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
 
 ## Initial ownership boundaries
 
@@ -119,9 +127,9 @@ The current messaging RX schedules are experimental transport configuration, not
 
 ### launcher
 
-Owns only the current top-level selection UI and fixed launcher navigation.
+Owns only the current fixed launcher navigation and its explicit shallow category screens.
 
-It does not own radio lifecycle internals, application registries, persistence, profiles, plugin loading, or hardware power control. The launcher may request whole-device shutdown only after explicit confirmation.
+It does not own radio lifecycle internals, application registries, persistence, profiles, plugin loading, or hardware power control. The launcher may request whole-device shutdown only after explicit confirmation. RadioLab is launched from `Narzędzia`; after RadioLab exits, the launcher returns to `Narzędzia` rather than MAIN.
 
 ### applications
 
@@ -161,6 +169,8 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Human-visible conversation `OK` remains distinct from transport/application ACK.
 - `SYGNAŁ` remains outside preset conversation semantics; it is a bounded transient attention overlay using existing RING delivery semantics.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
+- The base launcher hierarchy is explicitly `Komunikator / Narzędzia / Rozrywka / Zegar / Ustawienia / Wyłącz`; category navigation stays shallow and fixed rather than becoming a generic menu framework.
+- Every normal launcher submenu exposes a visible `Powrót` row; secondary-long may remain an optional shortcut.
 - Launcher `WYŁĄCZ` means whole-device shutdown and remains distinct from Communicator `WYŁĄCZ` (service disable) and Communicator `POWRÓT` (foreground-panel exit).
 - Whole-device shutdown orchestration belongs to `app_main`; M5-specific power-off belongs to `board`.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
