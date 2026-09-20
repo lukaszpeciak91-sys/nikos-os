@@ -165,13 +165,11 @@ bool Service::stop()
 
 void Service::update()
 {
-    if (!started_) {
+    if (!started_ || !transport_active_) {
         return;
     }
 
-    if (transport_active_) {
-        process_radio_events();
-    }
+    process_radio_events();
 
     const std::uint32_t now = now_ms();
 
@@ -190,10 +188,6 @@ void Service::update()
         finish_outgoing(DeliveryOutcome::Failed, now);
     }
 
-    if (!transport_active_) {
-        return;
-    }
-
     if (last_presence_tx_ms_ == 0
         || now - last_presence_tx_ms_ >= current_presence_delay_ms_) {
         send_presence(now);
@@ -210,8 +204,14 @@ bool Service::pause_transport()
         return true;
     }
 
+    const std::uint32_t paused_at_ms = now_ms();
     const bool stopped = radio_.stop();
     transport_active_ = false;
+
+    if (outgoing_.active && outgoing_.paused_since_ms == 0) {
+        outgoing_.paused_since_ms = paused_at_ms;
+    }
+
     return stopped;
 }
 
@@ -224,7 +224,23 @@ bool Service::resume_transport()
         return true;
     }
 
-    return start_transport();
+    if (!start_transport()) {
+        return false;
+    }
+
+    if (outgoing_.active && outgoing_.paused_since_ms != 0) {
+        const std::uint32_t resumed_at_ms = now_ms();
+        const std::uint32_t paused_duration_ms =
+            resumed_at_ms - outgoing_.paused_since_ms;
+
+        outgoing_.started_ms += paused_duration_ms;
+        if (outgoing_.last_send_ms != 0) {
+            outgoing_.last_send_ms += paused_duration_ms;
+        }
+        outgoing_.paused_since_ms = 0;
+    }
+
+    return true;
 }
 
 bool Service::transport_active() const
@@ -436,7 +452,6 @@ bool Service::start_transport()
     transport_active_ = true;
     last_presence_tx_ms_ = 0;
     current_presence_delay_ms_ = 0;
-    outgoing_.last_send_ms = 0;
     return true;
 }
 
@@ -614,6 +629,10 @@ bool Service::start_outgoing(
 
     if (transport_active_) {
         send_outgoing(outgoing_.started_ms);
+    } else {
+        // A logical delivery created during an intentional transport handoff
+        // starts with its delivery/retry clocks paused.
+        outgoing_.paused_since_ms = outgoing_.started_ms;
     }
 
     return true;
