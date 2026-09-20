@@ -60,7 +60,7 @@ This is one message type, not the permanent limit of the protocol. Future `FREE_
 - [x] Define local Polish display text for each approved message ID.
 - [ ] Define UI behavior for an unknown/unsupported message ID.
 
-The exact message list is intentionally not finalized in this document.
+The Communicator v0.1 preset list is now fixed in the application catalogue; later additions should use new explicit IDs without reassigning existing v0.1 IDs.
 
 ## Contextual response catalogue
 
@@ -75,7 +75,7 @@ Transport direction is already supported:
 - [x] Assign compact stable IDs to approved responses.
 - [x] Define local Polish display text for each approved response ID.
 
-The exact response list is intentionally not finalized in this document.
+The Communicator v0.1 contextual response list is now fixed in the application catalogue; later additions should use new explicit IDs without reassigning existing v0.1 IDs.
 
 ## Device/contact availability UI
 
