@@ -22,6 +22,7 @@ public:
 
     bool begin();
     bool end();
+    void reset_session();
     UpdateResult update();
 
     // Inspect retained messaging events. Returns true when one event was

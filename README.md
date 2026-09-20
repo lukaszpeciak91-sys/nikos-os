@@ -21,7 +21,7 @@ Launcher entries:
 3. Minutnik
 4. Rozrywka
 
-Communicator and RadioLab are active applications. Minutnik and Rozrywka remain visible placeholders. The launcher remains a fixed static list rather than an app registry/plugin system. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
+Communicator and RadioLab are real applications. Minutnik and Rozrywka remain visible placeholders. The launcher remains a fixed static list rather than an app registry/plugin system. Communicator background messaging starts OFF after boot and is enabled explicitly for the current OS session from the launcher. The splash and launcher use a dark navy shell, light typography, and a restrained green accent. The launcher also shows a small cached `BAT xx%` indicator, sampled about once per second.
 
 Launcher controls:
 
@@ -31,6 +31,29 @@ Launcher controls:
 - The separate power button remains outside application navigation.
 
 ## Communicator v0.1 core UX
+
+### Communicator session lifecycle
+
+Communicator background messaging is **OFF after boot**.
+
+The enabled/disabled state is volatile for the current OS session only and is not stored in NVS.
+
+Launcher behavior:
+- the Communicator row keeps its normal label and shows a small right-side state indicator;
+- open circle = OFF;
+- calm green solid circle = ACTIVE;
+- selecting Communicator while OFF shows `WŁĄCZYĆ KOMUNIKATOR?` with M5/PRIMARY = `TAK` and SIDE/SECONDARY = `NIE`;
+- selecting Communicator while ACTIVE shows `KOMUNIKATOR AKTYWNY` with `WEJDŹ` selected by default and `WYŁĄCZ` as the second choice.
+
+Foreground Communicator visibility and background messaging lifetime are separate:
+- leaving the Communicator panel restores the background RX profile but does not disable messaging;
+- choosing `WYŁĄCZ` stops messaging, clears volatile Communicator session/conversation state, and returns to the launcher;
+- start -> stop -> start is supported within one OS session.
+
+When messaging is OFF, the launcher does not inspect Communicator incoming events.
+
+RadioLab only pauses/resumes messaging when Communicator was ACTIVE before RadioLab took exclusive radio ownership. Exiting RadioLab never starts messaging that was OFF.
+
 
 Communicator uses the long-lived `messaging::Service` and the embedded Polish UI font.
 

@@ -119,3 +119,21 @@ Current experimental starting values are:
 These values are not permanent product or platform policy.
 
 **Rationale:** Connectionless RX interval/window behavior must be validated on hardware before final background power policy is chosen.
+
+
+## D-013 — Communicator messaging is session-scoped and OFF after boot
+
+**Status:** Accepted
+
+Communicator background messaging starts OFF after each boot.
+
+The user explicitly enables it from the launcher for the current OS session. The enabled/disabled state is volatile and is not persisted in NVS.
+
+Foreground Communicator visibility is separate from messaging service lifetime:
+- leaving the Communicator panel does not disable background messaging;
+- explicit `WYŁĄCZ` stops messaging and clears volatile Communicator/messaging session state;
+- start -> stop -> start must work cleanly in one OS session.
+
+RadioLab pauses and later resumes messaging only when Communicator messaging was active before RadioLab acquired exclusive radio ownership.
+
+**Rationale:** This gives the user explicit control over background radio activity without coupling service lifetime to a foreground screen or introducing persistence/power-policy infrastructure.

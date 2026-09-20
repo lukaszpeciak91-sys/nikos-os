@@ -76,6 +76,44 @@ bool CommunicatorApp::end()
     return messaging_.set_rx_profile(messaging::RxProfile::Background);
 }
 
+void CommunicatorApp::reset_session()
+{
+    board_.stop_tone();
+
+    active_ = false;
+    state_ = State::Main;
+
+    selected_main_index_ = 0;
+    selected_response_index_ = 0;
+    selected_wait_decision_index_ = 0;
+
+    sent_preset_ = catalogue::PresetId::Greeting;
+    incoming_preset_ = catalogue::PresetId::Greeting;
+    incoming_response_ = catalogue::ResponseId::GreetingHello;
+    response_set_ = catalogue::ResponseSet{};
+
+    current_incoming_ = messaging::IncomingMessage{};
+    deferred_incoming_ = messaging::IncomingMessage{};
+    deferred_incoming_valid_ = false;
+    suspended_waiting_ = SuspendedWaitingContext{};
+
+    expected_response_reference_ = 0;
+    expected_human_ack_reference_ = 0;
+    last_greeting_message_id_ = 0;
+
+    signal_alert_active_ = false;
+    signal_return_to_launcher_ = false;
+    signal_pattern_running_ = false;
+    signal_animation_wide_ = false;
+    signal_audio_step_ = 0;
+    signal_step_started_ms_ = 0;
+    signal_last_animation_ms_ = 0;
+
+    rendered_peer_state_valid_ = false;
+    rendered_peer_reachable_ = false;
+    rendered_signal_bars_ = 0;
+}
+
 CommunicatorApp::UpdateResult CommunicatorApp::update()
 {
     messaging::DeliveryReceipt receipt;
