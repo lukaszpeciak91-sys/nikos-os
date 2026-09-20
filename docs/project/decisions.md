@@ -235,7 +235,7 @@ The first hardware-test defaults are approximately:
 
 These values are experimental tuning inputs, not permanent product policy.
 
-The first attempt is immediate when transport/peer reachability permits. Retries keep the same logical MessageId. Reachability loss suppresses radio submission but does not pause or reset the absolute deadline. A matching application ACK is the only authoritative `Delivered` outcome. Attempt/deadline exhaustion produces an explicit `Failed` outcome and clears the outgoing logical delivery.
+The first attempt is immediate when transport/peer reachability permits. Retries keep the same logical MessageId. Ordinary peer reachability loss suppresses radio submission but continues consuming the logical delivery timeout; peer disappearance never resets the deadline or attempt budget. A deliberate `messaging.pause_transport()` handoff to RadioLab is different: while RadioLab intentionally owns the radio, logical delivery timeout and retry-delay clocks are suspended. On resume the same logical MessageId, send-attempt count, and remaining delivery/retry timing budget are preserved. A matching application ACK is the only authoritative `Delivered` outcome. Attempt/deadline exhaustion produces an explicit `Failed` outcome and clears the outgoing logical delivery.
 
 Development metrics record logical delivery kind/outcome, ESP-NOW send-request attempts, immediate send-request failures, logical delivery latency, and cumulative accepted send submissions for logical payloads, application ACKs, and Presence. These are submission-level measurements, not true PHY-level Wi-Fi transmission counts.
 
