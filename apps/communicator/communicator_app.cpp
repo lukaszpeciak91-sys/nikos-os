@@ -923,6 +923,7 @@ void CommunicatorApp::render_current()
 
 void CommunicatorApp::render_main()
 {
+    signal_unavailable_feedback_ = false;
     clear_screen();
     draw_header("KOMUNIKATOR");
 
@@ -932,11 +933,6 @@ void CommunicatorApp::render_main()
     const std::size_t signal_index = catalogue::kPresetOrder.size();
     const std::size_t options_index = signal_index + 1U;
     const std::size_t return_index = options_index + 1U;
-
-    if (!peer_known && selected_main_index_ == signal_index) {
-        selected_main_index_ =
-            static_cast<std::uint8_t>(options_index);
-    }
 
     board_.draw_text_region(
         10,
@@ -989,9 +985,9 @@ void CommunicatorApp::render_main()
         board::DisplayColor::Surface);
 
     board_.draw_text_region(
-        15,
+        12,
         49,
-        210,
+        216,
         30,
         catalogue::preset_text(displayed_preset),
         preset_text_scale(displayed_preset),
@@ -1025,7 +1021,7 @@ void CommunicatorApp::render_main()
         board::DisplayColor::Background);
 
     const bool signal_selected =
-        peer_known && selected_main_index_ == signal_index;
+        selected_main_index_ == signal_index;
     const bool options_selected =
         selected_main_index_ == options_index;
     const bool return_selected =
@@ -1041,9 +1037,16 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::SecondaryText;
 
     board_.draw_text_region(
-        8, 100, 78, 20, "", 1, signal_color, signal_background);
+        8, 100, 86, 20, "", 1, signal_color, signal_background);
+    draw_bell_glyph(
+        14,
+        108,
+        1,
+        peer_known
+            ? board::DisplayColor::Attention
+            : board::DisplayColor::SecondaryText);
     board_.draw_text_region(
-        10, 101, 76, 18, "SYGNAL", 2, signal_color, signal_background);
+        22, 102, 72, 18, "SYGNAL", 2, signal_color, signal_background);
     if (signal_selected) {
         board_.draw_line(8, 100, 8, 118, board::DisplayColor::Attention);
     }
@@ -1053,18 +1056,18 @@ void CommunicatorApp::render_main()
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background;
     board_.draw_text_region(
-        86,
+        94,
         100,
-        70,
+        64,
         20,
         "",
         1,
         board::DisplayColor::PrimaryText,
         options_background);
     board_.draw_text_region(
-        90,
-        101,
-        64,
+        96,
+        102,
+        60,
         18,
         "OPCJE",
         2,
@@ -1073,7 +1076,7 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::SecondaryText,
         options_background);
     if (options_selected) {
-        board_.draw_line(86, 100, 86, 118, board::DisplayColor::Accent);
+        board_.draw_line(94, 100, 94, 118, board::DisplayColor::Accent);
     }
 
     const board::DisplayColor return_background =
@@ -1081,9 +1084,9 @@ void CommunicatorApp::render_main()
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background;
     board_.draw_text_region(
-        156,
+        158,
         100,
-        76,
+        74,
         20,
         "",
         1,
@@ -1091,8 +1094,8 @@ void CommunicatorApp::render_main()
         return_background);
     board_.draw_text_region(
         159,
-        101,
-        71,
+        102,
+        72,
         18,
         "POWROT",
         2,
@@ -1101,7 +1104,7 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::SecondaryText,
         return_background);
     if (return_selected) {
-        board_.draw_line(156, 100, 156, 118, board::DisplayColor::Accent);
+        board_.draw_line(158, 100, 158, 118, board::DisplayColor::Accent);
     }
 
     board_.draw_text_region(
