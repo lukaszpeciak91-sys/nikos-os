@@ -107,6 +107,7 @@ void CommunicatorApp::reset_session()
     signal_last_animation_ms_ = 0;
 
     rendered_peer_state_valid_ = false;
+    rendered_peer_known_ = false;
     rendered_peer_reachable_ = false;
     rendered_signal_bars_ = 0;
 }
@@ -470,7 +471,7 @@ void CommunicatorApp::handle_input(const board::InputState& input)
 
 void CommunicatorApp::handle_main_input(const board::InputState& input)
 {
-    const bool reachable = messaging_.peer_reachable();
+    const bool peer_known = messaging_.peer_known();
     const std::uint8_t signal_index =
         static_cast<std::uint8_t>(catalogue::kPresetOrder.size());
     const std::uint8_t options_index =
@@ -484,8 +485,8 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         std::uint8_t next = static_cast<std::uint8_t>(
             (selected_main_index_ + 1U) % choice_count);
 
-        // Only SYGNAŁ is unavailable while the peer is unreachable.
-        if (!reachable && next == signal_index) {
+        // SYGNAŁ is unavailable only until a peer identity is known.
+        if (!peer_known && next == signal_index) {
             next = options_index;
         }
 
@@ -511,7 +512,7 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         return;
     }
 
-    if (!reachable) {
+    if (!peer_known) {
         return;
     }
 
@@ -670,7 +671,7 @@ void CommunicatorApp::handle_delivery_failed_input(
 
 bool CommunicatorApp::send_selected_preset()
 {
-    if (!messaging_.peer_reachable()) {
+    if (!messaging_.peer_known()) {
         return false;
     }
 
@@ -705,7 +706,7 @@ bool CommunicatorApp::send_selected_preset()
 
 bool CommunicatorApp::send_signal()
 {
-    if (!messaging_.peer_reachable()) {
+    if (!messaging_.peer_known()) {
         return false;
     }
 
@@ -717,7 +718,7 @@ bool CommunicatorApp::send_signal()
 bool CommunicatorApp::send_selected_response()
 {
     if (selected_response_index_ >= response_set_.count
-        || !messaging_.peer_reachable()) {
+        || !messaging_.peer_known()) {
         return false;
     }
 
@@ -745,7 +746,7 @@ bool CommunicatorApp::send_selected_response()
 
 bool CommunicatorApp::send_human_ok(std::uint32_t reference_message_id)
 {
-    if (!messaging_.peer_reachable()) {
+    if (!messaging_.peer_known()) {
         return false;
     }
 
@@ -756,7 +757,7 @@ bool CommunicatorApp::send_human_ok(std::uint32_t reference_message_id)
 
 bool CommunicatorApp::send_wait_followup()
 {
-    if (!messaging_.peer_reachable()
+    if (!messaging_.peer_known()
         || !messaging_.send_preset_message(
             static_cast<std::uint16_t>(catalogue::PresetId::Wait))) {
         return false;
@@ -905,13 +906,14 @@ void CommunicatorApp::render_main()
     clear_screen();
     draw_header("KOMUNIKATOR");
 
-    const bool reachable = messaging_.peer_reachable();
+    const bool peer_known = messaging_.peer_known();
+    const bool recently_seen = messaging_.peer_reachable();
     const std::uint8_t bars = signal_bars();
     const std::size_t signal_index = catalogue::kPresetOrder.size();
     const std::size_t options_index = signal_index + 1U;
     const std::size_t return_index = options_index + 1U;
 
-    if (!reachable && selected_main_index_ == signal_index) {
+    if (!peer_known && selected_main_index_ == signal_index) {
         selected_main_index_ =
             static_cast<std::uint8_t>(options_index);
     }
@@ -923,7 +925,7 @@ void CommunicatorApp::render_main()
         11,
         peer_label_,
         1,
-        reachable
+        peer_known
             ? board::DisplayColor::PrimaryText
             : board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -933,14 +935,16 @@ void CommunicatorApp::render_main()
         34,
         150,
         11,
-        reachable ? "DOSTĘPNY" : "NIEDOSTĘPNY",
+        !peer_known
+            ? "SZUKAM..."
+            : (recently_seen ? "DOSTĘPNY" : "GOTOWY"),
         1,
-        reachable
+        recently_seen
             ? board::DisplayColor::StatusActive
             : board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 
-    draw_signal_bars(bars, reachable);
+    draw_signal_bars(bars, recently_seen);
     board_.draw_line(
         8,
         47,
@@ -961,7 +965,7 @@ void CommunicatorApp::render_main()
     for (std::size_t slot = 0; slot < 2; ++slot) {
         const std::size_t index = first + slot;
         const bool selected_row =
-            reachable && selected_main_index_ == index;
+            peer_known && selected_main_index_ == index;
         const std::int16_t y =
             static_cast<std::int16_t>(50 + slot * 22);
         const board::DisplayColor row_background =
@@ -1009,7 +1013,7 @@ void CommunicatorApp::render_main()
         board::DisplayColor::SecondaryText);
 
     const bool signal_selected =
-        reachable && selected_main_index_ == signal_index;
+        peer_known && selected_main_index_ == signal_index;
     const bool options_selected =
         selected_main_index_ == options_index;
     const bool return_selected =
@@ -1020,7 +1024,7 @@ void CommunicatorApp::render_main()
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background;
     const board::DisplayColor signal_color =
-        reachable
+        peer_known
             ? board::DisplayColor::Attention
             : board::DisplayColor::SecondaryText;
 
@@ -1130,9 +1134,9 @@ void CommunicatorApp::render_main()
     } else if (signal_selected) {
         footer = "M5 SYGNAŁ  |  SIDE DALEJ";
     } else {
-        footer = reachable
+        footer = peer_known
             ? "M5 WYŚLIJ  |  SIDE DALEJ"
-            : "BRAK ŁĄCZNOŚCI  |  SIDE DALEJ";
+            : "SZUKAM...  |  SIDE DALEJ";
     }
 
     board_.draw_polish_ui_text_region(
@@ -1146,7 +1150,8 @@ void CommunicatorApp::render_main()
         board::DisplayColor::Background);
 
     rendered_peer_state_valid_ = true;
-    rendered_peer_reachable_ = reachable;
+    rendered_peer_known_ = peer_known;
+    rendered_peer_reachable_ = recently_seen;
     rendered_signal_bars_ = bars;
 }
 
@@ -1258,11 +1263,13 @@ void CommunicatorApp::render_options()
 
 void CommunicatorApp::render_main_if_status_changed()
 {
-    const bool reachable = messaging_.peer_reachable();
+    const bool peer_known = messaging_.peer_known();
+    const bool recently_seen = messaging_.peer_reachable();
     const std::uint8_t bars = signal_bars();
 
     if (!rendered_peer_state_valid_
-        || reachable != rendered_peer_reachable_
+        || peer_known != rendered_peer_known_
+        || recently_seen != rendered_peer_reachable_
         || bars != rendered_signal_bars_) {
         render_main();
     }

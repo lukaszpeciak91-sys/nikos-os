@@ -10,6 +10,16 @@ namespace {
 
 constexpr char kTag[] = "messaging";
 
+bool is_broadcast_destination(const nikos::radio::MacAddress& mac)
+{
+    for (const std::uint8_t byte : mac) {
+        if (byte != 0xFFU) {
+            return false;
+        }
+    }
+    return true;
+}
+
 const char* delivery_kind_name(nikos::messaging::DeliveryKind kind)
 {
     using nikos::messaging::DeliveryKind;
@@ -148,6 +158,7 @@ bool Service::stop()
     latest_peer_rssi_valid_ = false;
     last_presence_tx_ms_ = 0;
     current_presence_delay_ms_ = 0;
+    pending_presence_reply_ = false;
 
     next_message_id_ = 1;
     outgoing_ = OutgoingState{};
@@ -197,9 +208,11 @@ void Service::update()
         finish_outgoing(DeliveryOutcome::Failed, now);
     }
 
-    if (last_presence_tx_ms_ == 0
-        || now - last_presence_tx_ms_ >= current_presence_delay_ms_) {
-        send_presence(now);
+    if (!peer_known_
+        && (last_presence_tx_ms_ == 0
+            || now - last_presence_tx_ms_
+                >= current_presence_delay_ms_)) {
+        send_discovery_presence(now);
     }
 
     service_unicast(now);
@@ -314,6 +327,7 @@ bool Service::set_radio_mode(radio::Mode mode)
         latest_peer_rssi_valid_ = false;
         last_presence_tx_ms_ = 0;
         current_presence_delay_ms_ = 0;
+        pending_presence_reply_ = false;
         outgoing_.last_send_ms = 0;
         return true;
     }
@@ -340,6 +354,7 @@ bool Service::set_radio_mode(radio::Mode mode)
     // Force fresh discovery in the selected mode on the next update().
     last_presence_tx_ms_ = 0;
     current_presence_delay_ms_ = 0;
+    pending_presence_reply_ = false;
 
     // Preserve the logical outgoing message and MessageId. It may retry as
     // soon as a compatible peer is rediscovered.
@@ -563,6 +578,12 @@ void Service::process_rx(const radio::RxEvent& event)
     record_peer_rx(event);
 
     if (message.type == communicator_protocol::MessageType::Presence) {
+        if (is_broadcast_destination(event.destination)) {
+            // Presence is discovery-oriented. A broadcast discovery frame
+            // gets exactly one serialized unicast Presence reply; a unicast
+            // Presence reply never triggers another reply.
+            pending_presence_reply_ = true;
+        }
         return;
     }
 
@@ -619,7 +640,7 @@ void Service::record_peer_rx(const radio::RxEvent& event)
     }
 }
 
-void Service::send_presence(std::uint32_t now_ms)
+void Service::send_discovery_presence(std::uint32_t now_ms)
 {
     communicator_protocol::Message message;
     message.type = communicator_protocol::MessageType::Presence;
@@ -627,7 +648,7 @@ void Service::send_presence(std::uint32_t now_ms)
     std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
     if (communicator_protocol::encode(message, wire.data(), wire.size())
         && radio_.send_broadcast(wire.data(), wire.size())) {
-        ++traffic_.presence_tx_submissions;
+        ++traffic_.discovery_presence_tx_submissions;
     }
 
     const std::uint32_t jitter =
@@ -637,6 +658,46 @@ void Service::send_presence(std::uint32_t now_ms)
                 % (static_cast<std::uint32_t>(config_.presence_jitter_ms) + 1U);
     current_presence_delay_ms_ = config_.presence_interval_ms + jitter;
     last_presence_tx_ms_ = now_ms;
+}
+
+bool Service::submit_presence_reply(std::uint32_t now_ms)
+{
+    if (!pending_presence_reply_
+        || unicast_in_flight_.active
+        || !peer_known_
+        || faulted_) {
+        return false;
+    }
+
+    // One broadcast discovery frame schedules at most one reply attempt.
+    // A later broadcast may schedule another reply if this attempt was lost.
+    pending_presence_reply_ = false;
+
+    communicator_protocol::Message message;
+    message.type = communicator_protocol::MessageType::Presence;
+
+    std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
+    if (!communicator_protocol::encode(
+            message,
+            wire.data(),
+            wire.size())) {
+        ESP_LOGE(kTag, "Failed to encode discovery Presence reply");
+        return false;
+    }
+
+    if (!radio_.send_peer(wire.data(), wire.size())) {
+        ++traffic_.presence_reply_send_request_failures;
+        ESP_LOGW(kTag, "Discovery Presence reply send request rejected");
+        return false;
+    }
+
+    ++traffic_.presence_reply_tx_submissions;
+    unicast_in_flight_.active = true;
+    unicast_in_flight_.kind = UnicastKind::PresenceReply;
+    unicast_in_flight_.destination = peer_mac_;
+    unicast_in_flight_.submitted_ms = now_ms;
+    unicast_in_flight_.logical_message_id = 0;
+    return true;
 }
 
 void Service::send_ack(std::uint32_t reference_message_id)
@@ -752,8 +813,7 @@ void Service::send_outgoing(std::uint32_t now_ms)
     if (!transport_active_
         || !outgoing_.active
         || unicast_in_flight_.active
-        || !peer_known_
-        || !peer_reachable()) {
+        || !peer_known_) {
         return;
     }
 
@@ -813,15 +873,21 @@ void Service::service_unicast(std::uint32_t now_ms)
         return;
     }
 
-    // Receiver ACKs have priority over a due outgoing payload attempt.
+    // Keep peer-unicast scheduling intentionally small:
+    // application ACK, one-shot discovery Presence reply, then payload.
     if (pending_ack_count_ > 0 && peer_known_) {
         (void)submit_next_ack(now_ms);
         return;
     }
 
+    if (pending_presence_reply_ && peer_known_) {
+        (void)submit_presence_reply(now_ms);
+        return;
+    }
+
     if (outgoing_.active
         && outgoing_retry_due
-        && peer_reachable()) {
+        && peer_known_) {
         send_outgoing(now_ms);
     }
 }
@@ -853,12 +919,18 @@ void Service::handle_missing_tx_result(
             "Outgoing TxResult missing id=%lu reason=%s",
             static_cast<unsigned long>(missing.logical_message_id),
             restart_transport ? "guard_timeout" : "transport_pause");
-    } else {
+    } else if (missing.kind == UnicastKind::ApplicationAck) {
         ++traffic_.ack_tx_result_timeouts;
         ESP_LOGW(
             kTag,
             "Application ACK TxResult missing ref=%lu reason=%s",
             static_cast<unsigned long>(missing.logical_message_id),
+            restart_transport ? "guard_timeout" : "transport_pause");
+    } else {
+        ++traffic_.presence_reply_tx_result_timeouts;
+        ESP_LOGW(
+            kTag,
+            "Discovery Presence reply TxResult missing reason=%s",
             restart_transport ? "guard_timeout" : "transport_pause");
     }
 
@@ -903,6 +975,7 @@ void Service::handle_missing_tx_result(
         pending_ack_references_ = {};
         pending_ack_head_ = 0;
         pending_ack_count_ = 0;
+        pending_presence_reply_ = false;
 
         peer_known_ = false;
         peer_mac_ = {};
@@ -936,6 +1009,15 @@ void Service::resolve_in_flight(
             ++traffic_.ack_mac_successes;
         } else {
             ++traffic_.ack_mac_failures;
+        }
+        return;
+    }
+
+    if (resolved.kind == UnicastKind::PresenceReply) {
+        if (success) {
+            ++traffic_.presence_reply_mac_successes;
+        } else {
+            ++traffic_.presence_reply_mac_failures;
         }
         return;
     }
@@ -1046,13 +1128,24 @@ void Service::finalize_outgoing_metrics()
             outgoing_.completed_ms - outgoing_.started_ms));
     ESP_LOGI(
         kTag,
-        "Traffic submissions logical=%lu ack=%lu ack_request_fail=%lu presence=%lu logical_mac_success=%lu logical_mac_fail=%lu logical_tx_missing=%lu ack_mac_success=%lu ack_mac_fail=%lu ack_tx_missing=%lu ack_queue_overflow=%lu delivered=%lu failed=%lu",
+        "Traffic submissions logical=%lu ack=%lu ack_request_fail=%lu discovery_presence=%lu presence_reply=%lu presence_reply_request_fail=%lu presence_reply_mac_success=%lu presence_reply_mac_fail=%lu presence_reply_tx_missing=%lu logical_mac_success=%lu logical_mac_fail=%lu logical_tx_missing=%lu ack_mac_success=%lu ack_mac_fail=%lu ack_tx_missing=%lu ack_queue_overflow=%lu delivered=%lu failed=%lu",
         static_cast<unsigned long>(
             traffic_.logical_payload_tx_submissions),
         static_cast<unsigned long>(traffic_.ack_tx_submissions),
         static_cast<unsigned long>(
             traffic_.ack_send_request_failures),
-        static_cast<unsigned long>(traffic_.presence_tx_submissions),
+        static_cast<unsigned long>(
+            traffic_.discovery_presence_tx_submissions),
+        static_cast<unsigned long>(
+            traffic_.presence_reply_tx_submissions),
+        static_cast<unsigned long>(
+            traffic_.presence_reply_send_request_failures),
+        static_cast<unsigned long>(
+            traffic_.presence_reply_mac_successes),
+        static_cast<unsigned long>(
+            traffic_.presence_reply_mac_failures),
+        static_cast<unsigned long>(
+            traffic_.presence_reply_tx_result_timeouts),
         static_cast<unsigned long>(traffic_.logical_mac_successes),
         static_cast<unsigned long>(traffic_.logical_mac_failures),
         static_cast<unsigned long>(

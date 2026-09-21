@@ -90,9 +90,9 @@ The first Communicator infrastructure uses a separate versioned `communicator_pr
 
 A small `messaging::Service` lives above `radio` and independently of foreground UI.
 
-For the first implementation it supports one known peer, presence/reachability, latest peer RSSI, one outstanding outgoing logical message, bounded retry until matching application ACK, and receiver dedupe. Retransmission is suspended while the known peer is stale/unreachable and resumes with the same logical message ID after valid peer traffic restores reachability, while the absolute logical delivery deadline continues to advance. Duplicate copies are ACKed again but do not produce duplicate notification events.
+For the first implementation it supports one known peer, discovery/recent-RX status, latest peer RSSI, one outstanding outgoing logical message, bounded retry until matching application ACK, and receiver dedupe. Peer identity is distinct from recent-RX age: a known peer remains eligible for bounded delivery after recent-RX status becomes stale, while the logical delivery deadline and attempt budget remain authoritative. Duplicate copies are ACKed again but do not produce duplicate notification events.
 
-Presence cadence includes small bounded configurable jitter so deterministic schedules do not repeatedly alias with duty-cycled receive windows.
+Presence is discovery-oriented rather than a continuous liveness heartbeat. Broadcast discovery retains a small bounded configurable jitter only while no peer is known; a received broadcast Presence schedules one one-shot unicast Presence reply.
 
 The service is advanced by the main loop and does not own a separate FreeRTOS task. Its dedupe state is in memory: it survives foreground application changes and RadioLab messaging pause/resume, but not a full device reboot. A sender still retrying across a receiver reboot may therefore cause that logical message to be surfaced again in this first infrastructure version.
 
@@ -235,11 +235,11 @@ The first hardware-test defaults are approximately:
 
 These values are experimental tuning inputs, not permanent product policy.
 
-The first attempt is immediate when transport/peer reachability permits. Retries keep the same logical MessageId. Ordinary peer reachability loss suppresses radio submission but continues consuming the logical delivery timeout; peer disappearance never resets the deadline or attempt budget. A deliberate `messaging.pause_transport()` handoff to RadioLab is different: while RadioLab intentionally owns the radio, logical delivery timeout and retry-delay clocks are suspended. On resume the same logical MessageId, send-attempt count, and remaining delivery/retry timing budget are preserved. A matching application ACK is the only authoritative `Delivered` outcome. Attempt/deadline exhaustion produces an explicit `Failed` outcome and clears the outgoing logical delivery.
+The first attempt is immediate when transport and a peer identity are available. Retries keep the same logical MessageId. Recent-RX/reachability age does not suppress attempts to a known peer; if that peer is actually unavailable, MAC-result pacing, the attempt budget, application-ACK requirement, and logical timeout produce the finite Failed outcome. Peer silence never resets the deadline or attempt budget. A deliberate `messaging.pause_transport()` handoff to RadioLab is different: while RadioLab intentionally owns the radio, logical delivery timeout and retry-delay clocks are suspended. On resume the same logical MessageId, send-attempt count, and remaining delivery/retry timing budget are preserved. A matching application ACK is the only authoritative `Delivered` outcome. Attempt/deadline exhaustion produces an explicit `Failed` outcome and clears the outgoing logical delivery.
 
 Development metrics record logical delivery kind/outcome, ESP-NOW send-request attempts, immediate send-request failures, logical delivery latency, and cumulative accepted send submissions for logical payloads, application ACKs, and Presence. These are submission-level measurements, not true PHY-level Wi-Fi transmission counts.
 
-This decision does not change Presence cadence, Communicator protocol v1, RX duty-cycle schedules, or radio `TxResult` handling. TxResult-aware attribution/pacing and Presence optimization remain separate future steps.
+This bounded-delivery decision remains unchanged by later discovery-oriented Presence pacing, Communicator protocol v1, RX duty-cycle schedules, or TxResult attribution.
 
 **Rationale:** Hardware testing showed that indefinite retransmission can waste sender energy and leave UI state waiting forever. Bounded delivery provides a safe measurement baseline before deeper MAC-aware or Presence optimization.
 
@@ -250,7 +250,7 @@ This decision does not change Presence cadence, Communicator protocol v1, RX dut
 
 `messaging::Service` now consumes ESP-NOW TxResult only for sender pacing and measurement. Application ACK remains the sole authoritative `Delivered` condition.
 
-Messaging peer-unicast submissions are serialized so at most one outgoing logical payload or application ACK is awaiting a peer TxResult at a time. Application ACK requests that arrive while this slot is busy are retained in a fixed four-entry pending-ACK queue and are submitted before a due outgoing logical retry when the slot becomes free. Queue overflow is logged; sender retry plus receiver dedupe remains the recovery path.
+Messaging peer-unicast submissions are serialized so at most one outgoing logical payload, application ACK, or one-shot unicast Presence reply is awaiting a peer TxResult at a time. Application ACK requests that arrive while this slot is busy are retained in a fixed four-entry pending-ACK queue and are submitted before a due outgoing logical retry when the slot becomes free. Queue overflow is logged; sender retry plus receiver dedupe remains the recovery path.
 
 For an accepted logical payload submission:
 - MAC FAIL schedules the existing experimental 1000 ms + 0…250 ms jitter retry;
@@ -263,6 +263,25 @@ If the missing-TxResult attribution-barrier radio restart itself fails, messagin
 
 RadioLab's deliberate transport handoff still freezes logical delivery/retry timing. Any peer unicast whose callback remains unresolved at the handoff is conservatively closed as missing before radio ownership is transferred; the same logical MessageId and attempt count remain, and the resulting retry timing is frozen until resume.
 
-Presence remains the existing 2000 ms + 0…250 ms broadcast behavior. Communicator protocol v1, RX duty schedules, reachability timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics are unchanged.
+The TxResult pacing rules remain unchanged when Presence becomes discovery-oriented. Communicator protocol v1, RX duty schedules, recent-RX timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics remain unchanged.
 
 **Rationale:** Destination MAC plus success/failure is insufficient to distinguish an outgoing logical payload from an application ACK to the same peer. Serializing only messaging unicast traffic gives deterministic TxResult ownership while allowing MAC success to reduce blind duplicate retransmission without weakening application-level delivery semantics.
+
+
+## D-020 — Communicator Presence is discovery-oriented
+
+**Status:** Accepted
+
+Communicator Presence is a peer-discovery mechanism, not a continuous liveness heartbeat.
+
+While no peer MAC is known, messaging sends broadcast Presence immediately when the active service begins updating and then at the existing experimental 2000 ms interval plus 0…250 ms jitter. Once a compatible peer is learned, normal periodic broadcast Presence stops and an idle known-peer session produces no recurring Presence traffic.
+
+Peer identity and recent-RX status are separate concepts. Any valid received peer traffic continues to refresh recent-RX/RSSI metadata, but a known peer remains eligible for preset, response, and RING bounded delivery after that recent status becomes stale. The UI uses a neutral known-but-stale state rather than claiming the peer is unavailable.
+
+A valid broadcast Presence learns/confirms the one peer and schedules one lightweight unicast Presence reply through the existing serialized messaging-unicast slot. Application ACK has first priority, the pending Presence reply second, and a due logical payload third. The receiver distinguishes discovery from reply using `radio::RxEvent::destination`: broadcast destination schedules the reply; unicast Presence does not, preventing a Presence-response echo.
+
+A Presence reply has no application-level ACK or retry protocol. Its MAC TxResult is attributed through the same single in-flight slot as other messaging unicasts, and the existing missing-TxResult guard/attribution-barrier recovery applies unchanged.
+
+Communicator OFF clears volatile peer identity. Fresh ON starts discovery again. Radio-mode change clears peer identity and restarts discovery in the selected mode. RadioLab pause/resume preserves learned identity and emits no discovery traffic while transport is intentionally paused. No peer MAC is persisted.
+
+**Rationale:** Communicator usage is sparse and transactional. Continuous heartbeat traffic after discovery spends energy without being required for message delivery; the existing bounded delivery model is the correct mechanism for determining whether a known peer can actually receive a transaction.
