@@ -200,6 +200,7 @@ private:
     Config config_{};
     bool started_ = false;
     bool transport_active_ = false;
+    bool faulted_ = false;
     RxProfile rx_profile_ = RxProfile::Background;
 
     bool peer_known_ = false;
