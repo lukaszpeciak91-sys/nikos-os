@@ -136,13 +136,9 @@ The state is created by composition in `app_main`, is shared with the launcher S
 
 ### ui_theme
 
-`ui_theme` owns the three fixed compile-time visual palettes:
+`ui_theme` owns the three fixed compile-time visual palettes. For the current physical-LCD experiment all three share the same near-black foundation: black/near-black Background, very dark neutral Surface, warm ivory PrimaryText, and restrained neutral-gray SecondaryText. Themes differ primarily through Accent: cool blue/cyan for Nikoś, amber for Bursztyn, and cool neutral/silver for Grafit.
 
-- Nikoś — the approved near-black navy reference theme;
-- Bursztyn — a dark warm retro-electronic palette;
-- Grafit — a neutral high-readability graphite palette.
-
-Applications request semantic display roles rather than RGB565 values. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Product-semantic roles such as `StatusActive`, `StatusInactive`, `Attention`, and `Danger` remain fixed across themes so status, SYGNAŁ attention, and error/destructive meaning do not drift with the selected palette.
+Applications request semantic display roles rather than RGB565 values. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Product-semantic roles such as `StatusActive`, `StatusInactive`, `Attention`, and `Danger` remain fixed across themes so status, SYGNAŁ attention, and error/destructive meaning do not drift with the selected palette. These physical-LCD palette values are experimental pending hardware validation, not final product constants.
 
 The active palette is held by `board` and selected from `settings::State::theme`. No generic styling engine, per-screen palette, or runtime RGB editor is introduced.
 
@@ -195,6 +191,10 @@ RadioLab v0.1 uses equal peers running the same firmware. It does not assign per
 
 Communicator is a foreground UI over the session-scoped `messaging::Service`. Enabling Communicator starts the service for the current OS session. Entering the foreground panel selects the experimental foreground messaging RX profile; exiting the panel—either through the selectable `POWRÓT` item or the secondary-long shortcut—restores the background profile without disabling the service. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state. To prevent FIFO head-of-line blocking during one active exchange, Communicator may hold exactly one temporarily incompatible incoming logical event locally while later service-queue traffic is inspected; this is current-exchange state, not a general inbox/router.
 
+The physical 240×135 Communicator UI presents one primary message/choice at a time. Main navigation remains one linear focus sequence—five presets, SYGNAŁ, OPCJE, POWRÓT—with secondary short = next and primary short = select. Response selection likewise shows one response at a time while keeping the incoming preset visible.
+
+Application ACK is the technical delivery acknowledgement. Normal human conversation does not require a separate mandatory OK response. After this device sends a response that must complete the peer exchange, the UI waits for that response's technical delivery receipt; a matching Delivered receipt returns to Main or restores the single `SuspendedWaitingContext` after simultaneous-preset collision. Failed delivery keeps the explicit failure UX. The contextual `ZACZEKAĆ?` follow-up remains because it carries conversational meaning rather than transport confirmation; the local close alternative sends nothing.
+
 Communicator exposes one session-scoped radio-mode option through its messaging boundary. User-facing `STANDARD` maps to `radio::Mode::Normal`; `LR` maps to `radio::Mode::Lr`. The UI does not call `radio` directly. A successful mode change uses the existing radio mode switch, preserves delivery/dedupe/incoming state and the active RX profile/timing configuration, clears learned peer reachability/RSSI, and forces fresh PRESENCE discovery in the new mode. The selected Communicator mode is volatile for the OS boot and survives foreground exit, RadioLab handoff, and Communicator OFF -> ON within that boot. Full reboot resets the default to STANDARD.
 
 The separate `SYGNAŁ` attention feature is a transient UI/audio overlay over the current foreground state. It reuses the existing RING delivery type but is not a preset message and does not enter the deterministic conversation state machine. Its short buzzer/animation sequence is advanced from the normal application update loop rather than a blocking delay or separate audio/animation framework.
@@ -218,7 +218,9 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Communicator conversation state is small, volatile, and limited to the current deterministic exchange; it is not chat history.
 - Communicator may retain at most one deferred incoming event to avoid head-of-line blocking; it must not overwrite that slot or expand it into a general inbox/reordering layer.
 - True simultaneous conversational initiation uses deterministic MAC ordering: the lower self MAC temporarily yields and may suspend exactly one WaitingForResponse context until the peer's short exchange completes; this is collision handling, not multi-conversation scheduling.
-- Human-visible conversation `OK` remains distinct from transport/application ACK.
+- Application ACK is the technical delivery acknowledgement; normal human conversation does not require a separate mandatory OK message.
+- The contextual `ZACZEKAĆ?` follow-up remains because it carries conversational meaning rather than transport confirmation; its local-close path transmits nothing.
+- Communicator physical UI shows one primary message/choice at a time and preserves secondary-short NEXT -> primary-short SELECT interaction on the two-button device.
 - `SYGNAŁ` remains outside preset conversation semantics; it is a bounded transient attention overlay using existing RING delivery semantics.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - The base launcher hierarchy is explicitly `Komunikator / Narzędzia / Rozrywka / Zegar / Ustawienia / Wyłącz`; category navigation stays shallow and fixed rather than becoming a generic menu framework.
