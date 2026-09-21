@@ -239,7 +239,7 @@ The first attempt is immediate when transport and a peer identity are available.
 
 Development metrics record logical delivery kind/outcome, ESP-NOW send-request attempts, immediate send-request failures, logical delivery latency, and cumulative accepted send submissions for logical payloads, application ACKs, and Presence. These are submission-level measurements, not true PHY-level Wi-Fi transmission counts.
 
-This bounded-delivery decision remains unchanged by later discovery-oriented Presence pacing, Communicator protocol v1, RX duty-cycle schedules, or TxResult attribution.
+This bounded-delivery decision remains unchanged by later discovery-oriented Presence pacing, the protocol-v2 payload encoding, RX duty-cycle schedules, or TxResult attribution.
 
 **Rationale:** Hardware testing showed that indefinite retransmission can waste sender energy and leave UI state waiting forever. Bounded delivery provides a safe measurement baseline before deeper MAC-aware or Presence optimization.
 
@@ -263,7 +263,7 @@ If the missing-TxResult attribution-barrier radio restart itself fails, messagin
 
 RadioLab's deliberate transport handoff still freezes logical delivery/retry timing. Any peer unicast whose callback remains unresolved at the handoff is conservatively closed as missing before radio ownership is transferred; the same logical MessageId and attempt count remain, and the resulting retry timing is frozen until resume.
 
-The TxResult pacing rules remain unchanged when Presence becomes discovery-oriented. Communicator protocol v1, RX duty schedules, recent-RX timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics remain unchanged.
+The TxResult pacing rules remain unchanged when Presence becomes discovery-oriented or the application payload moves to protocol v2. RX duty schedules, recent-RX timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics remain unchanged.
 
 **Rationale:** Destination MAC plus success/failure is insufficient to distinguish an outgoing logical payload from an application ACK to the same peer. Serializing only messaging unicast traffic gives deterministic TxResult ownership while allowing MAC success to reduce blind duplicate retransmission without weakening application-level delivery semantics.
 
@@ -285,3 +285,31 @@ A Presence reply has no application-level ACK or retry protocol. Its MAC TxResul
 Communicator OFF clears volatile peer identity. Fresh ON starts discovery again. Radio-mode change clears peer identity and restarts discovery in the selected mode. RadioLab pause/resume preserves learned identity and emits no discovery traffic while transport is intentionally paused. No peer MAC is persisted.
 
 **Rationale:** Communicator usage is sparse and transactional. Continuous heartbeat traffic after discovery spends energy without being required for message delivery; the existing bounded delivery model is the correct mechanism for determining whether a known peer can actually receive a transaction.
+
+
+## D-021 — Communicator protocol v2 uses compact type-specific frames
+
+**Status:** Accepted
+
+Communicator protocol v2 replaces the fixed 20-byte v1 application frame with an explicit variable-length type-specific format. Both controlled M5Stick devices must run the same v2 firmware; there is no v1 fallback, negotiation, capability exchange, or compatibility mode.
+
+The common v2 header is two bytes: byte 0 is discriminator `0xA7`; byte 1 stores version `2` in the high nibble and the existing numeric MessageType in the low nibble. Unknown discriminator, version, type, truncated data, or any extra trailing byte causes decode rejection.
+
+Wire sizes are:
+
+| Type | Size |
+| --- | ---: |
+| Presence | 2 B |
+| Ring | 6 B |
+| ACK | 6 B |
+| PresetMessage | 7 B |
+| PresetResponse | 11 B |
+
+Presence carries only the header. Ring carries its 32-bit logical MessageId. ACK carries only the 32-bit logical MessageId being acknowledged and has no independent logical MessageId. PresetMessage carries a 32-bit logical MessageId plus one-byte PresetId. PresetResponse carries its 32-bit logical MessageId, the 32-bit referenced message ID, and one-byte ResponseId. Multi-byte IDs remain big-endian.
+
+PresetId and ResponseId are stable semantic catalogue identifiers, never UI row/option indexes. The local catalogue remains responsible for mapping IDs to Polish display text; human-readable strings are never sent over ESP-NOW. Higher-level value APIs may remain 16-bit, but protocol encoding rejects values above 255 rather than silently truncating them.
+
+The 32-bit logical MessageId is deliberately retained. This protocol change reduces only the application payload bytes passed to the radio; bounded delivery, application-ACK authority, retry/deadline policy, TxResult pacing/serialization, discovery-oriented Presence behavior, RX schedules, STANDARD/LR behavior, RadioLab ownership, and UI state machines remain unchanged.
+
+**Rationale:** Communicator exchanges predefined semantic IDs, so carrying fields that are unused by a given message type wastes application payload bytes without improving delivery semantics.
+
