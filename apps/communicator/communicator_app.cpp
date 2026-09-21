@@ -1235,6 +1235,13 @@ void CommunicatorApp::render_main_if_status_changed()
     const bool recently_seen = messaging_.peer_reachable();
     const std::uint8_t bars = signal_bars();
 
+    if (signal_unavailable_feedback_) {
+        if (peer_known) {
+            render_main();
+        }
+        return;
+    }
+
     if (!rendered_peer_state_valid_
         || peer_known != rendered_peer_known_
         || recently_seen != rendered_peer_reachable_
@@ -1557,6 +1564,46 @@ void CommunicatorApp::render_delivery_failed()
         224,
         18,
         "M5 / SIDE = POWRÓT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void CommunicatorApp::render_signal_unavailable()
+{
+    clear_screen();
+    draw_header("SYGNAL");
+
+    draw_bell_glyph(
+        120,
+        48,
+        2,
+        board::DisplayColor::SecondaryText);
+
+    board_.draw_text_region(
+        29,
+        70,
+        190,
+        20,
+        "BRAK POLACZENIA",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        55,
+        96,
+        160,
+        12,
+        "SZUKAM DRUGIEGO M5...",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        50,
+        120,
+        175,
+        12,
+        "M5 / SIDE = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
