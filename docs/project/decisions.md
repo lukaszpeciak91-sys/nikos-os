@@ -242,3 +242,27 @@ Development metrics record logical delivery kind/outcome, ESP-NOW send-request a
 This decision does not change Presence cadence, Communicator protocol v1, RX duty-cycle schedules, or radio `TxResult` handling. TxResult-aware attribution/pacing and Presence optimization remain separate future steps.
 
 **Rationale:** Hardware testing showed that indefinite retransmission can waste sender energy and leave UI state waiting forever. Bounded delivery provides a safe measurement baseline before deeper MAC-aware or Presence optimization.
+
+
+## D-019 — ESP-NOW TxResult is a serialized pacing signal, not delivery
+
+**Status:** Accepted
+
+`messaging::Service` now consumes ESP-NOW TxResult only for sender pacing and measurement. Application ACK remains the sole authoritative `Delivered` condition.
+
+Messaging peer-unicast submissions are serialized so at most one outgoing logical payload or application ACK is awaiting a peer TxResult at a time. Application ACK requests that arrive while this slot is busy are retained in a fixed four-entry pending-ACK queue and are submitted before a due outgoing logical retry when the slot becomes free. Queue overflow is logged; sender retry plus receiver dedupe remains the recovery path.
+
+For an accepted logical payload submission:
+- MAC FAIL schedules the existing experimental 1000 ms + 0…250 ms jitter retry;
+- MAC SUCCESS does not deliver the logical message; it starts an ACK grace derived from the current local RX interval plus a 250 ms experimental margin, giving approximately 1250 ms in foreground and 3250 ms in background;
+- a missing TxResult is guarded for 500 ms. Guard expiry is counted separately and forces a messaging radio transport reset before any newer peer unicast is submitted, preventing a late destination-only callback from being attributed to a newer transmission.
+
+If an application ACK arrives before the payload TxResult is processed, logical delivery completes immediately as `Delivered`, but the physical unicast attribution remains reserved until the matching TxResult or missing-result guard resolves. This prevents the later callback from affecting a newer logical message.
+
+If the missing-TxResult attribution-barrier radio restart itself fails, messaging fails closed rather than behaving like a RadioLab pause: any still-active logical delivery completes as `Failed`, pending unicast/ACK work and stale reachability are cleared, and new logical sends remain rejected until the normal Communicator service lifecycle is restarted with `stop()` followed by a fresh `begin()`. An outgoing message already completed as `Delivered` is not converted to `Failed`.
+
+RadioLab's deliberate transport handoff still freezes logical delivery/retry timing. Any peer unicast whose callback remains unresolved at the handoff is conservatively closed as missing before radio ownership is transferred; the same logical MessageId and attempt count remain, and the resulting retry timing is frozen until resume.
+
+Presence remains the existing 2000 ms + 0…250 ms broadcast behavior. Communicator protocol v1, RX duty schedules, reachability timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics are unchanged.
+
+**Rationale:** Destination MAC plus success/failure is insufficient to distinguish an outgoing logical payload from an application ACK to the same peer. Serializing only messaging unicast traffic gives deterministic TxResult ownership while allowing MAC success to reduce blind duplicate retransmission without weakening application-level delivery semantics.

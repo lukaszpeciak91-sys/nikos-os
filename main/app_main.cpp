@@ -62,6 +62,11 @@ nikos::messaging::Config make_messaging_config(
     config.max_send_attempts = 8;
     config.delivery_timeout_ms = 12000;
 
+    // Experimental TxResult pacing. MAC success only lengthens the wait for
+    // the application ACK; it never completes logical delivery.
+    config.tx_result_timeout_ms = 500;
+    config.mac_success_ack_grace_margin_ms = 250;
+
     // Experimental receive/reachability profiles. These are configuration
     // values for validation, not permanent platform timing policy.
     config.foreground_rx = {1000, 500, 7000};

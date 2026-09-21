@@ -91,6 +91,10 @@ It currently owns:
 - one outstanding outgoing logical message
 - bounded retry-until-application-ACK delivery with a fixed logical deadline, configured attempt budget, and bounded retry jitter
 - explicit Delivered/Failed logical delivery outcomes with attempt/latency instrumentation
+- one serialized messaging-unicast slot so outgoing logical payloads and application ACKs cannot have ambiguous peer-MAC-only TxResult attribution
+- a fixed four-entry pending application-ACK queue; queued ACKs have priority when the messaging unicast slot becomes free
+- TxResult-aware pacing: MAC success waits for the application ACK using the current local RX interval plus an experimental margin, while MAC failure/missing result returns to bounded retry pacing
+- a configurable missing-TxResult guard; guard expiry clears attribution through a messaging radio transport reset before a newer unicast is allowed
 - retransmission suspended while the known peer is stale/unreachable without pausing or resetting the logical delivery deadline
 - deliberate RadioLab transport ownership pauses suspend logical delivery timeout and retry-delay clocks; resume preserves the same logical MessageId, attempt count, and remaining delivery/retry budget
 - receiver-side in-memory dedupe
@@ -100,7 +104,7 @@ It currently owns:
 - delivery completion receipts for matching application ACKs or explicit failure
 - foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
-The service has no dedicated FreeRTOS task. It is advanced from the normal main loop. Communicator retry interval/jitter, maximum send attempts, and logical delivery timeout are experimental configuration for hardware tuning rather than permanent product policy. Application ACK remains the only authoritative Delivered condition; ESP-NOW send submission is counted only as sender instrumentation, while radio TxResult-aware optimization remains a later step.
+The service has no dedicated FreeRTOS task. It is advanced from the normal main loop. Communicator retry interval/jitter, maximum send attempts, and logical delivery timeout are experimental configuration for hardware tuning rather than permanent product policy. Application ACK remains the only authoritative Delivered condition. ESP-NOW TxResult is now consumed only as a pacing/measurement signal: MAC success lengthens the ACK wait, MAC failure schedules the existing bounded retry, and a missing callback has bounded recovery. Presence remains on its existing independent broadcast cadence.
 
 Messaging service lifetime is independent of foreground Communicator UI. Background Communicator messaging starts OFF after boot and is enabled explicitly for the current OS session only. This enabled/disabled state is volatile and is not persisted in NVS.
 
@@ -216,7 +220,10 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Communicator delivery confirmation requires a matching application ACK; attempt-budget or deadline exhaustion produces an explicit Failed logical outcome.
 - Communicator retry interval/jitter, attempt limit, and logical timeout are experimental configuration; ordinary peer unreachability continues consuming the logical delivery deadline.
 - Deliberate RadioLab transport ownership pause is different from peer unreachability: it suspends logical delivery/retry timing, and resume preserves the same MessageId, attempts, and remaining timing budget.
-- Current metrics count ESP-NOW send submissions/requests, not true PHY-level Wi-Fi transmissions; radio TxResult attribution remains future work.
+- Current metrics count ESP-NOW send submissions/requests rather than true PHY-level Wi-Fi transmissions; MAC TxResult is recorded separately and never represents application delivery.
+- Messaging peer-unicast submissions are serialized across logical payloads and application ACKs; Presence remains independent broadcast traffic.
+- A missing messaging-unicast TxResult must recover through a bounded attribution barrier before any newer peer unicast can be attributed.
+- If that attribution-barrier radio restart cannot be re-established, messaging fails closed: any still-active logical delivery completes as Failed, stale unicast/ACK work is discarded, peer reachability is invalidated, and new logical sends remain rejected until the normal Communicator service lifecycle performs stop() followed by a fresh begin().
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
 - A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
