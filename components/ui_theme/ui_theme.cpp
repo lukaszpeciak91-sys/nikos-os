@@ -2,28 +2,35 @@
 
 namespace {
 
+// Experimental physical-LCD foundation: keep the base dark and let Accent
+// distinguish themes. Product-semantic colors remain board-owned and fixed.
+constexpr std::uint16_t kBackground = 0x0000;    // near #000000
+constexpr std::uint16_t kSurface = 0x1082;       // near #101216
+constexpr std::uint16_t kPrimaryText = 0xF77D;   // near #F0EEE8
+constexpr std::uint16_t kSecondaryText = 0x8C93; // near #8C9199
+
 constexpr nikos::ui_theme::Palette kNikosPalette{
-    0x10A5,  // #11162F
-    0x1908,  // #1A2144
-    0xF75B,  // #F1EBDD
-    0x6391,  // #65708B
-    0x8DF5,  // #88BDA8
+    kBackground,
+    kSurface,
+    kPrimaryText,
+    kSecondaryText,
+    0x4DBB,  // cool blue/cyan experiment
 };
 
 constexpr nikos::ui_theme::Palette kAmberPalette{
-    0x1081,  // #17120D
-    0x2902,  // #2A2117
-    0xF739,  // #F3E7CC
-    0x8BAC,  // #8B7760
-    0xC4A9,  // #C7944B
+    kBackground,
+    kSurface,
+    kPrimaryText,
+    kSecondaryText,
+    0xD4C8,  // amber experiment
 };
 
 constexpr nikos::ui_theme::Palette kGraphitePalette{
-    0x10A2,  // #151617
-    0x2145,  // #25282B
-    0xEF7C,  // #EEECE6
-    0x7C10,  // #7A8087
-    0x8494,  // #8393A3
+    kBackground,
+    kSurface,
+    kPrimaryText,
+    kSecondaryText,
+    0xA577,  // cool neutral/silver experiment
 };
 
 }  // namespace

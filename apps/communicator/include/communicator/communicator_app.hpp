@@ -37,11 +37,10 @@ private:
         WaitingForResponse,
         IncomingPreset,
         ChoosingResponse,
-        WaitingForHumanAck,
+        WaitingForResponseDelivery,
         IncomingResponse,
         WaitDecision,
         WaitingForWaitResponse,
-        HumanOkReceived,
         DeliveryFailed,
     };
 
@@ -68,13 +67,11 @@ private:
     void handle_response_choice_input(const board::InputState& input);
     void handle_incoming_response_input(const board::InputState& input);
     void handle_wait_decision_input(const board::InputState& input);
-    void handle_human_ok_input(const board::InputState& input);
     void handle_delivery_failed_input(const board::InputState& input);
 
     bool send_selected_preset();
     bool send_signal();
     bool send_selected_response();
-    bool send_human_ok(std::uint32_t reference_message_id);
     bool send_wait_followup();
 
     bool can_accept_incoming() const;
@@ -93,10 +90,9 @@ private:
     void render_waiting_for_response();
     void render_incoming_preset();
     void render_response_choices();
-    void render_waiting_for_human_ack();
+    void render_waiting_for_response_delivery();
     void render_incoming_response();
     void render_wait_decision();
-    void render_human_ok_received();
     void render_delivery_failed();
     void render_signal_alert(bool wide_arcs);
     void draw_bell_glyph(
@@ -124,7 +120,6 @@ private:
     std::uint8_t selected_main_index_ = 0;
     std::uint8_t selected_options_index_ = 0;
     std::uint8_t selected_response_index_ = 0;
-    std::uint8_t selected_wait_decision_index_ = 0;
 
     catalogue::PresetId sent_preset_ = catalogue::PresetId::Greeting;
     catalogue::PresetId incoming_preset_ = catalogue::PresetId::Greeting;
@@ -138,7 +133,7 @@ private:
     SuspendedWaitingContext suspended_waiting_{};
 
     std::uint32_t expected_response_reference_ = 0;
-    std::uint32_t expected_human_ack_reference_ = 0;
+    std::uint32_t pending_response_delivery_id_ = 0;
     std::uint32_t last_greeting_message_id_ = 0;
     bool delivery_failure_restore_suspended_ = false;
 
