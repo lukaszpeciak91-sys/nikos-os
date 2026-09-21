@@ -113,6 +113,7 @@ private:
     enum class UnicastKind : std::uint8_t {
         OutgoingPayload,
         ApplicationAck,
+        PresenceReply,
     };
 
     struct UnicastInFlight {
@@ -145,7 +146,12 @@ private:
         std::uint32_t logical_payload_tx_submissions = 0;
         std::uint32_t ack_tx_submissions = 0;
         std::uint32_t ack_send_request_failures = 0;
-        std::uint32_t presence_tx_submissions = 0;
+        std::uint32_t discovery_presence_tx_submissions = 0;
+        std::uint32_t presence_reply_tx_submissions = 0;
+        std::uint32_t presence_reply_send_request_failures = 0;
+        std::uint32_t presence_reply_mac_successes = 0;
+        std::uint32_t presence_reply_mac_failures = 0;
+        std::uint32_t presence_reply_tx_result_timeouts = 0;
         std::uint32_t logical_mac_successes = 0;
         std::uint32_t logical_mac_failures = 0;
         std::uint32_t logical_tx_result_timeouts = 0;
@@ -166,7 +172,8 @@ private:
     void process_tx_result(const radio::TxEvent& event);
     void record_peer_rx(const radio::RxEvent& event);
 
-    void send_presence(std::uint32_t now_ms);
+    void send_discovery_presence(std::uint32_t now_ms);
+    bool submit_presence_reply(std::uint32_t now_ms);
     void send_ack(std::uint32_t reference_message_id);
     bool enqueue_ack(std::uint32_t reference_message_id);
     bool submit_next_ack(std::uint32_t now_ms);
@@ -210,6 +217,7 @@ private:
     bool latest_peer_rssi_valid_ = false;
     std::uint32_t last_presence_tx_ms_ = 0;
     std::uint32_t current_presence_delay_ms_ = 0;
+    bool pending_presence_reply_ = false;
 
     std::uint32_t next_message_id_ = 1;
     OutgoingState outgoing_{};
