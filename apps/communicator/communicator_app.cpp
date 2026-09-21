@@ -1265,9 +1265,9 @@ void CommunicatorApp::render_waiting_for_response()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_text_region(
-        15,
+        12,
         45,
-        210,
+        216,
         32,
         catalogue::preset_text(sent_preset_),
         preset_text_scale(sent_preset_),
@@ -1309,9 +1309,9 @@ void CommunicatorApp::render_incoming_preset()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_text_region(
-        15,
+        12,
         45,
-        210,
+        216,
         34,
         catalogue::preset_text(incoming_preset_),
         preset_text_scale(incoming_preset_),
@@ -1355,9 +1355,9 @@ void CommunicatorApp::render_response_choices()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_text_region(
-        14,
+        12,
         30,
-        212,
+        216,
         25,
         catalogue::preset_text(incoming_preset_),
         2,
