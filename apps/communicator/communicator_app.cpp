@@ -2,10 +2,12 @@
 
 #include <cstddef>
 
+#include "esp_log.h"
 #include "esp_timer.h"
 
 namespace {
 
+constexpr char kTag[] = "communicator";
 constexpr std::uint32_t kNotificationToneMs = 90;
 constexpr float kNotificationToneHz = 2600.0F;
 
@@ -308,6 +310,24 @@ bool CommunicatorApp::process_incoming()
 
     messaging::IncomingMessage incoming;
     while (messaging_.peek_incoming(incoming)) {
+        if (incoming.kind == messaging::IncomingKind::PresetResponse) {
+            catalogue::ResponseId response;
+            if (catalogue::response_from_wire(incoming.value_id, response)
+                && response == catalogue::ResponseId::HumanOk) {
+                ESP_LOGI(
+                    kTag,
+                    "Discard obsolete HumanOk id=%lu ref=%lu",
+                    static_cast<unsigned long>(incoming.logical_message_id),
+                    static_cast<unsigned long>(
+                        incoming.reference_message_id));
+                if (!messaging_.consume_incoming(
+                        incoming.logical_message_id)) {
+                    return false;
+                }
+                continue;
+            }
+        }
+
         if (accept_incoming(incoming)) {
             (void)messaging_.consume_incoming(incoming.logical_message_id);
             return true;
@@ -424,14 +444,15 @@ void CommunicatorApp::restore_suspended_waiting(bool render)
 void CommunicatorApp::handle_delivery_receipt(
     const messaging::DeliveryReceipt& receipt)
 {
-    if (receipt.outcome == messaging::DeliveryOutcome::Delivered) {
-        if (receipt.logical_message_id == pending_response_delivery_id_) {
-            pending_response_delivery_id_ = 0;
+    const bool response_delivery_receipt =
+        receipt.logical_message_id == pending_response_delivery_id_;
+    if (response_delivery_receipt) {
+        const bool original_response_context =
+            state_ == State::WaitingForResponseDelivery;
+        pending_response_delivery_id_ = 0;
 
-            // A peer follow-up may already have become the active human
-            // exchange. Do not clobber it merely because the response's
-            // technical ACK arrived meanwhile.
-            if (state_ == State::WaitingForResponseDelivery) {
+        if (receipt.outcome == messaging::DeliveryOutcome::Delivered) {
+            if (original_response_context) {
                 if (suspended_waiting_.valid) {
                     restore_suspended_waiting(
                         active_ && !signal_alert_active_);
@@ -442,7 +463,22 @@ void CommunicatorApp::handle_delivery_receipt(
                     }
                 }
             }
+            return;
         }
+
+        if (!original_response_context) {
+            // The technical failure is real and remains recorded by the
+            // messaging delivery metrics/logs, but a newer accepted human
+            // exchange owns the UI now and must not be destroyed by it.
+            ESP_LOGW(
+                kTag,
+                "Late response delivery Failed id=%lu; preserving newer conversation",
+                static_cast<unsigned long>(receipt.logical_message_id));
+            return;
+        }
+        // Still in the original response-delivery context: fall through to
+        // the existing explicit NIE DOSTARCZONO failure handling below.
+    } else if (receipt.outcome == messaging::DeliveryOutcome::Delivered) {
         return;
     }
 
@@ -1018,9 +1054,9 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::SecondaryText;
 
     board_.draw_polish_ui_text_region(
-        8, 100, 76, 20, "", 1, signal_color, signal_background);
+        8, 100, 78, 20, "", 1, signal_color, signal_background);
     board_.draw_polish_ui_text_region(
-        10, 101, 72, 18, "SYGNAŁ", 2, signal_color, signal_background);
+        10, 101, 76, 18, "SYGNAŁ", 2, signal_color, signal_background);
     if (signal_selected) {
         board_.draw_line(8, 100, 8, 118, board::DisplayColor::Attention);
     }
@@ -1030,18 +1066,18 @@ void CommunicatorApp::render_main()
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background;
     board_.draw_polish_ui_text_region(
-        84,
+        86,
         100,
-        72,
+        70,
         20,
         "",
         1,
         board::DisplayColor::PrimaryText,
         options_background);
     board_.draw_polish_ui_text_region(
-        89,
+        90,
         101,
-        65,
+        64,
         18,
         "OPCJE",
         2,
@@ -1050,7 +1086,7 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::SecondaryText,
         options_background);
     if (options_selected) {
-        board_.draw_line(84, 100, 84, 118, board::DisplayColor::Accent);
+        board_.draw_line(86, 100, 86, 118, board::DisplayColor::Accent);
     }
 
     const board::DisplayColor return_background =
