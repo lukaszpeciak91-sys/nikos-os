@@ -293,7 +293,7 @@ Communicator OFF clears volatile peer identity. Fresh ON starts discovery again.
 
 Communicator protocol v2 replaces the fixed 20-byte v1 application frame with an explicit variable-length type-specific format. Both controlled M5Stick devices must run the same v2 firmware; there is no v1 fallback, negotiation, capability exchange, or compatibility mode.
 
-The common v2 header is two bytes: byte 0 is discriminator `0xA7`; byte 1 stores version `2` in the high nibble and the existing numeric MessageType in the low nibble. Unknown discriminator, version, type, truncated data, or any extra trailing byte causes decode rejection.
+The common v2 header is two bytes: byte 0 is the fixed v2 discriminator `0xA7`; byte 1 is the existing numeric MessageType. The discriminator itself identifies protocol v2, so version and type are not bit-packed. Unknown discriminator, unknown type, truncated data, or any extra trailing byte causes decode rejection.
 
 Wire sizes are:
 
@@ -302,12 +302,12 @@ Wire sizes are:
 | Presence | 2 B |
 | Ring | 6 B |
 | ACK | 6 B |
-| PresetMessage | 7 B |
-| PresetResponse | 11 B |
+| PresetMessage | 8 B |
+| PresetResponse | 12 B |
 
-Presence carries only the header. Ring carries its 32-bit logical MessageId. ACK carries only the 32-bit logical MessageId being acknowledged and has no independent logical MessageId. PresetMessage carries a 32-bit logical MessageId plus one-byte PresetId. PresetResponse carries its 32-bit logical MessageId, the 32-bit referenced message ID, and one-byte ResponseId. Multi-byte IDs remain big-endian.
+Presence carries only the header. Ring carries its 32-bit logical MessageId. ACK carries only the 32-bit logical MessageId being acknowledged and has no independent logical MessageId. PresetMessage carries a 32-bit logical MessageId plus 16-bit PresetId. PresetResponse carries its 32-bit logical MessageId, the 32-bit referenced message ID, and 16-bit ResponseId. All multi-byte IDs remain big-endian.
 
-PresetId and ResponseId are stable semantic catalogue identifiers, never UI row/option indexes. The local catalogue remains responsible for mapping IDs to Polish display text; human-readable strings are never sent over ESP-NOW. Higher-level value APIs may remain 16-bit, but protocol encoding rejects values above 255 rather than silently truncating them.
+PresetId and ResponseId are stable 16-bit semantic catalogue identifiers, never UI row/option indexes. The local catalogue remains responsible for mapping IDs to Polish display text; human-readable strings are never sent over ESP-NOW. Keeping the full uint16_t wire representation avoids an artificial 255-value ceiling and allows catalogue growth without another protocol redesign.
 
 The 32-bit logical MessageId is deliberately retained. This protocol change reduces only the application payload bytes passed to the radio; bounded delivery, application-ACK authority, retry/deadline policy, TxResult pacing/serialization, discovery-oriented Presence behavior, RX schedules, STANDARD/LR behavior, RadioLab ownership, and UI state machines remain unchanged.
 
