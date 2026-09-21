@@ -462,6 +462,11 @@ void CommunicatorApp::handle_delivery_receipt(
                         render_main();
                     }
                 }
+            } else {
+                ESP_LOGI(
+                    kTag,
+                    "Late response delivery Delivered id=%lu; preserving newer conversation",
+                    static_cast<unsigned long>(receipt.logical_message_id));
             }
             return;
         }
