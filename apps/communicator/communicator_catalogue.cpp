@@ -6,15 +6,15 @@ const char* preset_text(PresetId id)
 {
     switch (id) {
         case PresetId::Greeting:
-            return "CZEŚĆ!";
+            return "HEJ!";
         case PresetId::CanTalk:
-            return "MOŻESZ GADAĆ?";
+            return "MASZ CZAS?";
         case PresetId::Walk:
             return "IDZIESZ NA SPACER?";
         case PresetId::Cans:
             return "MASZ PUSZKI?";
         case PresetId::Wait:
-            return "ZACZEKAĆ?";
+            return "CZEKAC?";
         default:
             return "?";
     }
@@ -24,27 +24,27 @@ const char* response_text(ResponseId id)
 {
     switch (id) {
         case ResponseId::GreetingHello:
-            return "Cześć!";
+            return "HEJ!";
         case ResponseId::YesComing:
-            return "Tak, już wychodzę";
+            return "TAK, ZARAZ";
         case ResponseId::Soon:
-            return "Za chwilę";
+            return "ZA MOMENT";
         case ResponseId::Busy:
-            return "Teraz jestem zajęty";
+            return "NIE TERAZ";
         case ResponseId::Later:
-            return "Później";
+            return "POTEM";
         case ResponseId::NotToday:
-            return "Nie dzisiaj";
+            return "NIE DZISIAJ";
         case ResponseId::Have:
-            return "Mam";
+            return "MAM";
         case ResponseId::DontHave:
-            return "Nie mam";
+            return "NIE MAM";
         case ResponseId::WillCheck:
-            return "Sprawdzę";
+            return "SPRAWDZAM";
         case ResponseId::YesWait:
-            return "Tak, zaczekaj";
+            return "TAK";
         case ResponseId::DontWait:
-            return "Nie czekaj";
+            return "NIE";
         case ResponseId::HumanOk:
             return "OK";
         default:
