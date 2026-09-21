@@ -1333,8 +1333,8 @@ void CommunicatorApp::render_incoming_preset()
         205,
         20,
         can_dismiss
-            ? "M5 ODPOWIEDŹ   SIDE ZAMKNIJ"
-            : "M5 ODPOWIEDŹ",
+            ? "M5 ODPOWIEDZ   SIDE ZAMKNIJ"
+            : "M5 ODPOWIEDZ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1563,7 +1563,7 @@ void CommunicatorApp::render_delivery_failed()
         112,
         224,
         18,
-        "M5 / SIDE = POWRÓT",
+        "M5 / SIDE = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
