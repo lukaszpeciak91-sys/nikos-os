@@ -207,7 +207,13 @@ void Service::update()
 
 bool Service::pause_transport()
 {
-    if (!started_ || !transport_active_) {
+    if (!started_) {
+        return true;
+    }
+    if (faulted_) {
+        return false;
+    }
+    if (!transport_active_) {
         return true;
     }
 
