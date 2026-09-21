@@ -542,16 +542,17 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
     const std::uint8_t choice_count =
         static_cast<std::uint8_t>(return_index + 1U);
 
-    if (input.secondary_short) {
-        std::uint8_t next = static_cast<std::uint8_t>(
-            (selected_main_index_ + 1U) % choice_count);
-
-        // SYGNAŁ is unavailable only until a peer identity is known.
-        if (!peer_known && next == signal_index) {
-            next = options_index;
+    if (signal_unavailable_feedback_) {
+        if (input.primary_short || input.secondary_short) {
+            signal_unavailable_feedback_ = false;
+            render_main();
         }
+        return;
+    }
 
-        selected_main_index_ = next;
+    if (input.secondary_short) {
+        selected_main_index_ = static_cast<std::uint8_t>(
+            (selected_main_index_ + 1U) % choice_count);
         render_main();
         return;
     }
@@ -573,12 +574,17 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         return;
     }
 
-    if (!peer_known) {
+    if (selected_main_index_ == signal_index) {
+        if (peer_known) {
+            (void)send_signal();
+        } else {
+            signal_unavailable_feedback_ = true;
+            render_signal_unavailable();
+        }
         return;
     }
 
-    if (selected_main_index_ == signal_index) {
-        (void)send_signal();
+    if (!peer_known) {
         return;
     }
 
