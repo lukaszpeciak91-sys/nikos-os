@@ -5,13 +5,13 @@
 
 namespace nikos::communicator_protocol {
 
-constexpr std::uint8_t kVersion = 2;
+constexpr std::uint8_t kV2Discriminator = 0xA7U;
 constexpr std::size_t kHeaderSize = 2;
 constexpr std::size_t kPresenceWireSize = 2;
 constexpr std::size_t kRingWireSize = 6;
 constexpr std::size_t kAckWireSize = 6;
-constexpr std::size_t kPresetMessageWireSize = 7;
-constexpr std::size_t kPresetResponseWireSize = 11;
+constexpr std::size_t kPresetMessageWireSize = 8;
+constexpr std::size_t kPresetResponseWireSize = 12;
 constexpr std::size_t kMaxWireSize = kPresetResponseWireSize;
 
 enum class MessageType : std::uint8_t {
