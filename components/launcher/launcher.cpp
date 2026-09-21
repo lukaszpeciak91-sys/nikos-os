@@ -14,11 +14,11 @@ struct Entry {
 
 constexpr std::array<Entry, 6> kEntries = {{
     {"Komunikator"},
-    {"Narzędzia"},
+    {"Narzedzia"},
     {"Rozrywka"},
     {"Zegar"},
     {"Ustawienia"},
-    {"Wyłącz"},
+    {"Wylacz"},
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
@@ -322,7 +322,7 @@ Action Launcher::update()
         }
 
         if (input.secondary_short) {
-            // There is exactly one selectable item: visible "Powrót".
+            // There is exactly one selectable item: visible "Powrot".
             render();
         }
 
@@ -545,16 +545,16 @@ void Launcher::render_main()
     clear_shell(board_);
     rendered_battery_valid_ = false;
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         10,
         6,
         60,
         18,
-        "NIKOŚ",
+        "NIKOS",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         72,
         6,
         30,
@@ -616,7 +616,7 @@ void Launcher::render_main()
                 board::DisplayColor::Accent);
         }
 
-        board_.draw_polish_ui_text_region(
+        board_.draw_text_region(
             18,
             row_y,
             184,
@@ -665,19 +665,19 @@ void Launcher::render_tools()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         14,
         212,
         20,
-        "NARZĘDZIA",
+        "NARZEDZIA",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
     constexpr const char* kTools[2] = {
         "RadioLab",
-        "Powrót",
+        "Powrot",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
@@ -685,7 +685,7 @@ void Launcher::render_tools()
         const std::int16_t y =
             static_cast<std::int16_t>(48 + index * 28);
 
-        board_.draw_polish_ui_text_region(
+        board_.draw_text_region(
             22,
             y,
             196,
@@ -709,7 +709,7 @@ void Launcher::render_tools()
         }
     }
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         112,
         212,
@@ -724,7 +724,7 @@ void Launcher::render_entertainment()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         18,
         212,
@@ -734,12 +734,12 @@ void Launcher::render_entertainment()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         22,
         58,
         196,
         22,
-        "Powrót",
+        "Powrot",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
@@ -750,12 +750,12 @@ void Launcher::render_entertainment()
         75,
         board::DisplayColor::Accent);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         112,
         212,
         14,
-        "M5 POWRÓT",
+        "M5 POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -765,7 +765,7 @@ void Launcher::render_clock()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         18,
         212,
@@ -775,12 +775,12 @@ void Launcher::render_clock()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         22,
         58,
         196,
         22,
-        "Powrót",
+        "Powrot",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
@@ -791,12 +791,12 @@ void Launcher::render_clock()
         75,
         board::DisplayColor::Accent);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         112,
         212,
         14,
-        "M5 POWRÓT",
+        "M5 POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -806,7 +806,7 @@ void Launcher::render_settings()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         14,
         212,
@@ -817,9 +817,9 @@ void Launcher::render_settings()
         board::DisplayColor::Background);
 
     constexpr const char* kItems[3] = {
-        "Dźwięk",
+        "Dzwiek",
         "Motyw",
-        "Powrót",
+        "Powrot",
     };
 
     for (std::uint8_t index = 0; index < 3; ++index) {
@@ -827,7 +827,7 @@ void Launcher::render_settings()
         const std::int16_t y =
             static_cast<std::int16_t>(40 + index * 23);
 
-        board_.draw_polish_ui_text_region(
+        board_.draw_text_region(
             22,
             y,
             196,
@@ -851,7 +851,7 @@ void Launcher::render_settings()
         }
     }
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         112,
         212,
@@ -866,21 +866,21 @@ void Launcher::render_signal_sound()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         12,
         212,
         18,
-        "DŹWIĘK SYGNAŁU",
+        "DZWIEK SYGNALU",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
     constexpr const char* kItems[4] = {
-        "Łagodny",
+        "Lagodny",
         "Klasyczny",
         "Pager",
-        "Powrót",
+        "Powrot",
     };
 
     for (std::uint8_t index = 0; index < 4; ++index) {
@@ -891,7 +891,7 @@ void Launcher::render_signal_sound()
         const std::int16_t y =
             static_cast<std::int16_t>(36 + index * 19);
 
-        board_.draw_polish_ui_text_region(
+        board_.draw_text_region(
             22,
             y,
             196,
@@ -923,7 +923,7 @@ void Launcher::render_signal_sound()
         }
     }
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         116,
         212,
@@ -937,7 +937,7 @@ void Launcher::render_theme()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         12,
         212,
@@ -948,10 +948,10 @@ void Launcher::render_theme()
         board::DisplayColor::Background);
 
     constexpr const char* kItems[4] = {
-        "Nikoś",
+        "Nikos",
         "Bursztyn",
         "Grafit",
-        "Powrót",
+        "Powrot",
     };
 
     for (std::uint8_t index = 0; index < 4; ++index) {
@@ -962,7 +962,7 @@ void Launcher::render_theme()
         const std::int16_t y =
             static_cast<std::int16_t>(36 + index * 19);
 
-        board_.draw_polish_ui_text_region(
+        board_.draw_text_region(
             22,
             y,
             196,
@@ -994,7 +994,7 @@ void Launcher::render_theme()
         }
     }
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         116,
         212,
@@ -1010,16 +1010,16 @@ void Launcher::render_enable_communicator()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         16,
         204,
         22,
-        "WŁĄCZYĆ",
+        "WLACZYC",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         39,
         204,
@@ -1029,7 +1029,7 @@ void Launcher::render_enable_communicator()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         77,
         204,
@@ -1039,7 +1039,7 @@ void Launcher::render_enable_communicator()
         board::DisplayColor::Accent,
         board::DisplayColor::Background);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         101,
         204,
@@ -1054,7 +1054,7 @@ void Launcher::render_active_communicator()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         10,
         204,
@@ -1063,7 +1063,7 @@ void Launcher::render_active_communicator()
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         32,
         204,
@@ -1074,8 +1074,8 @@ void Launcher::render_active_communicator()
         board::DisplayColor::Background);
 
     constexpr const char* kChoices[2] = {
-        "WEJDŹ",
-        "WYŁĄCZ",
+        "WEJDZ",
+        "WYLACZ",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
@@ -1084,7 +1084,7 @@ void Launcher::render_active_communicator()
         const std::int16_t y =
             static_cast<std::int16_t>(59 + index * 28);
 
-        board_.draw_polish_ui_text_region(
+        board_.draw_text_region(
             22,
             y,
             196,
@@ -1108,7 +1108,7 @@ void Launcher::render_active_communicator()
         }
     }
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         14,
         116,
         212,
@@ -1123,17 +1123,17 @@ void Launcher::render_shutdown_confirm()
 {
     clear_shell(board_);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         20,
         20,
         200,
         20,
-        "WYŁĄCZYĆ NIKOŚ OS?",
+        "WYLACZYC NIKOS OS?",
         1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         58,
         204,
@@ -1143,7 +1143,7 @@ void Launcher::render_shutdown_confirm()
         board::DisplayColor::Danger,
         board::DisplayColor::Background);
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         84,
         204,
