@@ -309,7 +309,7 @@ Wire sizes are:
 
 Presence carries only the header. Ring carries its 32-bit logical MessageId. ACK carries only the 32-bit logical MessageId being acknowledged and has no independent logical MessageId. PresetMessage carries a 32-bit logical MessageId plus 16-bit PresetId. PresetResponse carries its 32-bit logical MessageId, the 32-bit referenced message ID, and 16-bit ResponseId. All multi-byte IDs remain big-endian.
 
-PresetId and ResponseId are stable 16-bit semantic catalogue identifiers, never UI row/option indexes. The local catalogue remains responsible for mapping IDs to Polish display text; human-readable strings are never sent over ESP-NOW. Keeping the full uint16_t wire representation avoids an artificial 255-value ceiling and allows catalogue growth without another protocol redesign.
+PresetId and ResponseId are stable 16-bit semantic catalogue identifiers, never UI row/option indexes. The local catalogue remains responsible for mapping IDs to local display text; human-readable strings are never sent over ESP-NOW. Keeping the full uint16_t wire representation avoids an artificial 255-value ceiling and allows catalogue growth without another protocol redesign.
 
 The 32-bit logical MessageId is deliberately retained. This protocol change reduces only the application payload bytes passed to the radio; bounded delivery, application-ACK authority, retry/deadline policy, TxResult pacing/serialization, discovery-oriented Presence behavior, RX schedules, STANDARD/LR behavior, RadioLab ownership, and UI state machines remain unchanged.
 
@@ -329,4 +329,17 @@ For resolved responses, the initiator displays the received response and dismiss
 The deterministic MAC-based simultaneous-preset arbitration and the single suspended-conversation slot remain unchanged in scope. Transport/application ACK, bounded retry, TxResult pacing, Presence discovery, protocol v2, RX schedules, STANDARD/LR, and RadioLab ownership are not redesigned by this decision.
 
 **Rationale:** Physical LCD testing showed that multiple simultaneous rows and a mandatory human OK create visual and conversational overhead on a sparse transactional communicator. Technical delivery and human conversational meaning should remain separate.
+
+
+## D-023 — Native M5GFX typography and ASCII-first v0.1 copy after hardware readability failure
+
+**Status:** Accepted for v0.1 hardware validation
+
+The embedded custom Polish UI font experiment is not used for normal Launcher or Communicator product UI. Physical M5StickC Plus SE testing showed that the small generated source font became visibly broken/pixelated when scaled, including on ASCII-only words, so normal product UI returns to the native M5GFX `Font0` rendering path.
+
+For this validation phase, interactive product copy is ASCII-first and avoids Polish diacritics. The custom font resource may remain in the board component for isolated experimentation/sanity checks, but normal product screens must not depend on it.
+
+This does not change communication semantics or localization ownership. PresetId and ResponseId remain stable language-independent semantic IDs, human-readable text remains local to each device, and no display strings are sent over ESP-NOW. The ASCII-first copy is a temporary hardware-readability decision rather than a permanent localization architecture.
+
+**Rationale:** On a 240×135 physical LCD, readable native typography is more important than preserving diacritics through a custom font that degrades all text.
 
