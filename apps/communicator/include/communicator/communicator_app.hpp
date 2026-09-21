@@ -149,6 +149,7 @@ private:
     std::uint32_t signal_last_animation_ms_ = 0;
 
     bool rendered_peer_state_valid_ = false;
+    bool rendered_peer_known_ = false;
     bool rendered_peer_reachable_ = false;
     std::uint8_t rendered_signal_bars_ = 0;
 };
