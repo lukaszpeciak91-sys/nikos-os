@@ -223,6 +223,7 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Current metrics count ESP-NOW send submissions/requests rather than true PHY-level Wi-Fi transmissions; MAC TxResult is recorded separately and never represents application delivery.
 - Messaging peer-unicast submissions are serialized across logical payloads and application ACKs; Presence remains independent broadcast traffic.
 - A missing messaging-unicast TxResult must recover through a bounded attribution barrier before any newer peer unicast can be attributed.
+- If that attribution-barrier radio restart cannot be re-established, messaging fails closed: any still-active logical delivery completes as Failed, stale unicast/ACK work is discarded, peer reachability is invalidated, and new logical sends remain rejected until the normal Communicator service lifecycle performs stop() followed by a fresh begin().
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
 - A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
