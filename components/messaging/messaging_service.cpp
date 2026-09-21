@@ -81,7 +81,7 @@ Service::Service(radio::RadioService& radio)
 bool Service::begin(const Config& config)
 {
     if (started_) {
-        return true;
+        return !faulted_;
     }
 
     if (config.presence_interval_ms == 0
@@ -138,6 +138,7 @@ bool Service::stop()
 
     started_ = false;
     transport_active_ = false;
+    faulted_ = false;
     rx_profile_ = RxProfile::Background;
 
     peer_known_ = false;
@@ -233,7 +234,7 @@ bool Service::pause_transport()
 
 bool Service::resume_transport()
 {
-    if (!started_) {
+    if (!started_ || faulted_) {
         return false;
     }
     if (transport_active_) {
@@ -389,6 +390,10 @@ bool Service::peer_known() const
 
 bool Service::peer_reachable() const
 {
+    if (faulted_) {
+        return false;
+    }
+
     const RxSchedule& schedule =
         rx_profile_ == RxProfile::Foreground
             ? config_.foreground_rx
@@ -710,6 +715,7 @@ bool Service::start_outgoing(
     std::uint32_t reference_message_id)
 {
     if (!started_
+        || faulted_
         || !peer_known_
         || outgoing_.active
         || outgoing_.completion_pending_transport) {
@@ -880,7 +886,27 @@ void Service::handle_missing_tx_result(
     if (!start_transport()) {
         ESP_LOGE(
             kTag,
-            "Radio restart failed during TxResult recovery");
+            "Radio restart failed during TxResult recovery; messaging faulted");
+
+        // Fail closed. This is an internal attribution-barrier recovery
+        // failure, not an intentional RadioLab pause. No work from the broken
+        // transport lifecycle may be emitted later.
+        transport_active_ = false;
+        faulted_ = true;
+        unicast_in_flight_ = UnicastInFlight{};
+        pending_ack_references_ = {};
+        pending_ack_head_ = 0;
+        pending_ack_count_ = 0;
+
+        peer_known_ = false;
+        peer_mac_ = {};
+        last_peer_rx_ms_ = 0;
+        latest_peer_rssi_ = 0;
+        latest_peer_rssi_valid_ = false;
+
+        if (outgoing_.active) {
+            finish_outgoing(DeliveryOutcome::Failed, now_ms);
+        }
         return;
     }
 
