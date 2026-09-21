@@ -96,6 +96,7 @@ public:
     std::uint32_t outgoing_logical_message_id() const;
 
     bool peer_known() const;
+    // Recent-RX status only; it is not a permission gate for bounded sends.
     bool peer_reachable() const;
     const radio::MacAddress& self_mac() const;
     const radio::MacAddress& peer_mac() const;
