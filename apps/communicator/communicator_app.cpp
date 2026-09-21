@@ -20,11 +20,11 @@ std::uint8_t preset_text_scale(
     using nikos::communicator::catalogue::PresetId;
     switch (preset) {
         case PresetId::Greeting:
-        case PresetId::Cans:
         case PresetId::Wait:
             return 3;
         case PresetId::CanTalk:
         case PresetId::Walk:
+        case PresetId::Cans:
         default:
             return 2;
     }
