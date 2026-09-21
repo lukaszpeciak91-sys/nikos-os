@@ -2,8 +2,6 @@
 
 namespace {
 
-constexpr std::uint8_t kMagic[] = {'N', 'C', 'O', 'M'};
-
 void write_u32(std::uint8_t* output, std::uint32_t value)
 {
     output[0] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
@@ -48,51 +46,128 @@ bool valid_type(std::uint8_t raw_type)
     }
 }
 
+std::size_t wire_size_for(nikos::communicator_protocol::MessageType type)
+{
+    using namespace nikos::communicator_protocol;
+    switch (type) {
+        case MessageType::Presence:
+            return kPresenceWireSize;
+        case MessageType::Ring:
+            return kRingWireSize;
+        case MessageType::Ack:
+            return kAckWireSize;
+        case MessageType::PresetMessage:
+            return kPresetMessageWireSize;
+        case MessageType::PresetResponse:
+            return kPresetResponseWireSize;
+        default:
+            return 0;
+    }
+}
+
 }  // namespace
 
 namespace nikos::communicator_protocol {
 
-bool encode(const Message& message, std::uint8_t* output, std::size_t output_size)
+bool encode(
+    const Message& message,
+    std::uint8_t* output,
+    std::size_t capacity,
+    std::size_t& encoded_length)
 {
-    if (output == nullptr
-        || output_size < kWireSize
-        || !valid_type(static_cast<std::uint8_t>(message.type))) {
+    encoded_length = 0;
+
+    const std::uint8_t raw_type =
+        static_cast<std::uint8_t>(message.type);
+    if (output == nullptr || !valid_type(raw_type)) {
         return false;
     }
 
-    output[0] = kMagic[0];
-    output[1] = kMagic[1];
-    output[2] = kMagic[2];
-    output[3] = kMagic[3];
-    output[4] = kVersion;
-    output[5] = static_cast<std::uint8_t>(message.type);
-    output[6] = 0;
-    output[7] = 0;
-    write_u32(output + 8, message.message_id);
-    write_u32(output + 12, message.reference_id);
-    write_u16(output + 16, message.value_id);
-    output[18] = 0;
-    output[19] = 0;
+    const std::size_t expected_length = wire_size_for(message.type);
+    if (expected_length == 0 || capacity < expected_length) {
+        return false;
+    }
+
+    output[0] = kV2Discriminator;
+    output[1] = raw_type;
+
+    switch (message.type) {
+        case MessageType::Presence:
+            break;
+
+        case MessageType::Ring:
+            write_u32(output + kHeaderSize, message.message_id);
+            break;
+
+        case MessageType::Ack:
+            write_u32(output + kHeaderSize, message.reference_id);
+            break;
+
+        case MessageType::PresetMessage:
+            write_u32(output + kHeaderSize, message.message_id);
+            write_u16(output + 6, message.value_id);
+            break;
+
+        case MessageType::PresetResponse:
+            write_u32(output + kHeaderSize, message.message_id);
+            write_u32(output + 6, message.reference_id);
+            write_u16(output + 10, message.value_id);
+            break;
+
+        default:
+            return false;
+    }
+
+    encoded_length = expected_length;
     return true;
 }
 
 bool decode(const std::uint8_t* data, std::size_t length, Message& message)
 {
     if (data == nullptr
-        || length != kWireSize
-        || data[0] != kMagic[0]
-        || data[1] != kMagic[1]
-        || data[2] != kMagic[2]
-        || data[3] != kMagic[3]
-        || data[4] != kVersion
-        || !valid_type(data[5])) {
+        || length < kHeaderSize
+        || data[0] != kV2Discriminator
+        || !valid_type(data[1])) {
         return false;
     }
 
-    message.type = static_cast<MessageType>(data[5]);
-    message.message_id = read_u32(data + 8);
-    message.reference_id = read_u32(data + 12);
-    message.value_id = read_u16(data + 16);
+    const MessageType type = static_cast<MessageType>(data[1]);
+    const std::size_t expected_length = wire_size_for(type);
+    if (length != expected_length) {
+        return false;
+    }
+
+    Message decoded{};
+    decoded.type = type;
+
+    switch (type) {
+        case MessageType::Presence:
+            break;
+
+        case MessageType::Ring:
+            decoded.message_id = read_u32(data + kHeaderSize);
+            break;
+
+        case MessageType::Ack:
+            decoded.reference_id = read_u32(data + kHeaderSize);
+            break;
+
+        case MessageType::PresetMessage:
+            decoded.message_id = read_u32(data + kHeaderSize);
+            decoded.value_id = read_u16(data + 6);
+            break;
+
+        case MessageType::PresetResponse:
+            decoded.message_id = read_u32(data + kHeaderSize);
+            decoded.reference_id = read_u32(data + 6);
+            decoded.value_id = read_u16(data + 10);
+            break;
+
+        default:
+            return false;
+    }
+
+    message = decoded;
     return true;
 }
 

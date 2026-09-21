@@ -64,19 +64,30 @@ This remains RadioLab-specific. It is not shared Communicator infrastructure.
 
 ### communicator_protocol
 
-Owns the first versioned Communicator wire format.
+Owns the versioned Communicator wire format. Current Communicator traffic uses protocol v2 only; v1 compatibility/negotiation is intentionally not implemented because both physical devices are flashed together.
 
-Current technical message types are:
+The v2 common header is exactly two bytes:
 
-- PRESENCE
-- PRESET_MESSAGE
-- PRESET_RESPONSE
-- ACK
-- RING
+- byte 0: fixed v2 discriminator `0xA7`;
+- byte 1: the existing `MessageType` value (`1..5`).
 
-Logical message IDs and ACK reference IDs are part of the Communicator wire format. The protocol carries compact preset/response IDs rather than user-visible strings.
+The discriminator itself identifies protocol v2; version and type are deliberately not bit-packed.
 
-This component is intentionally separate from RadioLab protocol. It does not establish a generic messaging protocol framework and does not prevent future message types such as free text.
+All multi-byte IDs are encoded explicitly in big-endian order. No packed C++ structs, reserved bytes, serializer framework, or dynamic allocation are used.
+
+| Message type | v2 payload layout | Size |
+| --- | --- | ---: |
+| Presence | 2 B header | 2 B |
+| Ring / SYGNAŁ | 2 B header + 4 B logical MessageId | 6 B |
+| ACK | 2 B header + 4 B referenced logical MessageId | 6 B |
+| PresetMessage | 2 B header + 4 B logical MessageId + 2 B PresetId | 8 B |
+| PresetResponse | 2 B header + 4 B logical MessageId + 4 B referenced MessageId + 2 B ResponseId | 12 B |
+
+The 32-bit logical MessageId remains unchanged for retry identity and receiver dedupe. PresetId and ResponseId remain 16-bit stable semantic catalogue IDs on the wire, preserving the existing architectural ID space without introducing a 255-value ceiling. ACK has no independent logical MessageId because ACK itself is not surfaced/deduped as a user message.
+
+Human-readable preset/response text is never transmitted over ESP-NOW. Each device owns the same local catalogue and converts received semantic IDs to local UI text.
+
+This component is intentionally separate from RadioLab protocol and remains an explicit small codec rather than a generic serialization framework.
 
 ### messaging
 

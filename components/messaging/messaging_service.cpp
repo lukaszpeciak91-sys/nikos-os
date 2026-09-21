@@ -645,9 +645,14 @@ void Service::send_discovery_presence(std::uint32_t now_ms)
     communicator_protocol::Message message;
     message.type = communicator_protocol::MessageType::Presence;
 
-    std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
-    if (communicator_protocol::encode(message, wire.data(), wire.size())
-        && radio_.send_broadcast(wire.data(), wire.size())) {
+    std::array<std::uint8_t, communicator_protocol::kMaxWireSize> wire{};
+    std::size_t encoded_length = 0;
+    if (communicator_protocol::encode(
+            message,
+            wire.data(),
+            wire.size(),
+            encoded_length)
+        && radio_.send_broadcast(wire.data(), encoded_length)) {
         ++traffic_.discovery_presence_tx_submissions;
     }
 
@@ -676,16 +681,18 @@ bool Service::submit_presence_reply(std::uint32_t now_ms)
     communicator_protocol::Message message;
     message.type = communicator_protocol::MessageType::Presence;
 
-    std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
+    std::array<std::uint8_t, communicator_protocol::kMaxWireSize> wire{};
+    std::size_t encoded_length = 0;
     if (!communicator_protocol::encode(
             message,
             wire.data(),
-            wire.size())) {
+            wire.size(),
+            encoded_length)) {
         ESP_LOGE(kTag, "Failed to encode discovery Presence reply");
         return false;
     }
 
-    if (!radio_.send_peer(wire.data(), wire.size())) {
+    if (!radio_.send_peer(wire.data(), encoded_length)) {
         ++traffic_.presence_reply_send_request_failures;
         ESP_LOGW(kTag, "Discovery Presence reply send request rejected");
         return false;
@@ -743,14 +750,15 @@ bool Service::submit_next_ack(std::uint32_t now_ms)
 
     communicator_protocol::Message message;
     message.type = communicator_protocol::MessageType::Ack;
-    message.message_id = next_logical_message_id();
     message.reference_id = reference_message_id;
 
-    std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
+    std::array<std::uint8_t, communicator_protocol::kMaxWireSize> wire{};
+    std::size_t encoded_length = 0;
     if (!communicator_protocol::encode(
             message,
             wire.data(),
-            wire.size())) {
+            wire.size(),
+            encoded_length)) {
         ESP_LOGE(
             kTag,
             "Failed to encode application ACK ref=%lu",
@@ -758,7 +766,7 @@ bool Service::submit_next_ack(std::uint32_t now_ms)
         return false;
     }
 
-    if (!radio_.send_peer(wire.data(), wire.size())) {
+    if (!radio_.send_peer(wire.data(), encoded_length)) {
         ++traffic_.ack_send_request_failures;
         ESP_LOGW(
             kTag,
@@ -817,11 +825,13 @@ void Service::send_outgoing(std::uint32_t now_ms)
         return;
     }
 
-    std::array<std::uint8_t, communicator_protocol::kWireSize> wire{};
+    std::array<std::uint8_t, communicator_protocol::kMaxWireSize> wire{};
+    std::size_t encoded_length = 0;
     if (!communicator_protocol::encode(
             outgoing_.message,
             wire.data(),
-            wire.size())) {
+            wire.size(),
+            encoded_length)) {
         ESP_LOGE(
             kTag,
             "Failed to encode logical delivery id=%lu",
@@ -833,7 +843,7 @@ void Service::send_outgoing(std::uint32_t now_ms)
     ++outgoing_.attempts;
     outgoing_.last_send_ms = now_ms;
 
-    if (!radio_.send_peer(wire.data(), wire.size())) {
+    if (!radio_.send_peer(wire.data(), encoded_length)) {
         ++outgoing_.send_request_failures;
         outgoing_.retry_delay_ms = next_retry_delay_ms();
         return;
