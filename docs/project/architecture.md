@@ -85,7 +85,7 @@ This component is intentionally separate from RadioLab protocol. It does not est
 It currently owns:
 
 - one known peer slot
-- presence/reachability state
+- one-peer discovery Presence state, distinct peer identity, and recent-RX/reachability status
 - latest peer RX RSSI
 - stable logical message IDs across retries
 - one outstanding outgoing logical message
@@ -95,16 +95,16 @@ It currently owns:
 - a fixed four-entry pending application-ACK queue; queued ACKs have priority when the messaging unicast slot becomes free
 - TxResult-aware pacing: MAC success waits for the application ACK using the current local RX interval plus an experimental margin, while MAC failure/missing result returns to bounded retry pacing
 - a configurable missing-TxResult guard; guard expiry clears attribution through a messaging radio transport reset before a newer unicast is allowed
-- retransmission suspended while the known peer is stale/unreachable without pausing or resetting the logical delivery deadline
+- bounded logical delivery may target a known peer even after recent-RX status becomes stale; recent reachability is diagnostic/status information rather than a send-permission gate
 - deliberate RadioLab transport ownership pauses suspend logical delivery timeout and retry-delay clocks; resume preserves the same logical MessageId, attempt count, and remaining delivery/retry budget
 - receiver-side in-memory dedupe
 - duplicate ACK behavior without duplicate notification
-- bounded configurable presence jitter to avoid deterministic aliasing with duty-cycled RX schedules
+- discovery-oriented broadcast Presence with bounded jitter while no peer is known, plus one-shot serialized unicast Presence reply to received broadcast discovery
 - a small volatile queue of incoming logical message notifications, exposed through explicit peek/consume so UI rejection cannot destructively remove an event
 - delivery completion receipts for matching application ACKs or explicit failure
 - foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
-The service has no dedicated FreeRTOS task. It is advanced from the normal main loop. Communicator retry interval/jitter, maximum send attempts, and logical delivery timeout are experimental configuration for hardware tuning rather than permanent product policy. Application ACK remains the only authoritative Delivered condition. ESP-NOW TxResult is now consumed only as a pacing/measurement signal: MAC success lengthens the ACK wait, MAC failure schedules the existing bounded retry, and a missing callback has bounded recovery. Presence remains on its existing independent broadcast cadence.
+The service has no dedicated FreeRTOS task. It is advanced from the normal main loop. Communicator retry interval/jitter, maximum send attempts, and logical delivery timeout are experimental configuration for hardware tuning rather than permanent product policy. Application ACK remains the only authoritative Delivered condition. ESP-NOW TxResult is consumed only as a pacing/measurement signal: MAC success lengthens the ACK wait, MAC failure schedules the existing bounded retry, and a missing callback has bounded recovery. Presence is discovery-oriented: while no peer is known, broadcast discovery uses the experimental 2000 ms + 0…250 ms cadence; once the peer is known, normal idle operation stops periodic Presence TX. A received broadcast Presence schedules one serialized unicast Presence reply, while a received unicast Presence never triggers another reply.
 
 Messaging service lifetime is independent of foreground Communicator UI. Background Communicator messaging starts OFF after boot and is enabled explicitly for the current OS session only. This enabled/disabled state is volatile and is not persisted in NVS.
 
@@ -218,10 +218,12 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.
 - Communicator delivery confirmation requires a matching application ACK; attempt-budget or deadline exhaustion produces an explicit Failed logical outcome.
-- Communicator retry interval/jitter, attempt limit, and logical timeout are experimental configuration; ordinary peer unreachability continues consuming the logical delivery deadline.
+- Communicator Presence is discovery-oriented, not a continuous liveness heartbeat. Once the one peer is known, normal idle operation does not require periodic Presence transmission; peer identity and recent-RX status are distinct, and bounded delivery may target a known peer after recent-RX status becomes stale.
+- A valid broadcast Presence learns/confirms the peer and schedules one serialized unicast Presence reply. A received unicast Presence learns/confirms the peer but never schedules another Presence reply.
+- Communicator retry interval/jitter, attempt limit, and logical timeout are experimental configuration; a known peer remains eligible for bounded delivery even when recent-RX status is stale, and that stale time continues consuming the logical delivery deadline.
 - Deliberate RadioLab transport ownership pause is different from peer unreachability: it suspends logical delivery/retry timing, and resume preserves the same MessageId, attempts, and remaining timing budget.
 - Current metrics count ESP-NOW send submissions/requests rather than true PHY-level Wi-Fi transmissions; MAC TxResult is recorded separately and never represents application delivery.
-- Messaging peer-unicast submissions are serialized across logical payloads and application ACKs; Presence remains independent broadcast traffic.
+- Messaging peer-unicast submissions are serialized across logical payloads, application ACKs, and one-shot unicast discovery Presence replies; broadcast discovery Presence remains separate traffic while no peer is known.
 - A missing messaging-unicast TxResult must recover through a bounded attribution barrier before any newer peer unicast can be attributed.
 - If that attribution-barrier radio restart cannot be re-established, messaging fails closed: any still-active logical delivery completes as Failed, stale unicast/ACK work is discarded, peer reachability is invalidated, and new logical sends remain rejected until the normal Communicator service lifecycle performs stop() followed by a fresh begin().
 - Duplicate logical messages may be ACKed again but must not create duplicate user notification events.
@@ -232,5 +234,5 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Settings preview and received Communicator `SYGNAŁ` must use the same `signal_sound::Player` and fixed pattern definitions.
 - Applications request semantic display roles; theme-specific RGB565 values remain centralized in `ui_theme` and are resolved by `board`.
 - Theme accent is distinct from fixed semantic status/attention/danger colors.
-- Experimental RX and reachability timing values are configuration, not platform invariants. The current foreground profile uses an approximately 7 s reachability timeout, while the background 3000/500 ms RX profile uses a more conservative approximately 20 s timeout to tolerate legitimately missed PRESENCE packets.
+- Experimental RX and recent-RX timing values are configuration, not send-permission invariants. The current foreground profile uses an approximately 7 s recent-RX timeout and the background profile approximately 20 s; after that age the UI may show a neutral known-peer state, but peer identity is retained and bounded delivery remains allowed.
 - Persistent schemas and wire protocols must be versioned once introduced.
