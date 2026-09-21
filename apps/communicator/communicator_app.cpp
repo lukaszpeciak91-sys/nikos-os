@@ -1,6 +1,5 @@
 #include "communicator/communicator_app.hpp"
 
-#include <algorithm>
 #include <cstddef>
 
 #include "esp_timer.h"
@@ -48,7 +47,6 @@ std::uint8_t response_text_scale(
         case ResponseId::Busy:
         case ResponseId::NotToday:
         case ResponseId::YesWait:
-        case ResponseId::HumanOk:
         default:
             return 2;
     }
@@ -292,7 +290,6 @@ bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
     if (state_ == State::WaitingForResponse
         && catalogue::needs_wait_decision(response)) {
         state_ = State::WaitDecision;
-        selected_wait_decision_index_ = 0;
     } else {
         state_ = State::IncomingResponse;
     }
