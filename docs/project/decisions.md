@@ -214,6 +214,8 @@ The selection is volatile for the current OS boot and is not persisted in NVS.
 
 Three fixed compile-time palettes live behind a small `ui_theme` boundary. Applications do not know RGB565 values and do not branch on the active theme. They request semantic `board::DisplayColor` roles, and the board layer resolves theme-varying roles through the active palette.
 
+For the current physical-LCD validation pass, all themes intentionally share a substantially darker foundation: black/near-black background, very dark neutral surface, warm ivory primary text, and restrained neutral-gray secondary text. Nikoś, Bursztyn, and Grafit differ mainly through cool blue/cyan, amber, and cool neutral/silver accents respectively. These exact palette values remain experimental pending hardware validation.
+
 Theme-varying roles are background, surface, primary text, secondary text, and visual accent. Product-semantic status/attention/error roles remain independent of the selected theme: active/reachable stays restrained mint/green, Communicator `SYGNAŁ` stays orange, and danger/error remains distinct from attention.
 
 Changing the theme updates `settings::State`, switches the board palette immediately, and redraws the current Theme screen. No Save/Apply step, generic styling engine, per-screen palette, or persistence is introduced.
@@ -312,4 +314,19 @@ PresetId and ResponseId are stable 16-bit semantic catalogue identifiers, never 
 The 32-bit logical MessageId is deliberately retained. This protocol change reduces only the application payload bytes passed to the radio; bounded delivery, application-ACK authority, retry/deadline policy, TxResult pacing/serialization, discovery-oriented Presence behavior, RX schedules, STANDARD/LR behavior, RadioLab ownership, and UI state machines remain unchanged.
 
 **Rationale:** Communicator exchanges predefined semantic IDs, so carrying fields that are unused by a given message type wastes application payload bytes without improving delivery semantics.
+
+
+## D-022 — Communicator human flow is shallow and technical ACK is not a human OK
+
+**Status:** Accepted
+
+On the physical 240×135 device, Communicator presents one dominant message/choice at a time. The main screen keeps one linear focus sequence—Preset 1..5, SYGNAŁ, OPCJE, POWRÓT—with secondary short = next and primary short = select. Response choice follows the same NEXT -> SELECT model and shows exactly one selectable response while retaining the received preset for context.
+
+Application ACK remains the sole technical delivery acknowledgement. Normal human conversation no longer emits or waits for a separate mandatory HumanOk response. After sending a normal response, the responder waits for the technical delivery receipt of that response. If it is Delivered, the UI returns to Main unless exactly one `SuspendedWaitingContext` exists from simultaneous-preset collision, in which case that prior WaitingForResponse state is restored automatically. A Failed receipt keeps the existing explicit delivery-failure UX and does not pretend the response succeeded.
+
+For resolved responses, the initiator displays the received response and dismisses it locally without sending another message. For intentionally unresolved responses—`ZA CHWILĘ`, `PÓŹNIEJ`, `SPRAWDZĘ`—the explicit `ZACZEKAĆ?` branch remains because it has conversational meaning. Primary sends the existing Wait preset; secondary closes locally without transmitting anything. The final `TAK, ZACZEKAJ` / `NIE CZEKAJ` response ends the human conversation without a HumanOk.
+
+The deterministic MAC-based simultaneous-preset arbitration and the single suspended-conversation slot remain unchanged in scope. Transport/application ACK, bounded retry, TxResult pacing, Presence discovery, protocol v2, RX schedules, STANDARD/LR, and RadioLab ownership are not redesigned by this decision.
+
+**Rationale:** Physical LCD testing showed that multiple simultaneous rows and a mandatory human OK create visual and conversational overhead on a sparse transactional communicator. Technical delivery and human conversational meaning should remain separate.
 
