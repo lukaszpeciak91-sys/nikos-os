@@ -94,6 +94,7 @@ private:
     void render_incoming_response();
     void render_wait_decision();
     void render_delivery_failed();
+    void render_signal_unavailable();
     void render_signal_alert(bool wide_arcs);
     void draw_bell_glyph(
         std::int16_t center_x,
@@ -137,6 +138,7 @@ private:
     std::uint32_t last_greeting_message_id_ = 0;
     bool delivery_failure_restore_suspended_ = false;
 
+    bool signal_unavailable_feedback_ = false;
     bool signal_alert_active_ = false;
     bool signal_return_to_launcher_ = false;
     bool signal_audio_complete_rendered_ = false;
