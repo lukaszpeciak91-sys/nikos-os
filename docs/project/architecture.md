@@ -68,8 +68,10 @@ Owns the versioned Communicator wire format. Current Communicator traffic uses p
 
 The v2 common header is exactly two bytes:
 
-- byte 0: fixed discriminator `0xA7`;
-- byte 1: high nibble = protocol version (`2`), low nibble = `MessageType` (`1..5`).
+- byte 0: fixed v2 discriminator `0xA7`;
+- byte 1: the existing `MessageType` value (`1..5`).
+
+The discriminator itself identifies protocol v2; version and type are deliberately not bit-packed.
 
 All multi-byte IDs are encoded explicitly in big-endian order. No packed C++ structs, reserved bytes, serializer framework, or dynamic allocation are used.
 
@@ -78,10 +80,10 @@ All multi-byte IDs are encoded explicitly in big-endian order. No packed C++ str
 | Presence | 2 B header | 2 B |
 | Ring / SYGNAŁ | 2 B header + 4 B logical MessageId | 6 B |
 | ACK | 2 B header + 4 B referenced logical MessageId | 6 B |
-| PresetMessage | 2 B header + 4 B logical MessageId + 1 B PresetId | 7 B |
-| PresetResponse | 2 B header + 4 B logical MessageId + 4 B referenced MessageId + 1 B ResponseId | 11 B |
+| PresetMessage | 2 B header + 4 B logical MessageId + 2 B PresetId | 8 B |
+| PresetResponse | 2 B header + 4 B logical MessageId + 4 B referenced MessageId + 2 B ResponseId | 12 B |
 
-The 32-bit logical MessageId remains unchanged for retry identity and receiver dedupe. PresetId and ResponseId are stable semantic catalogue IDs encoded as one byte; the encoder rejects values above 255 rather than truncating them. ACK has no independent logical MessageId because ACK itself is not surfaced/deduped as a user message.
+The 32-bit logical MessageId remains unchanged for retry identity and receiver dedupe. PresetId and ResponseId remain 16-bit stable semantic catalogue IDs on the wire, preserving the existing architectural ID space without introducing a 255-value ceiling. ACK has no independent logical MessageId because ACK itself is not surfaced/deduped as a user message.
 
 Human-readable preset/response text is never transmitted over ESP-NOW. Each device owns the same local catalogue and converts received semantic IDs to local UI text.
 
