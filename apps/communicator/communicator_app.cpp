@@ -58,15 +58,6 @@ bool CommunicatorApp::end()
     }
 
     active_ = false;
-
-    if (state_ == State::HumanOkReceived) {
-        if (suspended_waiting_.valid) {
-            restore_suspended_waiting(false);
-        } else {
-            state_ = State::Main;
-        }
-    }
-
     return messaging_.set_rx_profile(messaging::RxProfile::Background);
 }
 
@@ -83,7 +74,6 @@ void CommunicatorApp::reset_session()
     selected_main_index_ = 0;
     selected_options_index_ = 0;
     selected_response_index_ = 0;
-    selected_wait_decision_index_ = 0;
 
     sent_preset_ = catalogue::PresetId::Greeting;
     incoming_preset_ = catalogue::PresetId::Greeting;
@@ -96,7 +86,7 @@ void CommunicatorApp::reset_session()
     suspended_waiting_ = SuspendedWaitingContext{};
 
     expected_response_reference_ = 0;
-    expected_human_ack_reference_ = 0;
+    pending_response_delivery_id_ = 0;
     last_greeting_message_id_ = 0;
     delivery_failure_restore_suspended_ = false;
 
@@ -184,7 +174,7 @@ bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
 
         const bool idle_message = state_ == State::Main;
         const bool wait_followup =
-            state_ == State::WaitingForHumanAck
+            state_ == State::WaitingForResponseDelivery
             && preset == catalogue::PresetId::Wait;
         const bool collision_yield =
             should_yield_simultaneous_preset(preset);
@@ -223,16 +213,6 @@ bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
         incoming_response_ = response;
         last_greeting_message_id_ = 0;
         state_ = State::IncomingResponse;
-        notify_incoming();
-        return true;
-    }
-
-    if (state_ == State::WaitingForHumanAck
-        && response == catalogue::ResponseId::HumanOk
-        && message.reference_message_id == expected_human_ack_reference_) {
-        current_incoming_ = message;
-        incoming_response_ = response;
-        state_ = State::HumanOkReceived;
         notify_incoming();
         return true;
     }
@@ -322,12 +302,6 @@ bool CommunicatorApp::can_defer_incoming(
             && message.reference_message_id == last_greeting_message_id_;
     }
 
-    if (response == catalogue::ResponseId::HumanOk) {
-        return expected_human_ack_reference_ != 0
-            && message.reference_message_id
-                == expected_human_ack_reference_;
-    }
-
     const bool matches_active_wait =
         expected_response_reference_ != 0
         && message.reference_message_id == expected_response_reference_
@@ -383,7 +357,6 @@ void CommunicatorApp::restore_suspended_waiting(bool render)
     sent_preset_ = suspended_waiting_.sent_preset;
     expected_response_reference_ =
         suspended_waiting_.expected_response_reference;
-    expected_human_ack_reference_ = 0;
     suspended_waiting_ = SuspendedWaitingContext{};
     state_ = State::WaitingForResponse;
 
@@ -396,6 +369,24 @@ void CommunicatorApp::handle_delivery_receipt(
     const messaging::DeliveryReceipt& receipt)
 {
     if (receipt.outcome == messaging::DeliveryOutcome::Delivered) {
+        if (receipt.logical_message_id == pending_response_delivery_id_) {
+            pending_response_delivery_id_ = 0;
+
+            // A peer follow-up may already have become the active human
+            // exchange. Do not clobber it merely because the response's
+            // technical ACK arrived meanwhile.
+            if (state_ == State::WaitingForResponseDelivery) {
+                if (suspended_waiting_.valid) {
+                    restore_suspended_waiting(
+                        active_ && !signal_alert_active_);
+                } else {
+                    state_ = State::Main;
+                    if (active_ && !signal_alert_active_) {
+                        render_main();
+                    }
+                }
+            }
+        }
         return;
     }
 
@@ -418,8 +409,8 @@ void CommunicatorApp::handle_delivery_receipt(
     if (receipt.logical_message_id == expected_response_reference_) {
         expected_response_reference_ = 0;
     }
-    if (receipt.logical_message_id == expected_human_ack_reference_) {
-        expected_human_ack_reference_ = 0;
+    if (receipt.logical_message_id == pending_response_delivery_id_) {
+        pending_response_delivery_id_ = 0;
     }
     if (receipt.logical_message_id == last_greeting_message_id_) {
         last_greeting_message_id_ = 0;
@@ -456,14 +447,11 @@ void CommunicatorApp::handle_input(const board::InputState& input)
         case State::WaitDecision:
             handle_wait_decision_input(input);
             break;
-        case State::HumanOkReceived:
-            handle_human_ok_input(input);
-            break;
         case State::DeliveryFailed:
             handle_delivery_failed_input(input);
             break;
         case State::WaitingForResponse:
-        case State::WaitingForHumanAck:
+        case State::WaitingForResponseDelivery:
         case State::WaitingForWaitResponse:
             break;
     }
@@ -596,56 +584,23 @@ void CommunicatorApp::handle_response_choice_input(
 void CommunicatorApp::handle_incoming_response_input(
     const board::InputState& input)
 {
-    if (incoming_response_ == catalogue::ResponseId::GreetingHello) {
-        if (input.primary_short || input.secondary_short) {
-            state_ = State::Main;
-            render_main();
-        }
-        return;
-    }
-
-    if (input.primary_short) {
-        if (send_human_ok(current_incoming_.logical_message_id)) {
-            state_ = State::Main;
-            render_main();
-        }
+    if (input.primary_short || input.secondary_short) {
+        state_ = State::Main;
+        render_main();
     }
 }
 
 void CommunicatorApp::handle_wait_decision_input(
     const board::InputState& input)
 {
+    if (input.primary_short) {
+        (void)send_wait_followup();
+        return;
+    }
+
     if (input.secondary_short) {
-        selected_wait_decision_index_ =
-            static_cast<std::uint8_t>((selected_wait_decision_index_ + 1U) % 2U);
-        render_wait_decision();
-        return;
-    }
-
-    if (!input.primary_short) {
-        return;
-    }
-
-    if (selected_wait_decision_index_ == 0) {
-        if (send_human_ok(current_incoming_.logical_message_id)) {
-            state_ = State::Main;
-            render_main();
-        }
-        return;
-    }
-
-    (void)send_wait_followup();
-}
-
-void CommunicatorApp::handle_human_ok_input(const board::InputState& input)
-{
-    if (input.primary_short || input.secondary_short) {
-        if (suspended_waiting_.valid) {
-            restore_suspended_waiting(true);
-        } else {
-            state_ = State::Main;
-            render_main();
-        }
+        state_ = State::Main;
+        render_main();
     }
 }
 
@@ -737,22 +692,11 @@ bool CommunicatorApp::send_selected_response()
         return true;
     }
 
-    expected_human_ack_reference_ =
+    pending_response_delivery_id_ =
         messaging_.outgoing_logical_message_id();
-    state_ = State::WaitingForHumanAck;
-    render_waiting_for_human_ack();
+    state_ = State::WaitingForResponseDelivery;
+    render_waiting_for_response_delivery();
     return true;
-}
-
-bool CommunicatorApp::send_human_ok(std::uint32_t reference_message_id)
-{
-    if (!messaging_.peer_known()) {
-        return false;
-    }
-
-    return messaging_.send_preset_response(
-        static_cast<std::uint16_t>(catalogue::ResponseId::HumanOk),
-        reference_message_id);
 }
 
 bool CommunicatorApp::send_wait_followup()
@@ -883,17 +827,14 @@ void CommunicatorApp::render_current()
         case State::ChoosingResponse:
             render_response_choices();
             break;
-        case State::WaitingForHumanAck:
-            render_waiting_for_human_ack();
+        case State::WaitingForResponseDelivery:
+            render_waiting_for_response_delivery();
             break;
         case State::IncomingResponse:
             render_incoming_response();
             break;
         case State::WaitDecision:
             render_wait_decision();
-            break;
-        case State::HumanOkReceived:
-            render_human_ok_received();
             break;
         case State::DeliveryFailed:
             render_delivery_failed();
