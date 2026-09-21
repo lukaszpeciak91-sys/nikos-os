@@ -142,6 +142,8 @@ Applications request semantic display roles rather than RGB565 values. Theme-var
 
 The active palette is held by `board` and selected from `settings::State::theme`. No generic styling engine, per-screen palette, or runtime RGB editor is introduced.
 
+For the v0.1 physical-LCD readability pass, normal Launcher and Communicator product UI uses the native/default M5GFX `Font0` path through `board::draw_text_region()`. The small custom Polish-font experiment remains isolated behind its explicit helper but is not used by normal product UI because real-device testing showed unacceptable readability even for ASCII text when that small source font was scaled. Interactive v0.1 copy is temporarily ASCII-first. This is a hardware-driven readability choice, not a permanent localization architecture. Communicator wire semantics remain language-independent: stable PresetId/ResponseId values are transmitted, never display strings.
+
 ### signal_sound
 
 `signal_sound::Player` owns the three fixed Communicator `SYGNAŁ` buzzer patterns and their non-blocking playback state.

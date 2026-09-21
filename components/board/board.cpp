@@ -159,6 +159,10 @@ void Board::draw_text_region(
     const std::uint32_t background_color = resolve_display_color(background);
 
     display.fillRect(x, y, width, height, background_color);
+    // Normal product UI uses the native/default M5GFX font deterministically.
+    // The Polish-font experiment remains available only through its explicit
+    // scoped helper below.
+    display.setFont(&fonts::Font0);
     display.setTextColor(foreground_color, background_color);
     display.setTextSize(text_size);
     display.setCursor(x, y);
@@ -220,6 +224,7 @@ void Board::draw_screen(const char* title, const char* body)
         resolve_display_color(DisplayColor::PrimaryText);
 
     display.fillScreen(background);
+    display.setFont(&fonts::Font0);
     display.setTextColor(foreground, background);
     display.setCursor(4, 3);
     display.setTextSize(2);

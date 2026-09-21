@@ -94,7 +94,7 @@ extern "C" void app_main(void)
 
     if (!initialize_nvs()) {
         board.draw_screen(
-            "Nikoś OS",
+            "NIKOS OS",
             "NVS INIT FAILED\n"
             "Check serial log for the failing step.");
         while (true) {
