@@ -2,11 +2,6 @@
 
 namespace {
 
-constexpr std::uint8_t kDiscriminator = 0xA7U;
-constexpr std::uint8_t kVersionShift = 4U;
-constexpr std::uint8_t kVersionMask = 0xF0U;
-constexpr std::uint8_t kTypeMask = 0x0FU;
-
 void write_u32(std::uint8_t* output, std::uint32_t value)
 {
     output[0] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
@@ -21,6 +16,19 @@ std::uint32_t read_u32(const std::uint8_t* input)
         | (static_cast<std::uint32_t>(input[1]) << 16U)
         | (static_cast<std::uint32_t>(input[2]) << 8U)
         | static_cast<std::uint32_t>(input[3]);
+}
+
+void write_u16(std::uint8_t* output, std::uint16_t value)
+{
+    output[0] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
+    output[1] = static_cast<std::uint8_t>(value & 0xFFU);
+}
+
+std::uint16_t read_u16(const std::uint8_t* input)
+{
+    return static_cast<std::uint16_t>(
+        (static_cast<std::uint16_t>(input[0]) << 8U)
+        | static_cast<std::uint16_t>(input[1]));
 }
 
 bool valid_type(std::uint8_t raw_type)
@@ -57,14 +65,6 @@ std::size_t wire_size_for(nikos::communicator_protocol::MessageType type)
     }
 }
 
-std::uint8_t header_type_byte(
-    nikos::communicator_protocol::MessageType type)
-{
-    return static_cast<std::uint8_t>(
-        (nikos::communicator_protocol::kVersion << kVersionShift)
-        | (static_cast<std::uint8_t>(type) & kTypeMask));
-}
-
 }  // namespace
 
 namespace nikos::communicator_protocol {
@@ -79,8 +79,7 @@ bool encode(
 
     const std::uint8_t raw_type =
         static_cast<std::uint8_t>(message.type);
-    if (output == nullptr
-        || !valid_type(raw_type)) {
+    if (output == nullptr || !valid_type(raw_type)) {
         return false;
     }
 
@@ -89,14 +88,8 @@ bool encode(
         return false;
     }
 
-    if ((message.type == MessageType::PresetMessage
-            || message.type == MessageType::PresetResponse)
-        && message.value_id > 0xFFU) {
-        return false;
-    }
-
-    output[0] = kDiscriminator;
-    output[1] = header_type_byte(message.type);
+    output[0] = kV2Discriminator;
+    output[1] = raw_type;
 
     switch (message.type) {
         case MessageType::Presence:
@@ -112,13 +105,13 @@ bool encode(
 
         case MessageType::PresetMessage:
             write_u32(output + kHeaderSize, message.message_id);
-            output[6] = static_cast<std::uint8_t>(message.value_id);
+            write_u16(output + 6, message.value_id);
             break;
 
         case MessageType::PresetResponse:
             write_u32(output + kHeaderSize, message.message_id);
             write_u32(output + 6, message.reference_id);
-            output[10] = static_cast<std::uint8_t>(message.value_id);
+            write_u16(output + 10, message.value_id);
             break;
 
         default:
@@ -133,21 +126,12 @@ bool decode(const std::uint8_t* data, std::size_t length, Message& message)
 {
     if (data == nullptr
         || length < kHeaderSize
-        || data[0] != kDiscriminator) {
+        || data[0] != kV2Discriminator
+        || !valid_type(data[1])) {
         return false;
     }
 
-    const std::uint8_t raw_version =
-        static_cast<std::uint8_t>(
-            (data[1] & kVersionMask) >> kVersionShift);
-    const std::uint8_t raw_type =
-        static_cast<std::uint8_t>(data[1] & kTypeMask);
-
-    if (raw_version != kVersion || !valid_type(raw_type)) {
-        return false;
-    }
-
-    const MessageType type = static_cast<MessageType>(raw_type);
+    const MessageType type = static_cast<MessageType>(data[1]);
     const std::size_t expected_length = wire_size_for(type);
     if (length != expected_length) {
         return false;
@@ -170,13 +154,13 @@ bool decode(const std::uint8_t* data, std::size_t length, Message& message)
 
         case MessageType::PresetMessage:
             decoded.message_id = read_u32(data + kHeaderSize);
-            decoded.value_id = data[6];
+            decoded.value_id = read_u16(data + 6);
             break;
 
         case MessageType::PresetResponse:
             decoded.message_id = read_u32(data + kHeaderSize);
             decoded.reference_id = read_u32(data + 6);
-            decoded.value_id = data[10];
+            decoded.value_id = read_u16(data + 10);
             break;
 
         default:
