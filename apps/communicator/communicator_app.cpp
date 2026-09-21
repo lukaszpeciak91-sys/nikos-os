@@ -1134,9 +1134,9 @@ void CommunicatorApp::render_main()
     } else if (signal_selected) {
         footer = "M5 SYGNAŁ  |  SIDE DALEJ";
     } else {
-        footer = reachable
+        footer = peer_known
             ? "M5 WYŚLIJ  |  SIDE DALEJ"
-            : "BRAK ŁĄCZNOŚCI  |  SIDE DALEJ";
+            : "SZUKAM...  |  SIDE DALEJ";
     }
 
     board_.draw_polish_ui_text_region(
