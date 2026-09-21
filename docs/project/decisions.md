@@ -259,6 +259,8 @@ For an accepted logical payload submission:
 
 If an application ACK arrives before the payload TxResult is processed, logical delivery completes immediately as `Delivered`, but the physical unicast attribution remains reserved until the matching TxResult or missing-result guard resolves. This prevents the later callback from affecting a newer logical message.
 
+If the missing-TxResult attribution-barrier radio restart itself fails, messaging fails closed rather than behaving like a RadioLab pause: any still-active logical delivery completes as `Failed`, pending unicast/ACK work and stale reachability are cleared, and new logical sends remain rejected until the normal Communicator service lifecycle is restarted with `stop()` followed by a fresh `begin()`. An outgoing message already completed as `Delivered` is not converted to `Failed`.
+
 RadioLab's deliberate transport handoff still freezes logical delivery/retry timing. Any peer unicast whose callback remains unresolved at the handoff is conservatively closed as missing before radio ownership is transferred; the same logical MessageId and attempt count remain, and the resulting retry timing is frozen until resume.
 
 Presence remains the existing 2000 ms + 0…250 ms broadcast behavior. Communicator protocol v1, RX duty schedules, reachability timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics are unchanged.
