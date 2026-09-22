@@ -130,7 +130,6 @@ void CommunicatorApp::reset_session()
     incoming_preset_ = catalogue::PresetId::Greeting;
     incoming_response_ = catalogue::ResponseId::GreetingHello;
     response_set_ = catalogue::ResponseSet{};
-    current_incoming_ = messaging::IncomingMessage{};
 
     latest_outgoing_message_id_ = 0;
     latest_delivery_status_ = DeliveryStatus::None;
@@ -251,7 +250,6 @@ bool CommunicatorApp::accept_incoming(
     catalogue::PresetId preset;
     (void)catalogue::preset_from_wire(message.preset_id, preset);
 
-    current_incoming_ = message;
     incoming_preset_ = preset;
     options_active_ = false;
     radio_mode_change_failed_ = false;
