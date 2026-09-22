@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -29,6 +30,8 @@ constexpr std::uint32_t kSyncFrameMs = 140;
 constexpr std::uint32_t kFormFrameMs = 170;
 constexpr std::uint32_t kBatterySampleIntervalMs = 1000;
 constexpr std::uint32_t kClockSampleIntervalMs = 1000;
+constexpr std::uint32_t kStopwatchMaxDisplaySeconds = 99U * 60U + 59U;
+constexpr std::uint64_t kMicrosecondsPerSecond = 1000000ULL;
 
 std::uint8_t signal_sound_index(nikos::settings::SignalSound sound)
 {
@@ -127,6 +130,11 @@ std::uint32_t now_ms()
 {
     return static_cast<std::uint32_t>(
         pdTICKS_TO_MS(xTaskGetTickCount()));
+}
+
+std::uint64_t monotonic_now_us()
+{
+    return static_cast<std::uint64_t>(esp_timer_get_time());
 }
 
 void clear_shell(nikos::board::Board& board)
@@ -272,6 +280,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     tools_selection_ = 0;
     clock_selection_ = 0;
     timer_selection_ = 0;
+    reset_stopwatch_session();
     settings_selection_ = 0;
     signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
     theme_selection_ = theme_index(settings_.theme);
@@ -290,6 +299,7 @@ void Launcher::begin_tools(CommunicatorStatus communicator_status)
     communicator_status_ = communicator_status;
     selected_index_ = 1;
     tools_selection_ = 0;
+    reset_stopwatch_session();
 
     const std::uint32_t now = now_ms();
     update_clock_sample(now, true);
@@ -336,6 +346,9 @@ Action Launcher::update(const board::InputState& input)
         render_clock_timer_if_changed();
     } else if (screen_ == Screen::TimerActive) {
         render_timer_countdown_if_changed();
+    } else if (screen_ == Screen::Stopwatch
+        && stopwatch_state_ == StopwatchState::Running) {
+        render_stopwatch_time_if_changed();
     }
 
     if (screen_ == Screen::EnableCommunicator) {
@@ -448,7 +461,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             clock_selection_ =
-                static_cast<std::uint8_t>((clock_selection_ + 1U) % 3U);
+                static_cast<std::uint8_t>((clock_selection_ + 1U) % 4U);
             render();
             return Action::None;
         }
@@ -464,6 +477,9 @@ Action Launcher::update(const board::InputState& input)
                 screen_ = countdown_.state() == countdown::State::Idle
                     ? Screen::TimerSetup
                     : Screen::TimerActive;
+            } else if (clock_selection_ == 2U) {
+                reset_stopwatch_session();
+                screen_ = Screen::Stopwatch;
             } else {
                 screen_ = Screen::Main;
             }
@@ -538,6 +554,59 @@ Action Launcher::update(const board::InputState& input)
             clock_selection_ = 1;
             screen_ = Screen::Clock;
             render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::Stopwatch) {
+        if (input.secondary_long) {
+            exit_stopwatch_to_clock();
+            return Action::None;
+        }
+
+        if (stopwatch_state_ != StopwatchState::Stopped) {
+            if (input.secondary_short) {
+                exit_stopwatch_to_clock();
+                return Action::None;
+            }
+
+            if (input.primary_short) {
+                if (stopwatch_state_ == StopwatchState::Idle) {
+                    stopwatch_run_started_us_ = monotonic_now_us();
+                    stopwatch_state_ = StopwatchState::Running;
+                } else {
+                    stopwatch_accumulated_us_ = stopwatch_elapsed_us();
+                    stopwatch_state_ = StopwatchState::Stopped;
+                    stopwatch_selection_ = 0;
+                }
+                render();
+            }
+
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            stopwatch_selection_ = static_cast<std::uint8_t>(
+                (stopwatch_selection_ + 1U) % 3U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (stopwatch_selection_ == 0U) {
+            stopwatch_run_started_us_ = monotonic_now_us();
+            stopwatch_state_ = StopwatchState::Running;
+            stopwatch_selection_ = 0;
+            render();
+        } else if (stopwatch_selection_ == 1U) {
+            reset_stopwatch_session();
+            render();
+        } else {
+            exit_stopwatch_to_clock();
         }
 
         return Action::None;
@@ -836,6 +905,48 @@ void Launcher::update_clock_sample(
 }
 
 
+void Launcher::reset_stopwatch_session()
+{
+    stopwatch_state_ = StopwatchState::Idle;
+    stopwatch_selection_ = 0;
+    stopwatch_run_started_us_ = 0;
+    stopwatch_accumulated_us_ = 0;
+    rendered_stopwatch_time_valid_ = false;
+    rendered_stopwatch_seconds_ = 0;
+}
+
+void Launcher::exit_stopwatch_to_clock()
+{
+    reset_stopwatch_session();
+    clock_selection_ = 2;
+    screen_ = Screen::Clock;
+    render();
+}
+
+std::uint64_t Launcher::stopwatch_elapsed_us() const
+{
+    if (stopwatch_state_ != StopwatchState::Running) {
+        return stopwatch_accumulated_us_;
+    }
+
+    const std::uint64_t now = monotonic_now_us();
+    if (now < stopwatch_run_started_us_) {
+        return stopwatch_accumulated_us_;
+    }
+
+    return stopwatch_accumulated_us_ + (now - stopwatch_run_started_us_);
+}
+
+std::uint32_t Launcher::stopwatch_display_seconds() const
+{
+    const std::uint64_t elapsed_seconds =
+        stopwatch_elapsed_us() / kMicrosecondsPerSecond;
+    return elapsed_seconds > kStopwatchMaxDisplaySeconds
+        ? kStopwatchMaxDisplaySeconds
+        : static_cast<std::uint32_t>(elapsed_seconds);
+}
+
+
 void Launcher::render()
 {
     switch (screen_) {
@@ -856,6 +967,9 @@ void Launcher::render()
             break;
         case Screen::TimerActive:
             render_timer_active();
+            break;
+        case Screen::Stopwatch:
+            render_stopwatch();
             break;
         case Screen::ClockSetHour:
             render_clock_editor(true);
@@ -1145,9 +1259,9 @@ void Launcher::render_clock()
 
     board_.draw_text_region(
         14,
-        10,
+        4,
         212,
-        20,
+        18,
         "ZEGAR",
         2,
         board::DisplayColor::PrimaryText,
@@ -1155,26 +1269,27 @@ void Launcher::render_clock()
 
     render_clock_time_if_changed();
 
-    constexpr const char* kItems[3] = {
+    constexpr const char* kItems[4] = {
         "USTAW CZAS",
         nullptr,
+        "STOPER",
         "POWROT",
     };
 
-    for (std::uint8_t index = 0; index < 3; ++index) {
+    for (std::uint8_t index = 0; index < 4; ++index) {
         if (index == 1U) {
             continue;
         }
 
         const bool selected = index == clock_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(64 + index * 19);
+            static_cast<std::int16_t>(56 + index * 16);
 
         board_.draw_text_region(
             22,
             y,
             196,
-            18,
+            16,
             kItems[index],
             2,
             selected
@@ -1189,7 +1304,7 @@ void Launcher::render_clock()
                 14,
                 y,
                 14,
-                static_cast<std::int16_t>(y + 15),
+                static_cast<std::int16_t>(y + 13),
                 board::DisplayColor::Accent);
         }
     }
@@ -1316,6 +1431,104 @@ void Launcher::render_timer_active()
             196,
             18,
             actions[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 15),
+                board::DisplayColor::Accent);
+        }
+    }
+
+    board_.draw_text_region(
+        14,
+        121,
+        212,
+        12,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_stopwatch()
+{
+    clear_shell(board_);
+    rendered_stopwatch_time_valid_ = false;
+
+    board_.draw_text_region(
+        14,
+        6,
+        212,
+        20,
+        "STOPER",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    render_stopwatch_time_if_changed();
+
+    if (stopwatch_state_ != StopwatchState::Stopped) {
+        board_.draw_text_region(
+            22,
+            70,
+            196,
+            18,
+            stopwatch_state_ == StopwatchState::Running
+                ? "M5 STOP"
+                : "M5 START",
+            2,
+            board::DisplayColor::Accent,
+            board::DisplayColor::Background);
+
+        board_.draw_text_region(
+            22,
+            94,
+            196,
+            18,
+            "BOCZNY POWROT",
+            2,
+            board::DisplayColor::SecondaryText,
+            board::DisplayColor::Background);
+
+        board_.draw_text_region(
+            14,
+            121,
+            212,
+            12,
+            "BOCZNY DLUGO = POWROT",
+            1,
+            board::DisplayColor::SecondaryText,
+            board::DisplayColor::Background);
+        return;
+    }
+
+    constexpr const char* kActions[3] = {
+        "WZNOW",
+        "RESETUJ",
+        "POWROT",
+    };
+
+    for (std::uint8_t index = 0; index < 3; ++index) {
+        const bool selected = index == stopwatch_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(62 + index * 19);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            18,
+            kActions[index],
             2,
             selected
                 ? board::DisplayColor::PrimaryText
@@ -1479,7 +1692,7 @@ void Launcher::render_clock_time_if_changed()
 
     board_.draw_text_region(
         75,
-        36,
+        24,
         90,
         28,
         cached_clock_text_,
@@ -1523,7 +1736,7 @@ void Launcher::render_clock_timer_if_changed()
         std::snprintf(label, sizeof(label), "MINUTNIK KONIEC");
     }
 
-    constexpr std::int16_t y = 83;
+    constexpr std::int16_t y = 72;
     const bool selected = clock_selection_ == 1U;
     board_.draw_text_region(
         22,
@@ -1584,6 +1797,31 @@ void Launcher::render_timer_countdown_if_changed()
     rendered_timer_countdown_state_ = state;
     rendered_timer_seconds_ = remaining_seconds;
     rendered_timer_countdown_valid_ = true;
+}
+
+void Launcher::render_stopwatch_time_if_changed()
+{
+    const std::uint32_t elapsed_seconds = stopwatch_display_seconds();
+    if (rendered_stopwatch_time_valid_
+        && rendered_stopwatch_seconds_ == elapsed_seconds) {
+        return;
+    }
+
+    char time_text[6]{};
+    format_mmss(elapsed_seconds, time_text, sizeof(time_text));
+
+    board_.draw_text_region(
+        75,
+        30,
+        90,
+        28,
+        time_text,
+        3,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    rendered_stopwatch_seconds_ = elapsed_seconds;
+    rendered_stopwatch_time_valid_ = true;
 }
 
 void Launcher::render_settings()
