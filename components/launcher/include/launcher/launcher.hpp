@@ -4,6 +4,7 @@
 
 #include "board/board.hpp"
 #include "clock/clock_service.hpp"
+#include "countdown/countdown_service.hpp"
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 
@@ -30,6 +31,7 @@ public:
     Launcher(
         board::Board& board,
         clock::ClockService& clock_service,
+        countdown::Service& countdown,
         settings::State& settings,
         signal_sound::Player& signal_sound);
 
@@ -46,6 +48,8 @@ private:
         Tools,
         Entertainment,
         Clock,
+        TimerSetup,
+        TimerActive,
         ClockSetHour,
         ClockSetMinute,
         ClockSetFailed,
@@ -66,10 +70,14 @@ private:
     void render_tools();
     void render_entertainment();
     void render_clock();
+    void render_timer_setup();
+    void render_timer_active();
     void render_clock_editor(bool editing_hour);
     void render_clock_set_failed();
     void render_header_time_if_changed();
     void render_clock_time_if_changed();
+    void render_clock_timer_if_changed();
+    void render_timer_countdown_if_changed();
     void render_settings();
     void render_signal_sound();
     void render_theme();
@@ -82,6 +90,7 @@ private:
 
     board::Board& board_;
     clock::ClockService& clock_service_;
+    countdown::Service& countdown_;
     settings::State& settings_;
     signal_sound::Player& signal_sound_;
     Screen screen_ = Screen::Main;
@@ -89,6 +98,7 @@ private:
     std::uint8_t selected_index_ = 0;
     std::uint8_t tools_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
+    std::uint8_t timer_selection_ = 0;
     std::uint8_t edit_hour_ = 0;
     std::uint8_t edit_minute_ = 0;
     std::uint8_t settings_selection_ = 0;
@@ -104,6 +114,12 @@ private:
     char cached_clock_text_[6] = "--:--";
     char rendered_header_clock_text_[6] = "";
     char rendered_clock_screen_text_[6] = "";
+    bool rendered_clock_timer_valid_ = false;
+    countdown::State rendered_clock_timer_state_ = countdown::State::Idle;
+    std::uint32_t rendered_clock_timer_seconds_ = 0;
+    bool rendered_timer_countdown_valid_ = false;
+    countdown::State rendered_timer_countdown_state_ = countdown::State::Idle;
+    std::uint32_t rendered_timer_seconds_ = 0;
 
     bool battery_sample_valid_ = false;
     std::uint32_t last_battery_sample_ms_ = 0;

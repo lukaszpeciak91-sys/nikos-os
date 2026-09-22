@@ -139,6 +139,16 @@ While RadioLab owns the radio for its field-test session, messaging transport is
 
 Receiver dedupe state is part of that long-lived in-memory service state, so it survives foreground application changes and the RadioLab pause/resume handoff. It is intentionally volatile across a full device reboot. In this first infrastructure version, if a sender is still retrying an outstanding logical message when the receiver reboots, that message may be surfaced again after the receiver restarts.
 
+### countdown
+
+`countdown::Service` owns one boot-scoped background countdown independent from RTC and wall-clock `HH:MM`. `app_main` supplies the monotonic `esp_timer_get_time()` source, owns the service lifetime, and advances it from every normal main-loop iteration; there is no countdown task, scheduler, alarm framework, event bus, or persistence.
+
+The service owns the configured duration plus the explicit `Idle / Running / Paused / Expired` state. Running time is deadline-based using 64-bit monotonic microseconds, so ordinary loop jitter does not accumulate error. Pause captures the remaining interval; resume establishes a new monotonic deadline from that retained interval. The approved setup sequence is 30-second steps from 00:30 through 05:00, then one-minute steps through 15:00, wrapping to 00:30. Reset returns to Idle while retaining the configured duration.
+
+Launcher owns only the Timer setup/active UI and actions. The service remains authoritative when Launcher, Communicator, RadioLab, Clock Glance, Dimmed, or DisplayOff is active. Running/paused Timer state does not replace normal Clock Glance behavior.
+
+Expiration transitions once to `Expired` and remains a pending user-visible event until explicit acknowledgment. `app_main` owns the full-screen Timer alert overlay, wakes the display once when presenting it, cancels Clock Glance, and reuses the selected `signal_sound::Player` pattern. Audio completion never acknowledges the event. Accepted Communicator traffic has higher priority and may preempt the Timer overlay without clearing `Expired`; the pending Timer is shown after the communication foreground priority ends. RadioLab continues its normal processing with rendering suppressed while the Timer overlay is visible. No Timer state survives whole-device shutdown.
+
 ### settings
 
 `settings::State` owns the current boot-scoped user preference state. It now contains three real runtime preferences:
@@ -258,6 +268,11 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - RTC validity relies on the hardware RTC read plus the RTC VL indication, not an NVS-configured flag.
 - Clock Glance is a top-level transient UI driven only by `WakeReason::UserButton`; accepted Communicator content bypasses/cancels it immediately.
 - Clock Glance timeout is ~4 s and returns directly to `DisplayOff` without entering `Dimmed`; normal Active/Dimmed/DisplayOff timing resumes after glance dismissal.
+- Countdown timing is monotonic and independent from RTC; changing or losing wall-clock time cannot change a running Timer.
+- Running or paused Countdown state survives foreground UI changes and DisplayOff but not whole-device shutdown.
+- Countdown expiration is a one-shot pending event until user acknowledgment; finite sound completion does not acknowledge it.
+- Accepted Communicator traffic has priority over the Timer alert, while the pending Timer event survives that preemption.
+- An unacknowledged Timer expiration bypasses/cancels Clock Glance; a merely running or paused Timer does not.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.

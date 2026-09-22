@@ -206,6 +206,28 @@ CommunicatorApp::UpdateResult CommunicatorApp::update(
     return UpdateResult::Running;
 }
 
+bool CommunicatorApp::timer_preemption_active() const
+{
+    if (signal_alert_active_) {
+        return true;
+    }
+
+    switch (state_) {
+        case State::IncomingPreset:
+        case State::ChoosingResponse:
+        case State::WaitingForResponseDelivery:
+        case State::IncomingResponse:
+        case State::WaitDecision:
+        case State::DeliveryFailed:
+            return true;
+        case State::Main:
+        case State::WaitingForResponse:
+        case State::WaitingForWaitResponse:
+        default:
+            return false;
+    }
+}
+
 bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
 {
     if (message.kind == messaging::IncomingKind::Ring) {

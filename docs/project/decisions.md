@@ -394,3 +394,19 @@ Changing the preference applies it immediately and redraws the complete Orientat
 This setting rotates only the display. Physical M5 / BtnA remains the primary action and physical side / BtnB remains the secondary action; user-facing `M5` and `BOCZNY` terminology and all interaction semantics remain unchanged.
 
 **Rationale:** Rotating the whole device should improve left-handed physical use without coupling product orientation to navigation, input mapping, applications, or persistence.
+
+## D-027 — Background Countdown is monotonic and expiration remains pending
+
+**Status:** Accepted for hardware validation
+
+Nikoś OS Countdown v0.1 is a single boot-scoped `countdown::Service` owned by `app_main` and shared with Launcher UI. It is deliberately separate from `clock::ClockService` and RTC wall time. The service uses the monotonic `esp_timer_get_time()` source supplied by composition, stores 64-bit deadline/remaining intervals, and is advanced from the existing main loop. No FreeRTOS task, scheduler/alarm framework, generic event bus, RTC coupling, or NVS persistence is introduced.
+
+The configured sequence is fixed: 00:30 through 05:00 in 30-second steps, then 06:00 through 15:00 in one-minute steps, wrapping to 00:30. Fresh boot defaults to 05:00. Running uses an absolute monotonic deadline; pause captures the remaining interval and resume creates a new deadline, so loop jitter and RTC changes cannot accumulate countdown error. Reset cancels Running/Paused state, clears any expiration, and retains the configured duration for quick restart.
+
+`Expired` is a one-shot pending state rather than a transient audio condition. `app_main` owns the Timer alert overlay across Launcher, Communicator, RadioLab, Clock Glance, Dimmed, and DisplayOff. Initial presentation wakes/resets visible display activity once, cancels Clock Glance, and reuses the existing selected finite `signal_sound::Player` pattern. Audio completion alone never acknowledges expiration. A user dismissal stops Timer audio, acknowledges the pending expiration, suppresses the full physical dismissal gesture through release, and redraws the preserved foreground context.
+
+Accepted user-visible Communicator traffic has higher priority than Timer alert UI/audio. If communication is accepted while Timer expiration is pending or visible, Communicator takes the foreground and the Countdown remains `Expired` until it can be presented after communication priority ends. No generic notification queue is added. RadioLab continues processing with rendering disabled while the Timer overlay is visible and redraws its retained session after dismissal.
+
+Running/paused Timer state by itself does not alter Clock Glance. Only an unacknowledged expiration bypasses/cancels Clock Glance. DisplayOff never pauses Countdown. Explicit whole-device shutdown discards Timer state. Stopwatch remains unimplemented.
+
+**Rationale:** Countdown timing needs a stable monotonic lifetime independent from wall-clock correctness, while the alert needs explicit acknowledgment and narrow top-level orchestration so it can coexist with the existing display and communication priority rules without creating a general notification subsystem.

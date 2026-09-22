@@ -56,6 +56,19 @@ nikos::settings::SignalSound signal_sound_from_index(std::uint8_t index)
     }
 }
 
+void format_mmss(
+    std::uint32_t total_seconds,
+    char* output,
+    std::size_t output_size)
+{
+    std::snprintf(
+        output,
+        output_size,
+        "%02lu:%02lu",
+        static_cast<unsigned long>(total_seconds / 60U),
+        static_cast<unsigned long>(total_seconds % 60U));
+}
+
 std::uint8_t theme_index(nikos::ui_theme::Theme theme)
 {
     switch (theme) {
@@ -207,10 +220,12 @@ namespace nikos::launcher {
 Launcher::Launcher(
     board::Board& board,
     clock::ClockService& clock_service,
+    countdown::Service& countdown,
     settings::State& settings,
     signal_sound::Player& signal_sound)
     : board_(board),
       clock_service_(clock_service),
+      countdown_(countdown),
       settings_(settings),
       signal_sound_(signal_sound)
 {
@@ -256,6 +271,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     selected_index_ = 0;
     tools_selection_ = 0;
     clock_selection_ = 0;
+    timer_selection_ = 0;
     settings_selection_ = 0;
     signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
     theme_selection_ = theme_index(settings_.theme);
@@ -283,6 +299,12 @@ void Launcher::begin_tools(CommunicatorStatus communicator_status)
 
 void Launcher::redraw()
 {
+    if (screen_ == Screen::TimerActive
+        && countdown_.state() == countdown::State::Idle) {
+        screen_ = Screen::TimerSetup;
+        timer_selection_ = 0;
+    }
+
     const std::uint32_t now = now_ms();
     update_clock_sample(now, true);
     update_battery_sample(now);
@@ -311,6 +333,9 @@ Action Launcher::update(const board::InputState& input)
         render_battery_if_changed();
     } else if (screen_ == Screen::Clock) {
         render_clock_time_if_changed();
+        render_clock_timer_if_changed();
+    } else if (screen_ == Screen::TimerActive) {
+        render_timer_countdown_if_changed();
     }
 
     if (screen_ == Screen::EnableCommunicator) {
@@ -423,7 +448,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             clock_selection_ =
-                static_cast<std::uint8_t>((clock_selection_ + 1U) % 2U);
+                static_cast<std::uint8_t>((clock_selection_ + 1U) % 3U);
             render();
             return Action::None;
         }
@@ -434,9 +459,84 @@ Action Launcher::update(const board::InputState& input)
                 edit_hour_ = reading.valid ? reading.time.hour : 0U;
                 edit_minute_ = reading.valid ? reading.time.minute : 0U;
                 screen_ = Screen::ClockSetHour;
+            } else if (clock_selection_ == 1U) {
+                timer_selection_ = 0;
+                screen_ = countdown_.state() == countdown::State::Idle
+                    ? Screen::TimerSetup
+                    : Screen::TimerActive;
             } else {
                 screen_ = Screen::Main;
             }
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::TimerSetup) {
+        if (input.secondary_long) {
+            clock_selection_ = 1;
+            screen_ = Screen::Clock;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            countdown_.advance_configured_duration();
+            render();
+            return Action::None;
+        }
+
+        if (input.primary_short && countdown_.start()) {
+            timer_selection_ = 0;
+            screen_ = Screen::TimerActive;
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::TimerActive) {
+        if (countdown_.state() == countdown::State::Idle) {
+            timer_selection_ = 0;
+            screen_ = Screen::TimerSetup;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_long) {
+            clock_selection_ = 1;
+            screen_ = Screen::Clock;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            timer_selection_ =
+                static_cast<std::uint8_t>((timer_selection_ + 1U) % 3U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (timer_selection_ == 0U) {
+            if (countdown_.state() == countdown::State::Running) {
+                countdown_.pause();
+            } else if (countdown_.state() == countdown::State::Paused) {
+                countdown_.resume();
+            }
+            render();
+        } else if (timer_selection_ == 1U) {
+            countdown_.reset();
+            timer_selection_ = 0;
+            screen_ = Screen::TimerSetup;
+            render();
+        } else {
+            clock_selection_ = 1;
+            screen_ = Screen::Clock;
             render();
         }
 
@@ -751,6 +851,12 @@ void Launcher::render()
         case Screen::Clock:
             render_clock();
             break;
+        case Screen::TimerSetup:
+            render_timer_setup();
+            break;
+        case Screen::TimerActive:
+            render_timer_active();
+            break;
         case Screen::ClockSetHour:
             render_clock_editor(true);
             break;
@@ -1035,6 +1141,7 @@ void Launcher::render_clock()
 {
     clear_shell(board_);
     rendered_clock_screen_text_[0] = '\0';
+    rendered_clock_timer_valid_ = false;
 
     board_.draw_text_region(
         14,
@@ -1048,21 +1155,26 @@ void Launcher::render_clock()
 
     render_clock_time_if_changed();
 
-    constexpr const char* kItems[2] = {
+    constexpr const char* kItems[3] = {
         "USTAW CZAS",
+        nullptr,
         "POWROT",
     };
 
-    for (std::uint8_t index = 0; index < 2; ++index) {
+    for (std::uint8_t index = 0; index < 3; ++index) {
+        if (index == 1U) {
+            continue;
+        }
+
         const bool selected = index == clock_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(74 + index * 24);
+            static_cast<std::int16_t>(64 + index * 19);
 
         board_.draw_text_region(
             22,
             y,
             196,
-            20,
+            18,
             kItems[index],
             2,
             selected
@@ -1077,7 +1189,147 @@ void Launcher::render_clock()
                 14,
                 y,
                 14,
-                static_cast<std::int16_t>(y + 16),
+                static_cast<std::int16_t>(y + 15),
+                board::DisplayColor::Accent);
+        }
+    }
+
+    render_clock_timer_if_changed();
+
+    board_.draw_text_region(
+        14,
+        122,
+        212,
+        12,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_timer_setup()
+{
+    clear_shell(board_);
+
+    char duration_text[6]{};
+    format_mmss(
+        countdown_.configured_duration_seconds(),
+        duration_text,
+        sizeof(duration_text));
+
+    board_.draw_text_region(
+        14,
+        6,
+        212,
+        20,
+        "MINUTNIK",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        75,
+        30,
+        90,
+        28,
+        duration_text,
+        3,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        22,
+        63,
+        196,
+        18,
+        "M5 START",
+        2,
+        board::DisplayColor::Accent,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        22,
+        82,
+        196,
+        18,
+        "BOCZNY +CZAS",
+        2,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        22,
+        101,
+        196,
+        18,
+        "POWROT",
+        2,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        14,
+        121,
+        212,
+        12,
+        "BOCZNY DLUGO = POWROT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_timer_active()
+{
+    clear_shell(board_);
+    rendered_timer_countdown_valid_ = false;
+
+    board_.draw_text_region(
+        14,
+        6,
+        212,
+        20,
+        "MINUTNIK",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    render_timer_countdown_if_changed();
+
+    const char* primary_action =
+        countdown_.state() == countdown::State::Paused
+            ? "WZNOW"
+            : "PAUZA";
+    const char* actions[3] = {
+        primary_action,
+        "RESETUJ",
+        "POWROT",
+    };
+
+    for (std::uint8_t index = 0; index < 3; ++index) {
+        const bool selected = index == timer_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(61 + index * 19);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            18,
+            actions[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 15),
                 board::DisplayColor::Accent);
         }
     }
@@ -1240,6 +1492,98 @@ void Launcher::render_clock_time_if_changed()
         sizeof(rendered_clock_screen_text_),
         "%s",
         cached_clock_text_);
+}
+
+void Launcher::render_clock_timer_if_changed()
+{
+    const countdown::State state = countdown_.state();
+    const std::uint32_t remaining_seconds =
+        state == countdown::State::Running
+            || state == countdown::State::Paused
+        ? countdown_.remaining_seconds()
+        : 0U;
+
+    if (rendered_clock_timer_valid_
+        && rendered_clock_timer_state_ == state
+        && rendered_clock_timer_seconds_ == remaining_seconds) {
+        return;
+    }
+
+    char label[24] = "MINUTNIK";
+    if (state == countdown::State::Running
+        || state == countdown::State::Paused) {
+        char time_text[6]{};
+        format_mmss(remaining_seconds, time_text, sizeof(time_text));
+        std::snprintf(
+            label,
+            sizeof(label),
+            "MINUTNIK %s",
+            time_text);
+    } else if (state == countdown::State::Expired) {
+        std::snprintf(label, sizeof(label), "MINUTNIK KONIEC");
+    }
+
+    constexpr std::int16_t y = 83;
+    const bool selected = clock_selection_ == 1U;
+    board_.draw_text_region(
+        22,
+        y,
+        196,
+        18,
+        label,
+        2,
+        selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+
+    if (selected) {
+        board_.draw_line(
+            14,
+            y,
+            14,
+            static_cast<std::int16_t>(y + 15),
+            board::DisplayColor::Accent);
+    }
+
+    rendered_clock_timer_state_ = state;
+    rendered_clock_timer_seconds_ = remaining_seconds;
+    rendered_clock_timer_valid_ = true;
+}
+
+void Launcher::render_timer_countdown_if_changed()
+{
+    const countdown::State state = countdown_.state();
+    const std::uint32_t remaining_seconds =
+        state == countdown::State::Running
+            || state == countdown::State::Paused
+        ? countdown_.remaining_seconds()
+        : 0U;
+
+    if (rendered_timer_countdown_valid_
+        && rendered_timer_countdown_state_ == state
+        && rendered_timer_seconds_ == remaining_seconds) {
+        return;
+    }
+
+    char time_text[6]{};
+    format_mmss(remaining_seconds, time_text, sizeof(time_text));
+
+    board_.draw_text_region(
+        75,
+        29,
+        90,
+        28,
+        time_text,
+        3,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    rendered_timer_countdown_state_ = state;
+    rendered_timer_seconds_ = remaining_seconds;
+    rendered_timer_countdown_valid_ = true;
 }
 
 void Launcher::render_settings()

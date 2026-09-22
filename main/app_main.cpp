@@ -1,6 +1,7 @@
 #include "board/board.hpp"
 #include "clock/clock_service.hpp"
 #include "communicator/communicator_app.hpp"
+#include "countdown/countdown_service.hpp"
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
 #include "power/display_lifecycle.hpp"
@@ -11,6 +12,7 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
@@ -66,6 +68,38 @@ void render_clock_glance(
         time_text,
         4,
         nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+}
+
+void render_timer_alert(nikos::board::Board& board)
+{
+    board.clear_screen();
+    board.draw_text_region(
+        14,
+        18,
+        212,
+        20,
+        "MINUTNIK",
+        2,
+        nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+    board.draw_text_region(
+        48,
+        50,
+        160,
+        36,
+        "KONIEC",
+        4,
+        nikos::board::DisplayColor::Attention,
+        nikos::board::DisplayColor::Background);
+    board.draw_text_region(
+        35,
+        112,
+        190,
+        14,
+        "M5 / BOCZNY = ZAMKNIJ",
+        1,
+        nikos::board::DisplayColor::SecondaryText,
         nikos::board::DisplayColor::Background);
 }
 
@@ -170,9 +204,11 @@ extern "C" void app_main(void)
     board.set_theme(settings.theme);
 
     nikos::signal_sound::Player signal_sound(board, settings);
+    nikos::countdown::Service countdown(esp_timer_get_time);
     nikos::launcher::Launcher launcher(
         board,
         clock_service,
+        countdown,
         settings,
         signal_sound);
     launcher.show_splash();
@@ -205,6 +241,8 @@ extern "C" void app_main(void)
     RuntimeState state = RuntimeState::Launcher;
     bool clock_glance_active = false;
     std::uint32_t clock_glance_started_ms = 0;
+    bool timer_alert_visible = false;
+    bool timer_deferred_for_communication = false;
 
     display_lifecycle.note_visible_activity();
     launcher.begin(communicator_status(communicator_enabled, messaging));
@@ -214,21 +252,118 @@ extern "C" void app_main(void)
         // transport. A RadioLab handoff intentionally freezes retry/deadline
         // timing until messaging transport resumes.
         messaging.update();
+        countdown.update();
         signal_sound.update();
 
         const nikos::power::FilteredInput display_input =
             display_lifecycle.filter_input(board.poll_input());
         const nikos::board::InputState& input = display_input.input;
 
-        const bool user_started_clock_glance =
+        if (timer_deferred_for_communication
+            && (state != RuntimeState::Communicator
+                || !communicator.timer_preemption_active())) {
+            timer_deferred_for_communication = false;
+        }
+
+        const bool timer_expired = countdown.expired_pending();
+        const bool user_woke_display =
             display_input.wake_reason
             == nikos::power::WakeReason::UserButton;
+        const bool user_started_clock_glance =
+            user_woke_display && !timer_expired;
         if (user_started_clock_glance) {
             clock_glance_active = true;
             clock_glance_started_ms = now_ms();
         }
 
         display_lifecycle.update();
+
+        bool timer_alert_presented_now = false;
+
+        if (timer_expired
+            && !timer_deferred_for_communication
+            && state == RuntimeState::Communicator
+            && communicator.timer_preemption_active()) {
+            timer_alert_visible = false;
+            timer_deferred_for_communication = true;
+            clock_glance_active = false;
+        }
+
+        if (timer_expired
+            && !timer_deferred_for_communication
+            && state != RuntimeState::RadioLab
+            && communicator_enabled
+            && communicator.process_incoming()) {
+            timer_alert_visible = false;
+            timer_deferred_for_communication = true;
+            clock_glance_active = false;
+
+            if (any_user_button_activity(input)) {
+                display_lifecycle.suppress_user_gesture_until_release();
+            }
+
+            if (state == RuntimeState::Launcher) {
+                if (!communicator.begin()) {
+                    ESP_LOGW(
+                        kTag,
+                        "Communicator foreground RX profile could not be applied");
+                }
+                state = RuntimeState::Communicator;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
+
+        if (timer_expired && !timer_deferred_for_communication) {
+            clock_glance_active = false;
+
+            if (!timer_alert_visible) {
+                display_lifecycle.note_visible_activity();
+                signal_sound.play_selected();
+                render_timer_alert(board);
+                timer_alert_visible = true;
+                timer_alert_presented_now = true;
+
+                // A button gesture already in flight when the alert appears
+                // belongs to the obscured UI, not to Timer dismissal.
+                if (any_user_button_activity(input)) {
+                    display_lifecycle.suppress_user_gesture_until_release();
+                }
+            } else if (user_woke_display) {
+                // DisplayOff wake remains a consumed first gesture. Repaint
+                // the still-pending alert without restarting its finite audio.
+                render_timer_alert(board);
+            }
+        }
+
+        if (timer_alert_visible) {
+            if (state == RuntimeState::RadioLab) {
+                (void)radiolab.update(
+                    nikos::board::InputState{},
+                    false);
+            }
+
+            if (!timer_alert_presented_now
+                && any_user_button_activity(input)) {
+                signal_sound.stop();
+                countdown.acknowledge_expiration();
+                timer_alert_visible = false;
+                timer_deferred_for_communication = false;
+                clock_glance_active = false;
+
+                display_lifecycle.suppress_user_gesture_until_release();
+                display_lifecycle.note_visible_activity();
+                redraw_runtime_ui(
+                    state,
+                    launcher,
+                    communicator,
+                    radiolab);
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
 
         if (clock_glance_active) {
             bool communication_accepted = false;

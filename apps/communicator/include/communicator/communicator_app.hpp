@@ -33,6 +33,7 @@ public:
     // Inspect retained messaging events. Returns true when one event was
     // accepted into the current Communicator conversation/UI state.
     bool process_incoming();
+    bool timer_preemption_active() const;
 
 private:
     enum class State : std::uint8_t {
