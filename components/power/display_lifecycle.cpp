@@ -105,6 +105,17 @@ void DisplayLifecycle::note_visible_activity()
     last_activity_ms_ = now;
 }
 
+void DisplayLifecycle::display_off_now()
+{
+    enter_display_off();
+}
+
+void DisplayLifecycle::suppress_user_gesture_until_release()
+{
+    suppress_wake_gesture_until_release_ = true;
+}
+
+
 DisplayState DisplayLifecycle::state() const
 {
     return state_;
