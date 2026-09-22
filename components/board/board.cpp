@@ -68,8 +68,7 @@ InputState Board::poll_input()
     // by M5Unified / the board PMIC.
     state.primary_pressed = M5.BtnA.isPressed();
     state.secondary_pressed = M5.BtnB.isPressed();
-    state.power_short =
-        M5.BtnPWR.wasClicked() && !M5.BtnPWR.wasReleasedAfterHold();
+    state.power_short = M5.BtnPWR.wasClicked();
     state.primary_long = M5.BtnA.wasHold();
     state.secondary_long = M5.BtnB.wasHold();
     state.primary_short =
