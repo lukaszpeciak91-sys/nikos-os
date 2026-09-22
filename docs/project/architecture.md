@@ -165,15 +165,21 @@ No persistent contact database, chat history, or user-settings schema is introdu
 
 ### power
 
-Future owner of product-level:
+Owns the first small product-level display lifecycle policy only:
 
-- sleep policy
-- display and backlight power policy
-- radio power policy
+- `Active`, `Dimmed`, and `DisplayOff` state;
+- experimental inactivity timing: dim after 15 s and LCD off after 45 s from the last meaningful visible activity;
+- wake/activity accounting;
+- full wake-gesture consumption after `DisplayOff`;
+- a one-shot `WakeReason::UserButton` result when a physical user button wakes `DisplayOff`, exposed with the centrally filtered input for `app_main`.
 
-Whole-device shutdown is intentionally narrower than a power-policy framework: the launcher emits only a shutdown request, `app_main` performs orderly runtime cleanup, and the board layer owns the M5-specific `M5.Power.powerOff()` call.
+`board` remains the hardware owner for normal brightness, dim brightness, LCD sleep, and wake. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton`. The one-shot user-button wake result is the intentional extension point for a future Clock Glance in `app_main`; Clock Glance rendering, RTC/time support, and its approved future ~4 s direct return to `DisplayOff` are not implemented in this PR.
 
-The current messaging RX schedules are experimental transport configuration, not permanent power architecture.
+`DisplayOff` is LCD/backlight state only. It does not stop `app_main`, messaging, Communicator background reception, or the configured ESP-NOW RX schedule, and it never performs whole-device shutdown.
+
+Whole-device shutdown remains separate: the launcher emits only an explicit shutdown request, `app_main` performs orderly runtime cleanup, and the board layer owns the M5-specific `M5.Power.powerOff()` call.
+
+The current messaging RX schedules remain experimental transport configuration and are unchanged by display lifecycle v0.1. No automatic device shutdown, CPU sleep, radio sleep policy, or persistent power setting is introduced.
 
 ### launcher
 
@@ -229,6 +235,9 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Every normal launcher submenu exposes a visible `Powrót` row; secondary-long may remain an optional shortcut.
 - Launcher `WYŁĄCZ` means whole-device shutdown and remains distinct from Communicator `WYŁĄCZ` (service disable) and Communicator `POWRÓT` (foreground-panel exit).
 - Whole-device shutdown orchestration belongs to `app_main`; M5-specific power-off belongs to `board`.
+- Display lifecycle is independent from device and Communicator service lifecycle: `DisplayOff` means LCD/backlight only.
+- The first user-button gesture that wakes `DisplayOff` is consumed through physical release; a fresh subsequent gesture is required for application action.
+- Accepted user-visible Communicator content may wake the display, while transport-internal Presence/ACK/retry/TxResult/reachability activity does not.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.

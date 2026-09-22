@@ -9,6 +9,8 @@ namespace {
 
 constexpr char kTag[] = "board";
 constexpr std::uint32_t kHoldThresholdMs = 600;
+constexpr std::uint8_t kDisplayActiveBrightness = 128;
+constexpr std::uint8_t kDisplayDimBrightness = 32;
 
 // Theme-varying colors come from ui_theme::Palette. Product-semantic colors
 // remain fixed across themes.
@@ -36,7 +38,7 @@ bool Board::begin()
     M5.begin(config);
 
     M5.Display.setRotation(1);
-    M5.Display.setBrightness(128);
+    M5.Display.setBrightness(kDisplayActiveBrightness);
     M5.Display.setTextWrap(false);
 
     M5.BtnA.setHoldThresh(kHoldThresholdMs);
@@ -62,6 +64,10 @@ InputState Board::poll_input()
     // - M5-marked user button -> primary
     // - opposite-side user button -> secondary
     // The separate power button is intentionally not exposed through InputState.
+    // Physical press state is exposed only so the product display lifecycle can
+    // suppress an entire wake gesture after LCD sleep.
+    state.primary_pressed = M5.BtnA.isPressed();
+    state.secondary_pressed = M5.BtnB.isPressed();
     state.primary_long = M5.BtnA.wasHold();
     state.secondary_long = M5.BtnB.wasHold();
     state.primary_short =
@@ -107,7 +113,20 @@ void Board::stop_tone()
 
 void Board::wake_display()
 {
+    // M5GFX wakeup() restores its remembered brightness. Always override it
+    // with the product ACTIVE level so a prior dim state cannot survive wake.
     M5.Display.wakeup();
+    M5.Display.setBrightness(kDisplayActiveBrightness);
+}
+
+void Board::dim_display()
+{
+    M5.Display.setBrightness(kDisplayDimBrightness);
+}
+
+void Board::sleep_display()
+{
+    M5.Display.sleep();
 }
 
 void Board::power_off()

@@ -18,7 +18,7 @@ public:
 
     void begin();
     void end();
-    UpdateResult update();
+    UpdateResult update(const board::InputState& input);
 
 private:
     enum class DeliveryFeedback : std::uint8_t {

@@ -2,6 +2,7 @@
 #include "communicator/communicator_app.hpp"
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
+#include "power/display_lifecycle.hpp"
 #include "radiolab/radiolab_app.hpp"
 #include "radio/radio.hpp"
 #include "settings/settings.hpp"
@@ -81,6 +82,9 @@ extern "C" void app_main(void)
     nikos::board::Board board;
     board.begin();
 
+    nikos::power::DisplayLifecycle display_lifecycle(board);
+    display_lifecycle.begin();
+
     nikos::settings::State settings;
     board.set_theme(settings.theme);
 
@@ -108,6 +112,7 @@ extern "C" void app_main(void)
     nikos::communicator::CommunicatorApp communicator(
         board,
         messaging,
+        display_lifecycle,
         signal_sound,
         "DRUGI M5");
     nikos::radiolab::RadioLabApp radiolab(board, radio);
@@ -116,6 +121,7 @@ extern "C" void app_main(void)
     bool resume_messaging_after_radiolab = false;
 
     RuntimeState state = RuntimeState::Launcher;
+    display_lifecycle.note_visible_activity();
     launcher.begin(communicator_enabled);
 
     while (true) {
@@ -124,6 +130,18 @@ extern "C" void app_main(void)
         // timing until messaging transport resumes.
         messaging.update();
         signal_sound.update();
+
+        const nikos::power::FilteredInput display_input =
+            display_lifecycle.filter_input(board.poll_input());
+        const nikos::board::InputState& input = display_input.input;
+
+        if (display_input.wake_reason
+            == nikos::power::WakeReason::UserButton) {
+            // Clock Glance extension point: the next Clock PR will replace
+            // this intentional no-op with the approved user-wake glance.
+        }
+
+        display_lifecycle.update();
 
         if (state == RuntimeState::Launcher) {
             if (communicator_enabled
@@ -135,7 +153,7 @@ extern "C" void app_main(void)
                 }
                 state = RuntimeState::Communicator;
             } else {
-                const nikos::launcher::Action action = launcher.update();
+                const nikos::launcher::Action action = launcher.update(input);
 
                 if (action == nikos::launcher::Action::StartCommunicator) {
                     communicator.reset_session();
@@ -144,6 +162,7 @@ extern "C" void app_main(void)
                             make_messaging_config(
                                 messaging.radio_mode()))) {
                         communicator_enabled = true;
+                        display_lifecycle.note_visible_activity();
 
                         if (!communicator.begin()) {
                             ESP_LOGW(
@@ -155,10 +174,12 @@ extern "C" void app_main(void)
                         ESP_LOGW(
                             kTag,
                             "Communicator messaging failed to start");
+                        display_lifecycle.note_visible_activity();
                         launcher.begin(false);
                     }
                 } else if (
                     action == nikos::launcher::Action::OpenCommunicator) {
+                    display_lifecycle.note_visible_activity();
                     if (!communicator.begin()) {
                         ESP_LOGW(
                             kTag,
@@ -176,6 +197,7 @@ extern "C" void app_main(void)
                     }
 
                     communicator_enabled = false;
+                    display_lifecycle.note_visible_activity();
                     launcher.begin(false);
                 } else if (
                     action == nikos::launcher::Action::ShutdownRequested) {
@@ -218,9 +240,11 @@ extern "C" void app_main(void)
                     if (radio.begin(
                             kRadioChannel,
                             nikos::radio::Mode::Normal)) {
+                        display_lifecycle.note_visible_activity();
                         radiolab.begin();
                         state = RuntimeState::RadioLab;
                     } else {
+                        display_lifecycle.note_visible_activity();
                         board.draw_screen(
                             "RADIO LAB",
                             "RADIO INIT FAILED\n"
@@ -238,12 +262,13 @@ extern "C" void app_main(void)
                         }
 
                         resume_messaging_after_radiolab = false;
+                        display_lifecycle.note_visible_activity();
                         launcher.begin_tools(communicator_enabled);
                     }
                 }
             }
         } else if (state == RuntimeState::Communicator) {
-            if (communicator.update()
+            if (communicator.update(input)
                 == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested) {
                 if (!communicator.end()) {
                     ESP_LOGW(
@@ -251,11 +276,12 @@ extern "C" void app_main(void)
                         "Communicator background RX profile could not be restored");
                 }
 
+                display_lifecycle.note_visible_activity();
                 launcher.begin(communicator_enabled);
                 state = RuntimeState::Launcher;
             }
         } else {
-            if (radiolab.update()
+            if (radiolab.update(input)
                 == nikos::radiolab::RadioLabApp::UpdateResult::ExitRequested) {
                 radiolab.end();
 
@@ -276,6 +302,7 @@ extern "C" void app_main(void)
                 }
 
                 resume_messaging_after_radiolab = false;
+                display_lifecycle.note_visible_activity();
                 launcher.begin_tools(communicator_enabled);
                 state = RuntimeState::Launcher;
             }

@@ -245,7 +245,7 @@ void Launcher::begin_tools(bool communicator_active)
     render();
 }
 
-Action Launcher::update()
+Action Launcher::update(const board::InputState& input)
 {
     const std::uint32_t now = now_ms();
     update_battery_sample(now);
@@ -253,8 +253,6 @@ Action Launcher::update()
     if (screen_ == Screen::Main) {
         render_battery_if_changed();
     }
-
-    const board::InputState input = board_.poll_input();
 
     if (screen_ == Screen::EnableCommunicator) {
         if (input.primary_short) {

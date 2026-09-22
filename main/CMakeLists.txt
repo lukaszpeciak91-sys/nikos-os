@@ -8,6 +8,7 @@ idf_component_register(
         log
         messaging
         nvs_flash
+        power
         radio
         radiolab
         settings

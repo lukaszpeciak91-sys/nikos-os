@@ -27,7 +27,7 @@ public:
     void show_splash();
     void begin(bool communicator_active);
     void begin_tools(bool communicator_active);
-    Action update();
+    Action update(const board::InputState& input);
 
 private:
     enum class Screen : std::uint8_t {
