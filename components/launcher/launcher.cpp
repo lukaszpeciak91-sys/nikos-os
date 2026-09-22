@@ -1742,7 +1742,7 @@ void Launcher::render_clock_timer_if_changed()
         22,
         y,
         196,
-        18,
+        16,
         label,
         2,
         selected
