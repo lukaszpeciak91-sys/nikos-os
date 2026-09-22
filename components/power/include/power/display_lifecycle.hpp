@@ -12,6 +12,16 @@ enum class DisplayState : std::uint8_t {
     DisplayOff,
 };
 
+enum class WakeReason : std::uint8_t {
+    None,
+    UserButton,
+};
+
+struct FilteredInput {
+    board::InputState input{};
+    WakeReason wake_reason = WakeReason::None;
+};
+
 class DisplayLifecycle final {
 public:
     explicit DisplayLifecycle(board::Board& board);
@@ -19,7 +29,7 @@ public:
     void begin();
     void update();
 
-    board::InputState filter_input(const board::InputState& input);
+    FilteredInput filter_input(const board::InputState& input);
 
     void note_visible_activity();
 
