@@ -38,7 +38,9 @@ public:
     void show_splash();
     void begin(CommunicatorStatus communicator_status);
     void begin_tools(CommunicatorStatus communicator_status);
-    void set_communicator_status(CommunicatorStatus communicator_status);
+    void set_communicator_status(
+        CommunicatorStatus communicator_status,
+        bool render_if_changed = true);
     void redraw();
     Action update(const board::InputState& input);
 
