@@ -20,6 +20,7 @@ enum class WakeReason : std::uint8_t {
 struct FilteredInput {
     board::InputState input{};
     WakeReason wake_reason = WakeReason::None;
+    bool power_display_off = false;
 };
 
 class DisplayLifecycle final {
