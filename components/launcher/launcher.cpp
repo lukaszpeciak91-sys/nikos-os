@@ -1572,8 +1572,8 @@ void Launcher::render_clock_editor(bool editing_hour)
         time_text,
         sizeof(time_text),
         "%02u:%02u",
-        static_cast<unsigned>(edit_hour_),
-        static_cast<unsigned>(edit_minute_));
+        static_cast<unsigned>(edit_hour_) % 24U,
+        static_cast<unsigned>(edit_minute_) % 60U);
 
     board_.draw_text_region(
         14,
