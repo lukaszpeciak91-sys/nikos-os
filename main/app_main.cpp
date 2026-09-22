@@ -277,6 +277,8 @@ extern "C" void app_main(void)
 
         display_lifecycle.update();
 
+        bool timer_alert_presented_now = false;
+
         if (timer_expired
             && !timer_deferred_for_communication
             && state == RuntimeState::Communicator
@@ -320,6 +322,7 @@ extern "C" void app_main(void)
                 signal_sound.play_selected();
                 render_timer_alert(board);
                 timer_alert_visible = true;
+                timer_alert_presented_now = true;
 
                 // A button gesture already in flight when the alert appears
                 // belongs to the obscured UI, not to Timer dismissal.
@@ -340,7 +343,8 @@ extern "C" void app_main(void)
                     false);
             }
 
-            if (any_user_button_activity(input)) {
+            if (!timer_alert_presented_now
+                && any_user_button_activity(input)) {
                 signal_sound.stop();
                 countdown.acknowledge_expiration();
                 timer_alert_visible = false;
