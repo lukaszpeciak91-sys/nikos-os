@@ -1381,19 +1381,19 @@ void Launcher::render_timer_setup()
         22,
         101,
         196,
-        18,
-        "POWROT",
+        16,
+        "BOCZNY DLUGO",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 
     board_.draw_text_region(
-        14,
-        121,
-        212,
-        12,
-        "BOCZNY DLUGO = POWROT",
-        1,
+        22,
+        118,
+        196,
+        16,
+        "= POWROT",
+        2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 }
