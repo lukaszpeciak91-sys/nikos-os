@@ -5,6 +5,7 @@
 #include "board/board.hpp"
 #include "communicator/communicator_catalogue.hpp"
 #include "messaging/messaging_service.hpp"
+#include "power/display_lifecycle.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 
 namespace nikos::communicator {
@@ -19,13 +20,14 @@ public:
     CommunicatorApp(
         board::Board& board,
         messaging::Service& messaging,
+        power::DisplayLifecycle& display_lifecycle,
         signal_sound::Player& signal_sound,
         const char* peer_label);
 
     bool begin();
     bool end();
     void reset_session();
-    UpdateResult update();
+    UpdateResult update(const board::InputState& input);
 
     // Inspect retained messaging events. Returns true when one event was
     // accepted into the current Communicator conversation/UI state.
@@ -109,6 +111,7 @@ private:
 
     board::Board& board_;
     messaging::Service& messaging_;
+    power::DisplayLifecycle& display_lifecycle_;
     signal_sound::Player& signal_sound_;
     const char* peer_label_;
 
