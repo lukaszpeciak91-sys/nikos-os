@@ -131,8 +131,16 @@ extern "C" void app_main(void)
         messaging.update();
         signal_sound.update();
 
-        const nikos::board::InputState input =
+        const nikos::power::FilteredInput display_input =
             display_lifecycle.filter_input(board.poll_input());
+        const nikos::board::InputState& input = display_input.input;
+
+        if (display_input.wake_reason
+            == nikos::power::WakeReason::UserButton) {
+            // Clock Glance extension point: the next Clock PR will replace
+            // this intentional no-op with the approved user-wake glance.
+        }
+
         display_lifecycle.update();
 
         if (state == RuntimeState::Launcher) {
