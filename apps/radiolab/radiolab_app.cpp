@@ -86,11 +86,12 @@ void RadioLabApp::end()
     reset_session_state();
 }
 
-RadioLabApp::UpdateResult RadioLabApp::update()
+RadioLabApp::UpdateResult RadioLabApp::update(
+    const board::InputState& input)
 {
     const std::uint32_t input_now = now_ms();
 
-    process_input(board_.poll_input(), input_now);
+    process_input(input, input_now);
     if (exit_requested_) {
         return UpdateResult::ExitRequested;
     }
