@@ -63,11 +63,13 @@ InputState Board::poll_input()
     // Physical mapping verified on M5StickC Plus SE:
     // - M5-marked user button -> primary
     // - opposite-side user button -> secondary
-    // The separate power button is intentionally not exposed through InputState.
-    // Physical press state is exposed only so the product display lifecycle can
-    // suppress an entire wake gesture after LCD sleep.
+    // POWER is a separate system display control, not a third navigation
+    // button. Expose only its short click; long-power behavior remains owned
+    // by M5Unified / the board PMIC.
     state.primary_pressed = M5.BtnA.isPressed();
     state.secondary_pressed = M5.BtnB.isPressed();
+    state.power_short =
+        M5.BtnPWR.wasClicked() && !M5.BtnPWR.wasReleasedAfterHold();
     state.primary_long = M5.BtnA.wasHold();
     state.secondary_long = M5.BtnB.wasHold();
     state.primary_short =
