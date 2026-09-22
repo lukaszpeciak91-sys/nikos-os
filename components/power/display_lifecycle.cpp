@@ -87,14 +87,15 @@ board::InputState DisplayLifecycle::filter_input(
     return input;
 }
 
-void DisplayLifecycle::note_visible_activity(std::uint32_t now_ms)
+void DisplayLifecycle::note_visible_activity()
 {
+    const std::uint32_t now = now_ms();
     if (state_ != DisplayState::Active) {
         enter_active(now);
         return;
     }
 
-    last_activity_ms_ = now_ms;
+    last_activity_ms_ = now;
 }
 
 DisplayState DisplayLifecycle::state() const
