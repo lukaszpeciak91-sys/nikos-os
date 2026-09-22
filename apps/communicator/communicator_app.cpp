@@ -206,6 +206,11 @@ CommunicatorApp::UpdateResult CommunicatorApp::update(
     return UpdateResult::Running;
 }
 
+bool CommunicatorApp::attention_alert_active() const
+{
+    return signal_alert_active_;
+}
+
 bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
 {
     if (message.kind == messaging::IncomingKind::Ring) {
