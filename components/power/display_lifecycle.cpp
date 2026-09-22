@@ -54,7 +54,7 @@ void DisplayLifecycle::update()
     }
 }
 
-board::InputState DisplayLifecycle::filter_input(
+FilteredInput DisplayLifecycle::filter_input(
     const board::InputState& input)
 {
     const std::uint32_t now = now_ms();
@@ -65,7 +65,7 @@ board::InputState DisplayLifecycle::filter_input(
         if (!button_pressed) {
             suppress_wake_gesture_until_release_ = false;
         }
-        return board::InputState{};
+        return FilteredInput{};
     }
 
     if (state_ == DisplayState::DisplayOff) {
@@ -76,15 +76,22 @@ board::InputState DisplayLifecycle::filter_input(
             // click/hold/release-derived events suppressed until both user
             // buttons are physically released.
             suppress_wake_gesture_until_release_ = button_pressed;
+            return FilteredInput{
+                board::InputState{},
+                WakeReason::UserButton,
+            };
         }
-        return board::InputState{};
+        return FilteredInput{};
     }
 
     if (button_pressed || button_event) {
         note_visible_activity();
     }
 
-    return input;
+    return FilteredInput{
+        input,
+        WakeReason::None,
+    };
 }
 
 void DisplayLifecycle::note_visible_activity()
