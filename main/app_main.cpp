@@ -1,4 +1,5 @@
 #include "board/board.hpp"
+#include "clock/clock_service.hpp"
 #include "communicator/communicator_app.hpp"
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
@@ -21,12 +22,72 @@ constexpr std::uint8_t kRadioChannel = 6;
 constexpr std::uint32_t kSplashDurationMs = 750;
 constexpr std::uint32_t kLoopDelayMs = 20;
 constexpr std::uint32_t kRadioErrorDisplayMs = 1200;
+constexpr std::uint32_t kClockGlanceDurationMs = 4000;
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
     Communicator,
     RadioLab,
 };
+
+std::uint32_t now_ms()
+{
+    return static_cast<std::uint32_t>(
+        pdTICKS_TO_MS(xTaskGetTickCount()));
+}
+
+bool any_user_button_activity(const nikos::board::InputState& input)
+{
+    return input.primary_pressed
+        || input.secondary_pressed
+        || input.primary_short
+        || input.primary_long
+        || input.secondary_short
+        || input.secondary_long;
+}
+
+void render_clock_glance(
+    nikos::board::Board& board,
+    nikos::clock::ClockService& clock_service)
+{
+    const nikos::clock::Reading reading = clock_service.read();
+    char time_text[6]{};
+    nikos::clock::ClockService::format_hhmm(
+        reading,
+        time_text,
+        sizeof(time_text));
+
+    board.clear_screen();
+    board.draw_text_region(
+        60,
+        48,
+        120,
+        40,
+        time_text,
+        4,
+        nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+}
+
+void redraw_runtime_ui(
+    RuntimeState state,
+    nikos::launcher::Launcher& launcher,
+    nikos::communicator::CommunicatorApp& communicator,
+    nikos::radiolab::RadioLabApp& radiolab)
+{
+    switch (state) {
+        case RuntimeState::Communicator:
+            communicator.redraw();
+            break;
+        case RuntimeState::RadioLab:
+            radiolab.redraw();
+            break;
+        case RuntimeState::Launcher:
+        default:
+            launcher.redraw();
+            break;
+    }
+}
 
 bool initialize_nvs()
 {
@@ -82,6 +143,11 @@ extern "C" void app_main(void)
     nikos::board::Board board;
     board.begin();
 
+    if (!board.initialize_rtc()) {
+        ESP_LOGW(kTag, "RTC unavailable; clock will display --:--");
+    }
+    nikos::clock::ClockService clock_service(board);
+
     nikos::power::DisplayLifecycle display_lifecycle(board);
     display_lifecycle.begin();
 
@@ -91,6 +157,7 @@ extern "C" void app_main(void)
     nikos::signal_sound::Player signal_sound(board, settings);
     nikos::launcher::Launcher launcher(
         board,
+        clock_service,
         settings,
         signal_sound);
     launcher.show_splash();
@@ -121,6 +188,9 @@ extern "C" void app_main(void)
     bool resume_messaging_after_radiolab = false;
 
     RuntimeState state = RuntimeState::Launcher;
+    bool clock_glance_active = false;
+    std::uint32_t clock_glance_started_ms = 0;
+
     display_lifecycle.note_visible_activity();
     launcher.begin(communicator_enabled);
 
@@ -135,13 +205,73 @@ extern "C" void app_main(void)
             display_lifecycle.filter_input(board.poll_input());
         const nikos::board::InputState& input = display_input.input;
 
-        if (display_input.wake_reason
-            == nikos::power::WakeReason::UserButton) {
-            // Clock Glance extension point: the next Clock PR will replace
-            // this intentional no-op with the approved user-wake glance.
+        const bool user_started_clock_glance =
+            display_input.wake_reason
+            == nikos::power::WakeReason::UserButton;
+        if (user_started_clock_glance) {
+            clock_glance_active = true;
+            clock_glance_started_ms = now_ms();
         }
 
         display_lifecycle.update();
+
+        if (clock_glance_active) {
+            bool communication_accepted = false;
+
+            if (state != RuntimeState::RadioLab
+                && communicator_enabled
+                && communicator.process_incoming()) {
+                communication_accepted = true;
+                clock_glance_active = false;
+
+                // If the user also began the second glance gesture on this
+                // iteration, keep it from leaking into the incoming UI.
+                if (any_user_button_activity(input)) {
+                    display_lifecycle.suppress_user_gesture_until_release();
+                }
+
+                if (state == RuntimeState::Launcher) {
+                    if (!communicator.begin()) {
+                        ESP_LOGW(
+                            kTag,
+                            "Communicator foreground RX profile could not be applied");
+                    }
+                    state = RuntimeState::Communicator;
+                }
+            }
+
+            if (communication_accepted) {
+                vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                continue;
+            }
+
+            if (state == RuntimeState::RadioLab) {
+                (void)radiolab.update(
+                    nikos::board::InputState{},
+                    false);
+            }
+
+            if (user_started_clock_glance) {
+                render_clock_glance(board, clock_service);
+            } else if (any_user_button_activity(input)) {
+                display_lifecycle.suppress_user_gesture_until_release();
+                display_lifecycle.note_visible_activity();
+                clock_glance_active = false;
+                redraw_runtime_ui(
+                    state,
+                    launcher,
+                    communicator,
+                    radiolab);
+            } else if (
+                now_ms() - clock_glance_started_ms
+                    >= kClockGlanceDurationMs) {
+                clock_glance_active = false;
+                display_lifecycle.display_off_now();
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
 
         if (state == RuntimeState::Launcher) {
             if (communicator_enabled
