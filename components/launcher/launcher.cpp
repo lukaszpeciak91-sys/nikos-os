@@ -317,7 +317,7 @@ void Launcher::redraw()
 
     const std::uint32_t now = now_ms();
     update_clock_sample(now, true);
-    update_battery_sample(now);
+    update_battery_sample(now, true);
     render();
 }
 
@@ -873,9 +873,12 @@ Action Launcher::update(const board::InputState& input)
     return Action::None;
 }
 
-void Launcher::update_battery_sample(std::uint32_t now_ms)
+void Launcher::update_battery_sample(
+    std::uint32_t now_ms,
+    bool force)
 {
-    if (battery_sample_valid_
+    if (!force
+        && battery_sample_valid_
         && now_ms - last_battery_sample_ms_ < kBatterySampleIntervalMs) {
         return;
     }
