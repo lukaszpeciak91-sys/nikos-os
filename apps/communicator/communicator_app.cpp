@@ -1112,7 +1112,7 @@ void CommunicatorApp::render_main()
         123,
         190,
         10,
-        "M5 WYBIERZ   SIDE DALEJ",
+        "M5 WYBIERZ  BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1223,7 +1223,7 @@ void CommunicatorApp::render_options()
         120,
         224,
         13,
-        "M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1279,7 +1279,7 @@ void CommunicatorApp::render_waiting_for_response()
         96,
         170,
         15,
-        "CZEKAM NA ODPOWIEDZ...",
+        "CZEKAM...",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1288,7 +1288,7 @@ void CommunicatorApp::render_waiting_for_response()
         121,
         150,
         11,
-        "SIDE HOLD = MENU",
+        "BOCZNY DLUGO = MENU",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1333,8 +1333,8 @@ void CommunicatorApp::render_incoming_preset()
         205,
         20,
         can_dismiss
-            ? "M5 ODPOWIEDZ   SIDE ZAMKNIJ"
-            : "M5 ODPOWIEDZ",
+            ? "M5 DALEJ  BOCZNY ZAMKNIJ"
+            : "M5 DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1343,7 +1343,7 @@ void CommunicatorApp::render_incoming_preset()
 void CommunicatorApp::render_response_choices()
 {
     clear_screen();
-    draw_header("ODPOWIEDZ");
+    draw_header("WYBIERZ");
 
     board_.draw_text_region(
         8,
@@ -1406,7 +1406,7 @@ void CommunicatorApp::render_response_choices()
         122,
         190,
         11,
-        "M5 WYBIERZ   SIDE DALEJ",
+        "M5 WYBIERZ  BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1415,7 +1415,7 @@ void CommunicatorApp::render_response_choices()
 void CommunicatorApp::render_waiting_for_response_delivery()
 {
     clear_screen();
-    draw_header("ODPOWIEDZ");
+    draw_header("WYSYLAM");
 
     board_.draw_text_region(
         10,
@@ -1462,7 +1462,7 @@ void CommunicatorApp::render_waiting_for_response_delivery()
 void CommunicatorApp::render_incoming_response()
 {
     clear_screen();
-    draw_header("ODPOWIEDZ");
+    draw_header("WIADOMOSC");
 
     board_.draw_text_region(
         8,
@@ -1494,7 +1494,7 @@ void CommunicatorApp::render_incoming_response()
         112,
         180,
         18,
-        "M5 / SIDE = ZAMKNIJ",
+        "M5 / BOCZNY = ZAMKNIJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1503,7 +1503,7 @@ void CommunicatorApp::render_incoming_response()
 void CommunicatorApp::render_wait_decision()
 {
     clear_screen();
-    draw_header("ODPOWIEDZ");
+    draw_header("DECYZJA");
 
     board_.draw_text_region(
         8,
@@ -1538,7 +1538,7 @@ void CommunicatorApp::render_wait_decision()
         110,
         195,
         17,
-        "SIDE  ZAMKNIJ",
+        "BOCZNY ZAMKNIJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1563,7 +1563,7 @@ void CommunicatorApp::render_delivery_failed()
         112,
         224,
         18,
-        "M5 / SIDE = POWROT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1603,7 +1603,7 @@ void CommunicatorApp::render_signal_unavailable()
         120,
         175,
         12,
-        "M5 / SIDE = POWROT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);

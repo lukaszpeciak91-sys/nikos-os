@@ -6,8 +6,10 @@ namespace nikos::ui_theme {
 
 enum class Theme : std::uint8_t {
     Nikos,
-    Amber,
+    Bursztyn,
     Graphite,
+    Lava,
+    Matrix,
 };
 
 struct Palette {

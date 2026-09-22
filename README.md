@@ -41,10 +41,10 @@ The enabled/disabled state is volatile for the current OS session only and is no
 
 Launcher behavior:
 - the Communicator row keeps its normal label and shows a small right-side state indicator;
-- open circle = OFF;
-- calm green solid circle = ACTIVE;
-- selecting Communicator while OFF shows `WŁĄCZYĆ KOMUNIKATOR?` with M5/PRIMARY = `TAK` and SIDE/SECONDARY = `NIE`;
-- selecting Communicator while ACTIVE shows `KOMUNIKATOR AKTYWNY` with `WEJDŹ` selected by default and `WYŁĄCZ` as the second choice.
+- open circle plus `OFF` = service disabled;
+- solid circle plus `SZUKAM`, `GOTOWY`, or `DOSTEPNY` = service active with unknown, known/stale-sendable, or recently reachable peer status;
+- selecting Communicator while OFF shows `WŁĄCZYĆ KOMUNIKATOR?` with `TAK` selected by default, BOCZNY cycling choices, and M5 selecting;
+- selecting Communicator while active opens it directly from `WEJDZ`; choosing `WYLACZ` first opens a separate confirmation with safe `NIE` selected by default.
 
 Foreground Communicator visibility and background messaging lifetime are separate:
 - leaving the Communicator panel restores the background RX profile but does not disable messaging;
@@ -158,7 +158,7 @@ The main field screen shows only:
 - the latest valid RX RSSI from the active peer while the link is fresh;
 - battery percentage;
 - the active NORMAL/LR mode;
-- `SIDE PING` and `M5 HELLO` hints.
+- `BOCZNY PING` and `M5 HELLO` hints.
 
 Received PING messages produce a short beep and retain the existing application ACK behavior. A matching application ACK briefly shows a green `✓ PING OK` confirmation on the sender.
 

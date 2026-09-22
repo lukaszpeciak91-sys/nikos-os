@@ -207,14 +207,16 @@ The ordinary short incoming-message notification tone remains separate and uncha
 Settings v2 extends the existing composition-owned `settings::State` with one typed visual-theme value:
 
 - `Nikos` / Nikoś — default after boot;
-- `Amber` / Bursztyn;
-- `Graphite` / Grafit.
+- `Bursztyn`;
+- `Graphite` / Grafit;
+- `Lava`;
+- `Matrix`.
 
 The selection is volatile for the current OS boot and is not persisted in NVS.
 
-Three fixed compile-time palettes live behind a small `ui_theme` boundary. Applications do not know RGB565 values and do not branch on the active theme. They request semantic `board::DisplayColor` roles, and the board layer resolves theme-varying roles through the active palette.
+Five fixed compile-time palettes live behind a small `ui_theme` boundary. Applications do not know RGB565 values and do not branch on the active theme. They request semantic `board::DisplayColor` roles, and the board layer resolves theme-varying roles through the active palette.
 
-For the current physical-LCD validation pass, all themes intentionally share a substantially darker foundation: black/near-black background, very dark neutral surface, warm ivory primary text, and restrained neutral-gray secondary text. Nikoś, Bursztyn, and Grafit differ mainly through cool blue/cyan, amber, and cool neutral/silver accents respectively. These exact palette values remain experimental pending hardware validation.
+For the current physical-LCD validation pass, Nikos, Bursztyn, Grafit, Lava, and Matrix each define meaningfully different values for every normal palette role. These exact palette values remain experimental pending hardware validation and are not frozen as product identity.
 
 Theme-varying roles are background, surface, primary text, secondary text, and visual accent. Product-semantic status/attention/error roles remain independent of the selected theme: active/reachable stays restrained mint/green, Communicator `SYGNAŁ` stays orange, and danger/error remains distinct from attention.
 

@@ -643,7 +643,7 @@ void RadioLabApp::render_action_area_if_changed(std::uint32_t now_ms)
             2,
             board::DisplayColor::StatusActive);
     } else {
-        board_.draw_text_region(10, 108, 90, 22, "SIDE PING", 2);
+        board_.draw_text_region(10, 108, 90, 22, "BOCZNY PING", 2);
         board_.draw_text_region(120, 108, 115, 22, "M5 HELLO", 2);
     }
 

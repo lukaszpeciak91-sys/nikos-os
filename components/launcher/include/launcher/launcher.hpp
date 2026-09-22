@@ -17,6 +17,13 @@ enum class Action : std::uint8_t {
     ShutdownRequested,
 };
 
+enum class CommunicatorStatus : std::uint8_t {
+    Off,
+    Searching,
+    Ready,
+    Available,
+};
+
 class Launcher final {
 public:
     Launcher(
@@ -25,8 +32,9 @@ public:
         signal_sound::Player& signal_sound);
 
     void show_splash();
-    void begin(bool communicator_active);
-    void begin_tools(bool communicator_active);
+    void begin(CommunicatorStatus communicator_status);
+    void begin_tools(CommunicatorStatus communicator_status);
+    void set_communicator_status(CommunicatorStatus communicator_status);
     Action update(const board::InputState& input);
 
 private:
@@ -40,6 +48,7 @@ private:
         Theme,
         EnableCommunicator,
         ActiveCommunicator,
+        DisableCommunicator,
         ShutdownConfirm,
     };
 
@@ -54,6 +63,7 @@ private:
     void render_theme();
     void render_enable_communicator();
     void render_active_communicator();
+    void render_disable_communicator();
     void render_shutdown_confirm();
     void render_battery_if_changed();
 
@@ -61,13 +71,14 @@ private:
     settings::State& settings_;
     signal_sound::Player& signal_sound_;
     Screen screen_ = Screen::Main;
-    bool communicator_active_ = false;
+    CommunicatorStatus communicator_status_ = CommunicatorStatus::Off;
     std::uint8_t selected_index_ = 0;
     std::uint8_t tools_selection_ = 0;
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t theme_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
+    std::uint8_t confirmation_selection_ = 0;
 
     bool battery_sample_valid_ = false;
     std::uint32_t last_battery_sample_ms_ = 0;

@@ -14,21 +14,21 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Narzedzia currently contains RadioLab and Powrot; RadioLab returns to Narzedzia after exit. Rozrywka and Zegar currently expose only Powrot. Ustawienia contains Dzwiek -> selectable signal-sound patterns, Motyw, and Powrot.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
-- Launcher controls use primary short = open/confirm and secondary short = next.
+- User-facing controls consistently use M5 = open/select and BOCZNY = next; internal primary/secondary names remain implementation details. The launcher separately presents Communicator OFF, searching, known/sendable, and recently reachable states from an app_main-owned status snapshot.
 - RadioLab controls use secondary short = PING, primary short = HELLO, primary long = NORMAL/LR, and secondary long = return to launcher.
 - The separate power button is not part of launcher or application navigation.
 - Display lifecycle v0.1 is implemented independently from device/radio state: Active -> Dimmed after ~15 s -> DisplayOff after ~45 s from last meaningful activity. DisplayOff keeps app_main and Communicator background messaging alive; the first wake gesture is consumed until button release and now exposes a one-shot UserButton wake reason to app_main, while Dimmed input wakes and still performs its normal action. This is the extension point for a future Clock Glance; no RTC, clock UI, HH:MM, or ~4 s glance timer is implemented yet.
 - Accepted user-visible Communicator messages and SYGNAL wake the LCD to normal brightness through semantic UI wake points; Presence/ACK/retry/TxResult/reachability traffic does not wake it. No automatic whole-device shutdown or CPU sleep is part of this lifecycle.
 - Launcher `WYLACZ` provides explicit whole-device shutdown through a default-NIE confirmation; shutdown cleanup is orchestrated by `app_main`, while M5-specific power-off remains inside `board`.
 - The board still contains the earlier embedded Polish-font experiment behind a scoped helper, but hardware testing rejected it for normal product UI. Launcher and Communicator now use deterministic native M5GFX Font0 rendering with temporary ASCII-first copy.
-- The visual layer supports three boot-scoped runtime themes through semantic display roles. The current physical-LCD pass gives Nikos, Bursztyn, and Grafit a shared black/near-black foundation with ivory/gray text and differentiates them mainly through restrained Accent values; active/reachable remains mint/green, the signal attention action remains orange, and danger/error remains distinct.
+- The visual layer supports five boot-scoped hardware-validation themes through semantic display roles: Nikos, Bursztyn, Grafit, Lava, and Matrix. Every normal palette role differs meaningfully, while active/reachable, attention, and danger remain theme-independent semantic colors.
 - ESP-NOW callback-owned RX data and metadata are copied into a FreeRTOS queue before callback return.
 - A long-lived `messaging::Service` now owns one-peer Communicator presence, reachability, bounded retry/application-ACK delivery, explicit Delivered/Failed outcomes, dedupe, and experimental RX profiles above `radio`.
 - Communicator background messaging starts OFF after boot and is explicitly enabled/disabled from the launcher for the current OS session only; the state is not persisted.
 - While Communicator messaging is ACTIVE, leaving its foreground panel keeps background messaging alive. RadioLab pauses/resumes messaging only when it was active before the RadioLab handoff.
 - The two RadioLab user-button positions are physically verified on the M5StickC Plus SE; remaining hardware and radio behavior still requires field verification.
 - Communicator v0.1 now provides one-peer availability, a five-message semantic preset catalogue with local ASCII-first display copy, one-preset/one-response-at-a-time physical-LCD presentation, shallow response-ending semantics without mandatory HumanOk, the meaningful `CZEKAC?` follow-up, collision restoration driven by technical delivery, short audible notification, foreground/background messaging profile switching, a separate orange `SYGNAL` attention action, explicit volatile session enable/disable lifecycle, and a minimal volatile `STANDARD/LR` radio-mode option owned by messaging.
-- Settings provides volatile `Lagodny / Klasyczny / Pager` signal-sound selection plus volatile `Nikos / Bursztyn / Grafit` visual-theme selection. Full reboot restores Lagodny and Nikos defaults.
+- Settings provides volatile `Lagodny / Klasyczny / Pager` signal-sound selection plus a scrollable volatile `Nikos / Bursztyn / Grafit / Lava / Matrix` visual-theme selection. Full reboot restores Lagodny and Nikos defaults.
 - Communicator v0.1 UI and conversation flow have not yet been physically validated on the two M5StickC Plus SE units.
 - Communicator STANDARD/LR switching under the unchanged duty-cycled foreground/background RX schedules still requires two-device hardware validation.
 - `SYGNAL` LCD layout, bell/arcs animation, ~3.12 s buzzer pattern, audibility, and immediate button-dismiss behavior still require physical device validation.
@@ -93,3 +93,5 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-22 — Added display lifecycle v0.1 with experimental 15 s dim / 45 s LCD-off timing, full wake-gesture suppression from DisplayOff, and semantic Communicator wake while leaving messaging/radio timing unchanged.
 
 - 2026-09-22 — Exposed a one-shot DisplayOff physical-button wake reason to app_main as the future Clock Glance extension point; Clock/RTC UI and the approved future ~4 s glance timeout remain unimplemented.
+
+- 2026-09-22 — Polished physical-device copy and confirmations, separated launcher Communicator service/peer status, and expanded the central semantic palette to five distinct hardware-validation themes without changing transport or display-lifecycle policy.
