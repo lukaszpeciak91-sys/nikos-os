@@ -29,7 +29,6 @@ void HardwareSanity::begin()
 
     M5.begin(config);
 
-    M5.Display.setRotation(1);
     M5.Display.setBrightness(128);
     M5.Display.setTextWrap(false);
 

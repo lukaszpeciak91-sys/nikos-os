@@ -73,6 +73,26 @@ std::uint8_t theme_index(nikos::ui_theme::Theme theme)
     }
 }
 
+std::uint8_t orientation_index(nikos::settings::Orientation orientation)
+{
+    return orientation == nikos::settings::Orientation::Left ? 1U : 0U;
+}
+
+nikos::settings::Orientation orientation_from_index(std::uint8_t index)
+{
+    return index == 1U
+        ? nikos::settings::Orientation::Left
+        : nikos::settings::Orientation::Right;
+}
+
+nikos::board::DisplayOrientation board_orientation(
+    nikos::settings::Orientation orientation)
+{
+    return orientation == nikos::settings::Orientation::Left
+        ? nikos::board::DisplayOrientation::Left
+        : nikos::board::DisplayOrientation::Right;
+}
+
 nikos::ui_theme::Theme theme_from_index(std::uint8_t index)
 {
     switch (index) {
@@ -239,6 +259,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     settings_selection_ = 0;
     signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
     theme_selection_ = theme_index(settings_.theme);
+    orientation_selection_ = orientation_index(settings_.orientation);
     active_communicator_selection_ = 0;
 
     const std::uint32_t now = now_ms();
@@ -482,7 +503,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             settings_selection_ =
-                static_cast<std::uint8_t>((settings_selection_ + 1U) % 3U);
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 4U);
             render();
             return Action::None;
         }
@@ -495,6 +516,10 @@ Action Launcher::update(const board::InputState& input)
             } else if (settings_selection_ == 1) {
                 theme_selection_ = theme_index(settings_.theme);
                 screen_ = Screen::Theme;
+            } else if (settings_selection_ == 2) {
+                orientation_selection_ =
+                    orientation_index(settings_.orientation);
+                screen_ = Screen::Orientation;
             } else {
                 signal_sound_.stop();
                 screen_ = Screen::Main;
@@ -569,6 +594,39 @@ Action Launcher::update(const board::InputState& input)
 
         settings_.theme = theme_from_index(theme_selection_);
         board_.set_theme(settings_.theme);
+        render();
+        return Action::None;
+    }
+
+    if (screen_ == Screen::Orientation) {
+        if (input.secondary_long) {
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            orientation_selection_ =
+                static_cast<std::uint8_t>((orientation_selection_ + 1U) % 3U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (orientation_selection_ == 2U) {
+            settings_selection_ = 2;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        settings_.orientation =
+            orientation_from_index(orientation_selection_);
+        board_.set_display_orientation(
+            board_orientation(settings_.orientation));
         render();
         return Action::None;
     }
@@ -710,6 +768,9 @@ void Launcher::render()
             break;
         case Screen::Theme:
             render_theme();
+            break;
+        case Screen::Orientation:
+            render_orientation();
             break;
         case Screen::EnableCommunicator:
             render_enable_communicator();
@@ -1195,22 +1256,23 @@ void Launcher::render_settings()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[3] = {
+    constexpr const char* kItems[4] = {
         "Dzwiek",
         "Motyw",
+        "Orientacja",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 3; ++index) {
+    for (std::uint8_t index = 0; index < 4; ++index) {
         const bool selected = index == settings_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(40 + index * 23);
+            static_cast<std::int16_t>(35 + index * 19);
 
         board_.draw_text_region(
             22,
             y,
             196,
-            20,
+            18,
             kItems[index],
             2,
             selected
@@ -1225,14 +1287,14 @@ void Launcher::render_settings()
                 14,
                 y,
                 14,
-                static_cast<std::int16_t>(y + 16),
+                static_cast<std::int16_t>(y + 15),
                 board::DisplayColor::Accent);
         }
     }
 
     board_.draw_text_region(
         14,
-        112,
+        116,
         212,
         14,
         "M5 WYBIERZ | BOCZNY DALEJ",
@@ -1393,6 +1455,77 @@ void Launcher::render_theme()
         board::DisplayColor::Background);
 }
 
+
+void Launcher::render_orientation()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        12,
+        212,
+        18,
+        "ORIENTACJA",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    constexpr const char* kItems[3] = {
+        "PRAWA",
+        "LEWA",
+        "POWROT",
+    };
+
+    for (std::uint8_t index = 0; index < 3; ++index) {
+        const bool selected = index == orientation_selection_;
+        const bool active =
+            index < 2U
+            && orientation_index(settings_.orientation) == index;
+        const std::int16_t y =
+            static_cast<std::int16_t>(40 + index * 23);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            20,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 16),
+                board::DisplayColor::Accent);
+        }
+
+        if (active) {
+            board_.fill_circle(
+                211,
+                static_cast<std::int16_t>(y + 8),
+                3,
+                board::DisplayColor::Accent);
+        }
+    }
+
+    board_.draw_text_region(
+        14,
+        116,
+        212,
+        14,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
 
 void Launcher::render_enable_communicator()
 {

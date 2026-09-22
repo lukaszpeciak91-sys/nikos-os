@@ -12,6 +12,11 @@ enum class ChargeState : std::uint8_t {
     Discharging,
 };
 
+enum class DisplayOrientation : std::uint8_t {
+    Right,
+    Left,
+};
+
 enum class DisplayColor : std::uint8_t {
     Background,
     Surface,
@@ -65,6 +70,7 @@ public:
     void power_off();
 
     void set_theme(ui_theme::Theme theme);
+    void set_display_orientation(DisplayOrientation orientation);
 
     void clear_screen();
     void fill_circle(
