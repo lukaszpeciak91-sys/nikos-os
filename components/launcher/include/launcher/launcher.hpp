@@ -72,7 +72,7 @@ private:
         ShutdownConfirm,
     };
 
-    void update_battery_sample(std::uint32_t now_ms);
+    void update_battery_sample(std::uint32_t now_ms, bool force = false);
     void update_clock_sample(std::uint32_t now_ms, bool force = false);
     void reset_stopwatch_session();
     void exit_stopwatch_to_clock();
