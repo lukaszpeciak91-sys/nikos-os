@@ -154,7 +154,6 @@ CommunicatorApp::UpdateResult CommunicatorApp::update(
     if (signal_alert_active_) {
         update_signal_alert(now_ms());
 
-        const board::InputState input = board_.poll_input();
         if (any_user_button(input)) {
             const bool return_to_launcher = signal_return_to_launcher_;
             dismiss_signal_alert();
