@@ -2,35 +2,26 @@
 
 namespace {
 
-// Experimental physical-LCD foundation: keep the base dark and let Accent
-// distinguish themes. Product-semantic colors remain board-owned and fixed.
-constexpr std::uint16_t kBackground = 0x0000;    // near #000000
-constexpr std::uint16_t kSurface = 0x1082;       // near #101216
-constexpr std::uint16_t kPrimaryText = 0xF77D;   // near #F0EEE8
-constexpr std::uint16_t kSecondaryText = 0x8C93; // near #8C9199
-
+// Experimental physical-LCD candidates. Every normal role changes between
+// identities; product-semantic status colors remain board-owned and fixed.
 constexpr nikos::ui_theme::Palette kNikosPalette{
-    kBackground,
-    kSurface,
-    kPrimaryText,
-    kSecondaryText,
-    0x4DBB,  // cool blue/cyan experiment
+    0x0001, 0x1082, 0xF77D, 0x8C93, 0x4DBB,
 };
 
-constexpr nikos::ui_theme::Palette kAmberPalette{
-    kBackground,
-    kSurface,
-    kPrimaryText,
-    kSecondaryText,
-    0xD4C8,  // amber experiment
+constexpr nikos::ui_theme::Palette kBursztynPalette{
+    0x0820, 0x20C2, 0xFFBB, 0xBD2F, 0xFD80,
 };
 
 constexpr nikos::ui_theme::Palette kGraphitePalette{
-    kBackground,
-    kSurface,
-    kPrimaryText,
-    kSecondaryText,
-    0xA577,  // cool neutral/silver experiment
+    0x1082, 0x2125, 0xF7BF, 0x9D15, 0xC639,
+};
+
+constexpr nikos::ui_theme::Palette kLavaPalette{
+    0x1021, 0x2862, 0xFF9B, 0xC4D1, 0xFA64,
+};
+
+constexpr nikos::ui_theme::Palette kMatrixPalette{
+    0x0000, 0x00E1, 0xCFF9, 0x6D4E, 0x3FEB,
 };
 
 }  // namespace
@@ -40,10 +31,14 @@ namespace nikos::ui_theme {
 const Palette& palette(Theme theme)
 {
     switch (theme) {
-        case Theme::Amber:
-            return kAmberPalette;
+        case Theme::Bursztyn:
+            return kBursztynPalette;
         case Theme::Graphite:
             return kGraphitePalette;
+        case Theme::Lava:
+            return kLavaPalette;
+        case Theme::Matrix:
+            return kMatrixPalette;
         case Theme::Nikos:
         default:
             return kNikosPalette;

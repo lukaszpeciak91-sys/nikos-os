@@ -136,6 +136,21 @@ nikos::messaging::Config make_messaging_config(
     return config;
 }
 
+nikos::launcher::CommunicatorStatus communicator_status(
+    bool enabled,
+    const nikos::messaging::Service& messaging)
+{
+    if (!enabled) {
+        return nikos::launcher::CommunicatorStatus::Off;
+    }
+    if (!messaging.peer_known()) {
+        return nikos::launcher::CommunicatorStatus::Searching;
+    }
+    return messaging.peer_reachable()
+        ? nikos::launcher::CommunicatorStatus::Available
+        : nikos::launcher::CommunicatorStatus::Ready;
+}
+
 }  // namespace
 
 extern "C" void app_main(void)
@@ -192,7 +207,7 @@ extern "C" void app_main(void)
     std::uint32_t clock_glance_started_ms = 0;
 
     display_lifecycle.note_visible_activity();
-    launcher.begin(communicator_enabled);
+    launcher.begin(communicator_status(communicator_enabled, messaging));
 
     while (true) {
         // update() advances delivery only while messaging owns active
@@ -274,6 +289,8 @@ extern "C" void app_main(void)
         }
 
         if (state == RuntimeState::Launcher) {
+            launcher.set_communicator_status(
+                communicator_status(communicator_enabled, messaging));
             if (communicator_enabled
                 && communicator.process_incoming()) {
                 if (!communicator.begin()) {
@@ -305,7 +322,7 @@ extern "C" void app_main(void)
                             kTag,
                             "Communicator messaging failed to start");
                         display_lifecycle.note_visible_activity();
-                        launcher.begin(false);
+                        launcher.begin(nikos::launcher::CommunicatorStatus::Off);
                     }
                 } else if (
                     action == nikos::launcher::Action::OpenCommunicator) {
@@ -328,7 +345,7 @@ extern "C" void app_main(void)
 
                     communicator_enabled = false;
                     display_lifecycle.note_visible_activity();
-                    launcher.begin(false);
+                    launcher.begin(nikos::launcher::CommunicatorStatus::Off);
                 } else if (
                     action == nikos::launcher::Action::ShutdownRequested) {
                     board.stop_tone();
@@ -393,7 +410,8 @@ extern "C" void app_main(void)
 
                         resume_messaging_after_radiolab = false;
                         display_lifecycle.note_visible_activity();
-                        launcher.begin_tools(communicator_enabled);
+                        launcher.begin_tools(
+                            communicator_status(communicator_enabled, messaging));
                     }
                 }
             }
@@ -407,7 +425,8 @@ extern "C" void app_main(void)
                 }
 
                 display_lifecycle.note_visible_activity();
-                launcher.begin(communicator_enabled);
+                launcher.begin(
+                    communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
         } else {
@@ -433,7 +452,8 @@ extern "C" void app_main(void)
 
                 resume_messaging_after_radiolab = false;
                 display_lifecycle.note_visible_activity();
-                launcher.begin_tools(communicator_enabled);
+                launcher.begin_tools(
+                    communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
         }

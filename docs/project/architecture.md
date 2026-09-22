@@ -144,19 +144,19 @@ Receiver dedupe state is part of that long-lived in-memory service state, so it 
 `settings::State` owns the current boot-scoped user preference state. It now contains the two real runtime preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
-- visual theme: Nikoś (default), Bursztyn, or Grafit.
+- visual theme: Nikos (default), Bursztyn, Grafit, Lava, or Matrix.
 
 The state is created by composition in `app_main`, is shared with the launcher Settings UI and the narrow consumers that need each typed value, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
 
 ### ui_theme
 
-`ui_theme` owns the three fixed compile-time visual palettes. For the current physical-LCD experiment all three share the same near-black foundation: black/near-black Background, very dark neutral Surface, warm ivory PrimaryText, and restrained neutral-gray SecondaryText. Themes differ primarily through Accent: cool blue/cyan for Nikoś, amber for Bursztyn, and cool neutral/silver for Grafit.
+`ui_theme` owns five fixed compile-time visual palettes: Nikos, Bursztyn, Grafit, Lava, and Matrix. Each hardware-validation candidate defines a distinct full normal palette across Background, Surface, PrimaryText, SecondaryText, and Accent; the values are experimental rather than permanent product identity.
 
-Applications request semantic display roles rather than RGB565 values. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Product-semantic roles such as `StatusActive`, `StatusInactive`, `Attention`, and `Danger` remain fixed across themes so status, SYGNAŁ attention, and error/destructive meaning do not drift with the selected palette. These physical-LCD palette values are experimental pending hardware validation, not final product constants.
+All current and future normal screens, including Clock and Clock Glance, request semantic `DisplayColor` roles through `Board` rather than hard-coded RGB values or direct M5GFX color calls. Applications do not contain per-theme branches. Thus normal screens inherit the selected palette automatically. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Product-semantic roles such as `StatusActive`, `StatusInactive`, `Attention`, and `Danger` remain fixed across themes so status, SYGNAŁ attention, and error/destructive meaning do not drift with the selected palette. These physical-LCD palette values are experimental pending hardware validation, not final product constants.
 
 The active palette is held by `board` and selected from `settings::State::theme`. No generic styling engine, per-screen palette, or runtime RGB editor is introduced.
 
-For the v0.1 physical-LCD readability pass, normal Launcher and Communicator product UI uses the native/default M5GFX `Font0` path through `board::draw_text_region()`. The small custom Polish-font experiment remains isolated behind its explicit helper but is not used by normal product UI because real-device testing showed unacceptable readability even for ASCII text when that small source font was scaled. Interactive v0.1 copy is temporarily ASCII-first. This is a hardware-driven readability choice, not a permanent localization architecture. Communicator wire semantics remain language-independent: stable PresetId/ResponseId values are transmitted, never display strings.
+For the v0.1 physical-LCD readability pass, normal Launcher and Communicator product UI uses the native/default M5GFX `Font0` path through `board::draw_text_region()`. The small custom Polish-font experiment remains isolated behind its explicit helper but is not used by normal product UI because real-device testing showed unacceptable readability even for ASCII text when that small source font was scaled. Interactive v0.1 copy is temporarily ASCII-first and rewrites ambiguous words rather than mechanically removing diacritics. User-facing controls are named `M5` and `BOCZNY`; internal primary/secondary names remain implementation details. This is a hardware-driven readability choice, not a permanent localization architecture. Communicator wire semantics remain language-independent: stable PresetId/ResponseId values are transmitted, never display strings.
 
 ### signal_sound
 

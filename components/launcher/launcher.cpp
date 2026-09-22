@@ -59,10 +59,14 @@ nikos::settings::SignalSound signal_sound_from_index(std::uint8_t index)
 std::uint8_t theme_index(nikos::ui_theme::Theme theme)
 {
     switch (theme) {
-        case nikos::ui_theme::Theme::Amber:
+        case nikos::ui_theme::Theme::Bursztyn:
             return 1;
         case nikos::ui_theme::Theme::Graphite:
             return 2;
+        case nikos::ui_theme::Theme::Lava:
+            return 3;
+        case nikos::ui_theme::Theme::Matrix:
+            return 4;
         case nikos::ui_theme::Theme::Nikos:
         default:
             return 0;
@@ -73,9 +77,13 @@ nikos::ui_theme::Theme theme_from_index(std::uint8_t index)
 {
     switch (index) {
         case 1:
-            return nikos::ui_theme::Theme::Amber;
+            return nikos::ui_theme::Theme::Bursztyn;
         case 2:
             return nikos::ui_theme::Theme::Graphite;
+        case 3:
+            return nikos::ui_theme::Theme::Lava;
+        case 4:
+            return nikos::ui_theme::Theme::Matrix;
         case 0:
         default:
             return nikos::ui_theme::Theme::Nikos;
@@ -221,10 +229,10 @@ void Launcher::show_splash()
     draw_sliced_logo(board_, true);
 }
 
-void Launcher::begin(bool communicator_active)
+void Launcher::begin(CommunicatorStatus communicator_status)
 {
     screen_ = Screen::Main;
-    communicator_active_ = communicator_active;
+    communicator_status_ = communicator_status;
     selected_index_ = 0;
     tools_selection_ = 0;
     clock_selection_ = 0;
@@ -239,10 +247,10 @@ void Launcher::begin(bool communicator_active)
     render();
 }
 
-void Launcher::begin_tools(bool communicator_active)
+void Launcher::begin_tools(CommunicatorStatus communicator_status)
 {
     screen_ = Screen::Tools;
-    communicator_active_ = communicator_active;
+    communicator_status_ = communicator_status;
     selected_index_ = 1;
     tools_selection_ = 0;
 
@@ -260,6 +268,17 @@ void Launcher::redraw()
     render();
 }
 
+void Launcher::set_communicator_status(CommunicatorStatus communicator_status)
+{
+    if (communicator_status_ == communicator_status) {
+        return;
+    }
+    communicator_status_ = communicator_status;
+    if (screen_ == Screen::Main) {
+        render();
+    }
+}
+
 Action Launcher::update(const board::InputState& input)
 {
     const std::uint32_t now = now_ms();
@@ -274,11 +293,19 @@ Action Launcher::update(const board::InputState& input)
     }
 
     if (screen_ == Screen::EnableCommunicator) {
-        if (input.primary_short) {
-            return Action::StartCommunicator;
-        }
-
         if (input.secondary_short) {
+            confirmation_selection_ ^= 1U;
+            render();
+            return Action::None;
+        }
+        if (input.primary_short) {
+            if (confirmation_selection_ == 0U) {
+                return Action::StartCommunicator;
+            }
+            screen_ = Screen::Main;
+            render();
+        }
+        if (input.secondary_long) {
             screen_ = Screen::Main;
             render();
         }
@@ -296,11 +323,33 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.primary_short) {
-            return active_communicator_selection_ == 0
-                ? Action::OpenCommunicator
-                : Action::StopCommunicator;
+            if (active_communicator_selection_ == 0) {
+                return Action::OpenCommunicator;
+            }
+            confirmation_selection_ = 1;
+            screen_ = Screen::DisableCommunicator;
+            render();
         }
 
+        return Action::None;
+    }
+
+    if (screen_ == Screen::DisableCommunicator) {
+        if (input.secondary_short) {
+            confirmation_selection_ ^= 1U;
+            render();
+            return Action::None;
+        }
+        if (input.primary_short) {
+            if (confirmation_selection_ == 0U) {
+                return Action::StopCommunicator;
+            }
+            screen_ = Screen::ActiveCommunicator;
+            render();
+        } else if (input.secondary_long) {
+            screen_ = Screen::ActiveCommunicator;
+            render();
+        }
         return Action::None;
     }
 
@@ -502,7 +551,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             theme_selection_ =
-                static_cast<std::uint8_t>((theme_selection_ + 1U) % 4U);
+                static_cast<std::uint8_t>((theme_selection_ + 1U) % 6U);
             render();
             return Action::None;
         }
@@ -511,7 +560,7 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         }
 
-        if (theme_selection_ == 3U) {
+        if (theme_selection_ == 5U) {
             settings_selection_ = 1;
             screen_ = Screen::Settings;
             render();
@@ -525,11 +574,19 @@ Action Launcher::update(const board::InputState& input)
     }
 
     if (screen_ == Screen::ShutdownConfirm) {
-        if (input.primary_short) {
-            return Action::ShutdownRequested;
+        if (input.secondary_short) {
+            confirmation_selection_ ^= 1U;
+            render();
+            return Action::None;
         }
-
-        if (input.secondary_short || input.secondary_long) {
+        if (input.primary_short) {
+            if (confirmation_selection_ == 0U) {
+                return Action::ShutdownRequested;
+            }
+            screen_ = Screen::Main;
+            render();
+        }
+        if (input.secondary_long) {
             screen_ = Screen::Main;
             render();
         }
@@ -555,7 +612,8 @@ Action Launcher::update(const board::InputState& input)
     switch (selected_index_) {
         case 0:
             active_communicator_selection_ = 0;
-            screen_ = communicator_active_
+            confirmation_selection_ = 0;
+            screen_ = communicator_status_ != CommunicatorStatus::Off
                 ? Screen::ActiveCommunicator
                 : Screen::EnableCommunicator;
             break;
@@ -575,6 +633,7 @@ Action Launcher::update(const board::InputState& input)
             screen_ = Screen::Settings;
             break;
         case 5:
+            confirmation_selection_ = 1;
             screen_ = Screen::ShutdownConfirm;
             break;
         default:
@@ -657,6 +716,9 @@ void Launcher::render()
             break;
         case Screen::ActiveCommunicator:
             render_active_communicator();
+            break;
+        case Screen::DisableCommunicator:
+            render_disable_communicator();
             break;
         case Screen::ShutdownConfirm:
             render_shutdown_confirm();
@@ -745,7 +807,7 @@ void Launcher::render_main()
         board_.draw_text_region(
             18,
             row_y,
-            184,
+            index == 0 ? 140 : 184,
             18,
             kEntries[index].label,
             2,
@@ -755,24 +817,46 @@ void Launcher::render_main()
             row_background);
 
         if (index == 0) {
+            const bool active =
+                communicator_status_ != CommunicatorStatus::Off;
             const board::DisplayColor indicator_color =
-                communicator_active_
+                active
                     ? board::DisplayColor::StatusActive
                     : board::DisplayColor::SecondaryText;
 
             board_.fill_circle(
-                219,
+                164,
                 static_cast<std::int16_t>(row_y + 7),
-                5,
+                4,
                 indicator_color);
 
-            if (!communicator_active_) {
+            if (!active) {
                 board_.fill_circle(
-                    219,
+                    164,
                     static_cast<std::int16_t>(row_y + 7),
                     2,
                     row_background);
             }
+
+            const char* status_text = "OFF";
+            if (communicator_status_ == CommunicatorStatus::Searching) {
+                status_text = "SZUKAM";
+            } else if (communicator_status_ == CommunicatorStatus::Ready) {
+                status_text = "GOTOWY";
+            } else if (communicator_status_ == CommunicatorStatus::Available) {
+                status_text = "DOSTEPNY";
+            }
+            board_.draw_text_region(
+                173,
+                static_cast<std::int16_t>(row_y + 2),
+                58,
+                12,
+                status_text,
+                1,
+                active
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText,
+                row_background);
         }
     }
 
@@ -781,7 +865,7 @@ void Launcher::render_main()
         112,
         220,
         12,
-        "M5 OPEN  |  SIDE NEXT",
+        "M5 OTWORZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -834,13 +918,12 @@ void Launcher::render_tools()
                 board::DisplayColor::Accent);
         }
     }
-
     board_.draw_text_region(
         14,
         112,
         212,
         14,
-        "M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1152,7 +1235,7 @@ void Launcher::render_settings()
         112,
         212,
         14,
-        "M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1224,7 +1307,7 @@ void Launcher::render_signal_sound()
         116,
         212,
         14,
-        "M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1243,20 +1326,29 @@ void Launcher::render_theme()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[4] = {
+    constexpr const char* kItems[6] = {
         "Nikos",
         "Bursztyn",
         "Grafit",
+        "Lava",
+        "Matrix",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 4; ++index) {
+    std::uint8_t first_visible = 0;
+    if (theme_selection_ >= 4U) {
+        first_visible = static_cast<std::uint8_t>(theme_selection_ - 3U);
+    }
+
+    for (std::uint8_t slot = 0; slot < 4; ++slot) {
+        const std::uint8_t index =
+            static_cast<std::uint8_t>(first_visible + slot);
         const bool selected = index == theme_selection_;
         const bool active =
-            index < 3U
+            index < 5U
             && theme_index(settings_.theme) == index;
         const std::int16_t y =
-            static_cast<std::int16_t>(36 + index * 19);
+            static_cast<std::int16_t>(36 + slot * 19);
 
         board_.draw_text_region(
             22,
@@ -1295,7 +1387,7 @@ void Launcher::render_theme()
         116,
         212,
         14,
-        "M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1325,25 +1417,22 @@ void Launcher::render_enable_communicator()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_text_region(
-        18,
-        77,
-        204,
-        18,
-        "M5 / PRIMARY: TAK",
-        1,
-        board::DisplayColor::Accent,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(
-        18,
-        101,
-        204,
-        18,
-        "SIDE / SECONDARY: NIE",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    constexpr const char* kChoices[2] = {"TAK", "NIE"};
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = confirmation_selection_ == index;
+        board_.draw_text_region(32, static_cast<std::int16_t>(70 + index * 25),
+            176, 22, kChoices[index], 2,
+            selected ? board::DisplayColor::PrimaryText : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+        if (selected) {
+            board_.draw_text_region(18, static_cast<std::int16_t>(70 + index * 25),
+                12, 22, ">", 2, board::DisplayColor::Accent,
+                board::DisplayColor::Background);
+        }
+    }
+    board_.draw_text_region(44, 121, 190, 12,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText, board::DisplayColor::Background);
 }
 
 void Launcher::render_active_communicator()
@@ -1409,10 +1498,35 @@ void Launcher::render_active_communicator()
         116,
         212,
         14,
-        "M5 WYBIERZ  |  SIDE DALEJ",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
+}
+
+void Launcher::render_disable_communicator()
+{
+    clear_shell(board_);
+    board_.draw_text_region(18, 12, 204, 22, "WYLACZYC", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+    board_.draw_text_region(18, 35, 204, 22, "KOMUNIKATOR?", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+    constexpr const char* kChoices[2] = {"TAK", "NIE"};
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = confirmation_selection_ == index;
+        board_.draw_text_region(32, static_cast<std::int16_t>(67 + index * 25),
+            176, 22, kChoices[index], 2,
+            selected ? board::DisplayColor::PrimaryText : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+        if (selected) {
+            board_.draw_text_region(18, static_cast<std::int16_t>(67 + index * 25),
+                12, 22, ">", 2, board::DisplayColor::Accent,
+                board::DisplayColor::Background);
+        }
+    }
+    board_.draw_text_region(44, 121, 190, 12,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText, board::DisplayColor::Background);
 }
 
 void Launcher::render_shutdown_confirm()
@@ -1420,34 +1534,34 @@ void Launcher::render_shutdown_confirm()
     clear_shell(board_);
 
     board_.draw_text_region(
-        20,
-        20,
+        18,
+        12,
         200,
         20,
-        "WYLACZYC NIKOS OS?",
-        1,
+        "WYLACZYC",
+        2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_text_region(
-        18,
-        58,
-        204,
-        18,
-        "M5 / PRIMARY: TAK",
-        1,
-        board::DisplayColor::Danger,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(
-        18,
-        84,
-        204,
-        18,
-        "SIDE / SECONDARY: NIE",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(18, 35, 204, 22, "NIKOS OS?", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+    constexpr const char* kChoices[2] = {"TAK", "NIE"};
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = confirmation_selection_ == index;
+        board_.draw_text_region(32, static_cast<std::int16_t>(67 + index * 25),
+            176, 22, kChoices[index], 2,
+            selected ? (index == 0 ? board::DisplayColor::Danger : board::DisplayColor::PrimaryText)
+                     : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+        if (selected) {
+            board_.draw_text_region(18, static_cast<std::int16_t>(67 + index * 25),
+                12, 22, ">", 2, board::DisplayColor::Accent,
+                board::DisplayColor::Background);
+        }
+    }
+    board_.draw_text_region(44, 121, 190, 12,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText, board::DisplayColor::Background);
 }
 
 void Launcher::render_battery_if_changed()
