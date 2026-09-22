@@ -17,7 +17,7 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Launcher controls use primary short = open/confirm and secondary short = next.
 - RadioLab controls use secondary short = PING, primary short = HELLO, primary long = NORMAL/LR, and secondary long = return to launcher.
 - The separate power button is not part of launcher or application navigation.
-- Display lifecycle v0.1 is implemented independently from device/radio state: Active -> Dimmed after ~15 s -> DisplayOff after ~45 s from last meaningful activity. DisplayOff keeps app_main and Communicator background messaging alive; the first wake gesture is consumed until button release, while Dimmed input wakes and still performs its normal action.
+- Display lifecycle v0.1 is implemented independently from device/radio state: Active -> Dimmed after ~15 s -> DisplayOff after ~45 s from last meaningful activity. DisplayOff keeps app_main and Communicator background messaging alive; the first wake gesture is consumed until button release and now exposes a one-shot UserButton wake reason to app_main, while Dimmed input wakes and still performs its normal action. This is the extension point for a future Clock Glance; no RTC, clock UI, HH:MM, or ~4 s glance timer is implemented yet.
 - Accepted user-visible Communicator messages and SYGNAL wake the LCD to normal brightness through semantic UI wake points; Presence/ACK/retry/TxResult/reachability traffic does not wake it. No automatic whole-device shutdown or CPU sleep is part of this lifecycle.
 - Launcher `WYLACZ` provides explicit whole-device shutdown through a default-NIE confirmation; shutdown cleanup is orchestrated by `app_main`, while M5-specific power-off remains inside `board`.
 - The board still contains the earlier embedded Polish-font experiment behind a scoped helper, but hardware testing rejected it for normal product UI. Launcher and Communicator now use deterministic native M5GFX Font0 rendering with temporary ASCII-first copy.
@@ -91,3 +91,5 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-21 — Hardware readability testing rejected the scaled custom Polish UI font for normal product screens. Launcher and Communicator returned to deterministic native M5GFX Font0 rendering with temporary ASCII-first copy; semantic Communicator IDs and all radio/protocol behavior remain unchanged.
 
 - 2026-09-22 — Added display lifecycle v0.1 with experimental 15 s dim / 45 s LCD-off timing, full wake-gesture suppression from DisplayOff, and semantic Communicator wake while leaving messaging/radio timing unchanged.
+
+- 2026-09-22 — Exposed a one-shot DisplayOff physical-button wake reason to app_main as the future Clock Glance extension point; Clock/RTC UI and the approved future ~4 s glance timeout remain unimplemented.
