@@ -90,6 +90,7 @@ void RadioLabApp::redraw()
 {
     render_enabled_ = true;
     const std::uint32_t now = now_ms();
+    update_battery_sample(now);
     if (hello_screen_active_) {
         board_.clear_screen();
         board_.draw_text_region(58, 47, 130, 38, "HELLO", 4);
@@ -115,7 +116,9 @@ RadioLabApp::UpdateResult RadioLabApp::update(
 
     const std::uint32_t current_now = now_ms();
     process_timers(current_now);
-    update_battery_sample(current_now);
+    if (render_enabled_) {
+        update_battery_sample(current_now);
+    }
 
     if (render_enabled_ && !hello_screen_active_) {
         render_main_if_changed(current_now);
