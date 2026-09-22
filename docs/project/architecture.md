@@ -170,9 +170,10 @@ Owns the first small product-level display lifecycle policy only:
 - `Active`, `Dimmed`, and `DisplayOff` state;
 - experimental inactivity timing: dim after 15 s and LCD off after 45 s from the last meaningful visible activity;
 - wake/activity accounting;
-- full wake-gesture consumption after `DisplayOff`.
+- full wake-gesture consumption after `DisplayOff`;
+- a one-shot `WakeReason::UserButton` result when a physical user button wakes `DisplayOff`, exposed with the centrally filtered input for `app_main`.
 
-`board` remains the hardware owner for normal brightness, dim brightness, LCD sleep, and wake. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks.
+`board` remains the hardware owner for normal brightness, dim brightness, LCD sleep, and wake. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton`. The one-shot user-button wake result is the intentional extension point for a future Clock Glance in `app_main`; Clock Glance rendering, RTC/time support, and its approved future ~4 s direct return to `DisplayOff` are not implemented in this PR.
 
 `DisplayOff` is LCD/backlight state only. It does not stop `app_main`, messaging, Communicator background reception, or the configured ESP-NOW RX schedule, and it never performs whole-device shutdown.
 
