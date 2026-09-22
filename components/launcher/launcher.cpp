@@ -321,13 +321,15 @@ void Launcher::redraw()
     render();
 }
 
-void Launcher::set_communicator_status(CommunicatorStatus communicator_status)
+void Launcher::set_communicator_status(
+    CommunicatorStatus communicator_status,
+    bool render_if_changed)
 {
     if (communicator_status_ == communicator_status) {
         return;
     }
     communicator_status_ = communicator_status;
-    if (screen_ == Screen::Main) {
+    if (render_if_changed && screen_ == Screen::Main) {
         render();
     }
 }
