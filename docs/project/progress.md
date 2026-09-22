@@ -17,6 +17,8 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Launcher controls use primary short = open/confirm and secondary short = next.
 - RadioLab controls use secondary short = PING, primary short = HELLO, primary long = NORMAL/LR, and secondary long = return to launcher.
 - The separate power button is not part of launcher or application navigation.
+- Display lifecycle v0.1 is implemented independently from device/radio state: Active -> Dimmed after ~15 s -> DisplayOff after ~45 s from last meaningful activity. DisplayOff keeps app_main and Communicator background messaging alive; the first wake gesture is consumed until button release, while Dimmed input wakes and still performs its normal action.
+- Accepted user-visible Communicator messages and SYGNAL wake the LCD to normal brightness through semantic UI wake points; Presence/ACK/retry/TxResult/reachability traffic does not wake it. No automatic whole-device shutdown or CPU sleep is part of this lifecycle.
 - Launcher `WYLACZ` provides explicit whole-device shutdown through a default-NIE confirmation; shutdown cleanup is orchestrated by `app_main`, while M5-specific power-off remains inside `board`.
 - The board still contains the earlier embedded Polish-font experiment behind a scoped helper, but hardware testing rejected it for normal product UI. Launcher and Communicator now use deterministic native M5GFX Font0 rendering with temporary ASCII-first copy.
 - The visual layer supports three boot-scoped runtime themes through semantic display roles. The current physical-LCD pass gives Nikos, Bursztyn, and Grafit a shared black/near-black foundation with ivory/gray text and differentiates them mainly through restrained Accent values; active/reachable remains mint/green, the signal attention action remains orange, and danger/error remains distinct.
@@ -87,3 +89,5 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-21 — Reworked Communicator for the physical 240×135 LCD: central palettes moved to an experimental near-black foundation, main/response UI now shows one dominant choice at a time, mandatory HumanOk was removed from normal conversation, contextual ZACZEKAĆ? remains, and technical response delivery now restores any single suspended collision context.
 
 - 2026-09-21 — Hardware readability testing rejected the scaled custom Polish UI font for normal product screens. Launcher and Communicator returned to deterministic native M5GFX Font0 rendering with temporary ASCII-first copy; semantic Communicator IDs and all radio/protocol behavior remain unchanged.
+
+- 2026-09-22 — Added display lifecycle v0.1 with experimental 15 s dim / 45 s LCD-off timing, full wake-gesture suppression from DisplayOff, and semantic Communicator wake while leaving messaging/radio timing unchanged.
