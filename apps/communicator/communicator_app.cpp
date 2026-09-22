@@ -485,7 +485,7 @@ void CommunicatorApp::handle_incoming_preset_input(
 void CommunicatorApp::handle_response_choice_input(
     const board::InputState& input)
 {
-    if (input.secondary_short && response_set_.count > 1) {
+    if (input.secondary_short && response_set_.count > 0) {
         selected_response_index_ = static_cast<std::uint8_t>(
             (selected_response_index_ + 1U) % response_set_.count);
         render_response_choices();
