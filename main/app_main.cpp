@@ -424,8 +424,12 @@ extern "C" void app_main(void)
         }
 
         if (state == RuntimeState::Launcher) {
+            const bool launcher_visible =
+                display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff;
             launcher.set_communicator_status(
-                communicator_status(communicator_enabled, messaging));
+                communicator_status(communicator_enabled, messaging),
+                launcher_visible);
             if (communicator_enabled
                 && communicator.process_incoming()) {
                 if (!communicator.begin()) {
@@ -434,7 +438,7 @@ extern "C" void app_main(void)
                         "Communicator foreground RX profile could not be applied");
                 }
                 state = RuntimeState::Communicator;
-            } else {
+            } else if (launcher_visible) {
                 const nikos::launcher::Action action = launcher.update(input);
 
                 if (action == nikos::launcher::Action::StartCommunicator) {
@@ -565,7 +569,10 @@ extern "C" void app_main(void)
                 state = RuntimeState::Launcher;
             }
         } else {
-            if (radiolab.update(input)
+            const bool radiolab_visible =
+                display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff;
+            if (radiolab.update(input, radiolab_visible)
                 == nikos::radiolab::RadioLabApp::UpdateResult::ExitRequested) {
                 radiolab.end();
 
