@@ -26,8 +26,6 @@ enum class ResponseId : std::uint16_t {
     WillCheck = 9,
     YesWait = 10,
     DontWait = 11,
-
-    HumanOk = 100,
 };
 
 struct ResponseSet {
