@@ -102,6 +102,5 @@ Append concise entries here when the authoritative project state changes.
 
 - 2026-09-22 — Polished physical-device copy and confirmations, separated launcher Communicator service/peer status, and expanded the central semantic palette to five distinct hardware-validation themes without changing transport or display-lifecycle policy.
 - 2026-09-22 — Added RTC-backed local HH:MM, manual time setting, cached launcher-header time, and the ~4 s Clock Glance with double gesture suppression and immediate Communicator wake priority.
-- 2026-09-22 — Added background Countdown Timer v0.1 with monotonic deadline timing, pause/resume/reset, background operation through DisplayOff and foreground app changes, one-shot pending expiration, selected-SYGNAL alert reuse, Communicator preemption, and RadioLab render suppression; Stopwatch remains unimplemented.
-- 2026-09-22 — Added RTC-backed local HH:MM, manual time setting, cached launcher-header time, and the ~4 s Clock Glance with double gesture suppression and immediate Communicator wake priority; Timer/Stopwatch remain unimplemented.
 - 2026-09-22 — Added the boot-scoped PRAWA / LEWA display-orientation setting with immediate Board-wide rotation and unchanged M5/BOCZNY button semantics.
+- 2026-09-22 — Added background Countdown Timer v0.1 with monotonic deadline timing, pause/resume/reset, background operation through DisplayOff and foreground app changes, one-shot pending expiration, selected-SYGNAL alert reuse, Communicator preemption, and RadioLab render suppression; Stopwatch remains unimplemented.
