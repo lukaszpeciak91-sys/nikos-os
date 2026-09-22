@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdio>
+#include <cstring>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -27,6 +28,7 @@ constexpr std::uint32_t kSignalFrameMs = 110;
 constexpr std::uint32_t kSyncFrameMs = 140;
 constexpr std::uint32_t kFormFrameMs = 170;
 constexpr std::uint32_t kBatterySampleIntervalMs = 1000;
+constexpr std::uint32_t kClockSampleIntervalMs = 1000;
 
 std::uint8_t signal_sound_index(nikos::settings::SignalSound sound)
 {
@@ -176,9 +178,11 @@ namespace nikos::launcher {
 
 Launcher::Launcher(
     board::Board& board,
+    clock::ClockService& clock_service,
     settings::State& settings,
     signal_sound::Player& signal_sound)
     : board_(board),
+      clock_service_(clock_service),
       settings_(settings),
       signal_sound_(signal_sound)
 {
@@ -223,12 +227,14 @@ void Launcher::begin(bool communicator_active)
     communicator_active_ = communicator_active;
     selected_index_ = 0;
     tools_selection_ = 0;
+    clock_selection_ = 0;
     settings_selection_ = 0;
     signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
     theme_selection_ = theme_index(settings_.theme);
     active_communicator_selection_ = 0;
 
     const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
     update_battery_sample(now);
     render();
 }
@@ -241,6 +247,15 @@ void Launcher::begin_tools(bool communicator_active)
     tools_selection_ = 0;
 
     const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
+    update_battery_sample(now);
+    render();
+}
+
+void Launcher::redraw()
+{
+    const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
     update_battery_sample(now);
     render();
 }
@@ -248,10 +263,14 @@ void Launcher::begin_tools(bool communicator_active)
 Action Launcher::update(const board::InputState& input)
 {
     const std::uint32_t now = now_ms();
+    update_clock_sample(now);
     update_battery_sample(now);
 
     if (screen_ == Screen::Main) {
+        render_header_time_if_changed();
         render_battery_if_changed();
+    } else if (screen_ == Screen::Clock) {
+        render_clock_time_if_changed();
     }
 
     if (screen_ == Screen::EnableCommunicator) {
@@ -311,8 +330,7 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
-    if (screen_ == Screen::Entertainment
-        || screen_ == Screen::Clock) {
+    if (screen_ == Screen::Entertainment) {
         if (input.secondary_long || input.primary_short) {
             screen_ = Screen::Main;
             render();
@@ -320,10 +338,88 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_short) {
-            // There is exactly one selectable item: visible "Powrot".
             render();
         }
 
+        return Action::None;
+    }
+
+    if (screen_ == Screen::Clock) {
+        if (input.secondary_long) {
+            screen_ = Screen::Main;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            clock_selection_ =
+                static_cast<std::uint8_t>((clock_selection_ + 1U) % 2U);
+            render();
+            return Action::None;
+        }
+
+        if (input.primary_short) {
+            if (clock_selection_ == 0U) {
+                const clock::Reading reading = clock_service_.read();
+                edit_hour_ = reading.valid ? reading.time.hour : 0U;
+                edit_minute_ = reading.valid ? reading.time.minute : 0U;
+                screen_ = Screen::ClockSetHour;
+            } else {
+                screen_ = Screen::Main;
+            }
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ClockSetHour
+        || screen_ == Screen::ClockSetMinute) {
+        if (input.secondary_long) {
+            screen_ = Screen::Clock;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            if (screen_ == Screen::ClockSetHour) {
+                edit_hour_ = static_cast<std::uint8_t>((edit_hour_ + 1U) % 24U);
+            } else {
+                edit_minute_ = static_cast<std::uint8_t>((edit_minute_ + 1U) % 60U);
+            }
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (screen_ == Screen::ClockSetHour) {
+            screen_ = Screen::ClockSetMinute;
+            render();
+            return Action::None;
+        }
+
+        if (clock_service_.set_time(edit_hour_, edit_minute_)) {
+            update_clock_sample(now, true);
+            clock_selection_ = 0;
+            screen_ = Screen::Clock;
+        } else {
+            update_clock_sample(now, true);
+            screen_ = Screen::ClockSetFailed;
+        }
+        render();
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ClockSetFailed) {
+        if (input.primary_short
+            || input.secondary_short
+            || input.secondary_long) {
+            screen_ = Screen::Clock;
+            render();
+        }
         return Action::None;
     }
 
@@ -516,6 +612,15 @@ void Launcher::render()
             break;
         case Screen::Clock:
             render_clock();
+            break;
+        case Screen::ClockSetHour:
+            render_clock_editor(true);
+            break;
+        case Screen::ClockSetMinute:
+            render_clock_editor(false);
+            break;
+        case Screen::ClockSetFailed:
+            render_clock_set_failed();
             break;
         case Screen::Settings:
             render_settings();
