@@ -37,8 +37,6 @@ public:
     void begin(CommunicatorStatus communicator_status);
     void begin_tools(CommunicatorStatus communicator_status);
     void set_communicator_status(CommunicatorStatus communicator_status);
-    void begin(bool communicator_active);
-    void begin_tools(bool communicator_active);
     void redraw();
     Action update(const board::InputState& input);
 
