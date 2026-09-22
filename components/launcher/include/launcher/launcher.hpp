@@ -56,6 +56,7 @@ private:
         Settings,
         SignalSound,
         Theme,
+        Orientation,
         EnableCommunicator,
         ActiveCommunicator,
         DisableCommunicator,
@@ -80,6 +81,7 @@ private:
     void render_settings();
     void render_signal_sound();
     void render_theme();
+    void render_orientation();
     void render_enable_communicator();
     void render_active_communicator();
     void render_disable_communicator();
@@ -102,6 +104,7 @@ private:
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t theme_selection_ = 0;
+    std::uint8_t orientation_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
     std::uint8_t confirmation_selection_ = 0;
 
