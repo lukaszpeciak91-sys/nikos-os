@@ -354,7 +354,11 @@ Nikoś OS display lifecycle v0.1 has three product states: `Active`, `Dimmed`, a
 
 Accepted user-visible Communicator messages and received SYGNAL wake/reset the lifecycle at Communicator semantic acceptance points. Transport-internal Presence, application ACK, retry, TxResult, reachability, and dedupe activity do not count as display activity.
 
-The `power::DisplayLifecycle` component owns only display state/timing/wake-input policy. `board` owns M5GFX-specific brightness/sleep/wakeup operations, and `app_main` coordinates filtered input with the active foreground application. No automatic whole-device shutdown, light/deep sleep, CPU sleep, battery power policy, NVS setting, event bus, or extra task is introduced.
+The `power::DisplayLifecycle` component owns only display state/timing/wake-input policy. Its filtered-input result carries a one-shot `WakeReason::UserButton` only for a physical wake from `DisplayOff`; `app_main` consumes that reason as the explicit extension point for the approved future Clock Glance. Normal communication wake through `note_visible_activity()` never produces the user-button reason. `board` owns M5GFX-specific brightness/sleep/wakeup operations, and `app_main` coordinates filtered input with the active foreground application.
+
+Clock Glance itself is not implemented in this decision/PR: there is no RTC, time rendering, HH:MM UI, or glance timer. The approved future behavior is a short (~4 s) Clock Glance that returns directly to `DisplayOff` unless a second fresh user gesture dismisses it; that second gesture will be consumed centrally by the future Clock implementation rather than passed to the previously focused app.
+
+No automatic whole-device shutdown, light/deep sleep, CPU sleep, battery power policy, NVS setting, event bus, or extra task is introduced.
 
 **Rationale:** LCD/backlight savings can be validated independently without risking the already working Communicator transport/session lifecycle.
 
