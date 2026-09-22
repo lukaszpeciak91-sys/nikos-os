@@ -31,6 +31,8 @@ struct PowerStatus {
 };
 
 struct InputState {
+    bool primary_pressed = false;
+    bool secondary_pressed = false;
     bool primary_short = false;
     bool primary_long = false;
     bool secondary_short = false;
@@ -46,6 +48,8 @@ public:
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
     void wake_display();
+    void dim_display();
+    void sleep_display();
     void power_off();
 
     void set_theme(ui_theme::Theme theme);
