@@ -54,6 +54,10 @@ The current near-term implementation plan and checklist is tracked in [next-phas
 - Walk with either unit and verify link freshness loss/recovery.
 - Verify NORMAL and Espressif LR separately on physical hardware.
 
+## Countdown Timer v0.1 hardware validation
+
+Use [countdown-timer-hardware-test-plan.md](countdown-timer-hardware-test-plan.md) for the required physical A-K validation on the M5StickC Plus SE.
+
 ## Known blockers
 
 No architectural blocker is known. Compile-time validation and physical device verification remain pending.
