@@ -268,8 +268,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::Main) {
         render_header_time_if_changed();
-        render_header_time_if_changed();
-    render_battery_if_changed();
+        render_battery_if_changed();
     } else if (screen_ == Screen::Clock) {
         render_clock_time_if_changed();
     }
