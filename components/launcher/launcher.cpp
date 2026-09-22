@@ -567,6 +567,7 @@ Action Launcher::update(const board::InputState& input)
             screen_ = Screen::Entertainment;
             break;
         case 3:
+            clock_selection_ = 0;
             screen_ = Screen::Clock;
             break;
         case 4:
