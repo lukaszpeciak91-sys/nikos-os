@@ -32,6 +32,8 @@ public:
     FilteredInput filter_input(const board::InputState& input);
 
     void note_visible_activity();
+    void display_off_now();
+    void suppress_user_gesture_until_release();
 
     DisplayState state() const;
 
