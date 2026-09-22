@@ -44,6 +44,7 @@ struct RtcTime {
 struct InputState {
     bool primary_pressed = false;
     bool secondary_pressed = false;
+    bool power_short = false;
     bool primary_short = false;
     bool primary_long = false;
     bool secondary_short = false;

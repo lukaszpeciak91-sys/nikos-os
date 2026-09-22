@@ -58,6 +58,30 @@ FilteredInput DisplayLifecycle::filter_input(
     const board::InputState& input)
 {
     const std::uint32_t now = now_ms();
+
+    // POWER is a system-level display control. Consume it before normal
+    // application input so no simultaneous M5/BOCZNY action can leak through.
+    if (input.power_short) {
+        if (state_ == DisplayState::DisplayOff) {
+            enter_active(now);
+
+            // POWER wake uses the same semantic wake reason as the existing
+            // user-button DisplayOff path, so app_main enters Clock Glance.
+            return FilteredInput{
+                board::InputState{},
+                WakeReason::UserButton,
+                false,
+            };
+        }
+
+        enter_display_off();
+        return FilteredInput{
+            board::InputState{},
+            WakeReason::None,
+            true,
+        };
+    }
+
     const bool button_pressed = any_user_button_pressed(input);
     const bool button_event = has_user_button_event(input);
 

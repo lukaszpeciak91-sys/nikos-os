@@ -432,3 +432,15 @@ Launcher Communicator status may still update its cached snapshot while hidden b
 Visible Launcher restore continues to use its existing redraw path, which refreshes RTC and battery telemetry before rendering. Clock Glance keeps its independent fresh RTC read. Active/Dimmed timing, wake-gesture suppression, radio/messaging timing, RTC hardware operation, and all transport power policy remain unchanged. No CPU light/deep sleep or new power-management framework is introduced.
 
 **Rationale:** Timestamp- and service-driven semantics do not require hidden LCD maintenance. Removing invisible RTC/I2C/LCD work provides a small pre-hardware-test power cleanup without coupling display inactivity to radio or OS inactivity.
+
+## D-030 — Short POWER controls display visibility only
+
+**Status:** Accepted for hardware validation
+
+The physical POWER button is a system display control, not a third application-navigation button. `Board::poll_input()` exposes only a short `M5.BtnPWR.wasClicked()` event. `power::DisplayLifecycle` consumes that event before normal M5/BOCZNY input: from Active or Dimmed it enters the existing `DisplayOff` state immediately, and from DisplayOff it performs the existing normal wake and reports the same semantic wake reason used to enter Clock Glance.
+
+A short POWER event never reaches Launcher, Communicator, RadioLab, Countdown UI, or Stopwatch controls. It does not acknowledge alerts, exit applications, alter radio/messaging state, or request whole-device shutdown. If Clock Glance is already visible, short POWER returns directly to DisplayOff. A pending Countdown expiration remains pending and reappears on a later wake according to the existing Timer priority rules.
+
+Product controls are therefore: `M5` = application select/open/confirm; `BOCZNY` = application next/back; short `POWER` = display off/wake; Launcher `WYLACZ` = controlled whole-device shutdown. Long POWER remains board/PMIC hardware behavior and is not intercepted, emulated, or assigned a Nikoś OS command.
+
+**Rationale:** Display visibility is a system concern already owned by DisplayLifecycle. Keeping POWER outside application navigation preserves current app state and communication reachability while providing a simple physical LCD toggle without introducing another sleep or power framework.

@@ -259,6 +259,13 @@ extern "C" void app_main(void)
             display_lifecycle.filter_input(board.poll_input());
         const nikos::board::InputState& input = display_input.input;
 
+        if (display_input.power_display_off) {
+            // POWER controls display visibility only. Clock Glance is a
+            // transient visible presentation, so intentionally hiding the LCD
+            // ends it without changing the underlying foreground application.
+            clock_glance_active = false;
+        }
+
         if (timer_deferred_for_communication
             && (state != RuntimeState::Communicator
                 || !communicator.timer_preemption_active())) {
