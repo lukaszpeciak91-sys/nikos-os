@@ -5,6 +5,7 @@ idf_component_register(
         board
         clock
         communicator
+        countdown
         launcher
         log
         messaging
