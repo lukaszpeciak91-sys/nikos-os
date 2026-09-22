@@ -15,7 +15,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
 - `Narzędzia` contains `RadioLab` plus visible `Powrót`; RadioLab remains an application sibling of Communicator even though it is launched through the tools category.
-- `Rozrywka` remains a placeholder with visible `Powrót`. `Zegar` now exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, and visible `POWROT`; Timer/Stopwatch remain separate future work. `Ustawienia` owns the existing sound/theme choices.
+- `Rozrywka` remains a placeholder with visible `Powrót`. `Zegar` now exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, and visible `POWROT`; Timer/Stopwatch remain separate future work. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -141,10 +141,11 @@ Receiver dedupe state is part of that long-lived in-memory service state, so it 
 
 ### settings
 
-`settings::State` owns the current boot-scoped user preference state. It now contains the two real runtime preferences:
+`settings::State` owns the current boot-scoped user preference state. It now contains three real runtime preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
-- visual theme: Nikos (default), Bursztyn, Grafit, Lava, or Matrix.
+- visual theme: Nikos (default), Bursztyn, Grafit, Lava, or Matrix;
+- display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
 
 The state is created by composition in `app_main`, is shared with the launcher Settings UI and the narrow consumers that need each typed value, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
 
@@ -155,6 +156,8 @@ The state is created by composition in `app_main`, is shared with the launcher S
 All current and future normal screens, including Clock and Clock Glance, request semantic `DisplayColor` roles through `Board` rather than hard-coded RGB values or direct M5GFX color calls. Applications do not contain per-theme branches. Thus normal screens inherit the selected palette automatically. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Product-semantic roles such as `StatusActive`, `StatusInactive`, `Attention`, and `Danger` remain fixed across themes so status, SYGNAŁ attention, and error/destructive meaning do not drift with the selected palette. These physical-LCD palette values are experimental pending hardware validation, not final product constants.
 
 The active palette is held by `board` and selected from `settings::State::theme`. No generic styling engine, per-screen palette, or runtime RGB editor is introduced.
+
+Display orientation is independent of the active palette. `board` owns the hardware mapping: Right uses M5GFX rotation 1 and Left uses rotation 3, while normal screens continue drawing in logical 240×135 coordinates and inherit the active Board orientation automatically. The logical button roles do not change: physical M5 / BtnA remains primary and physical side / BtnB remains secondary. Orientation is boot-scoped and returns to Right after reboot.
 
 For the v0.1 physical-LCD readability pass, normal Launcher and Communicator product UI uses the native/default M5GFX `Font0` path through `board::draw_text_region()`. The small custom Polish-font experiment remains isolated behind its explicit helper but is not used by normal product UI because real-device testing showed unacceptable readability even for ASCII text when that small source font was scaled. Interactive v0.1 copy is temporarily ASCII-first and rewrites ambiguous words rather than mechanically removing diacritics. User-facing controls are named `M5` and `BOCZNY`; internal primary/secondary names remain implementation details. This is a hardware-driven readability choice, not a permanent localization architecture. Communicator wire semantics remain language-independent: stable PresetId/ResponseId values are transmitted, never display strings.
 

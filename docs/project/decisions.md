@@ -383,3 +383,14 @@ This clock capability stores the local wall-clock time entered by the user. Date
 
 **Rationale:** The hardware RTC can provide a useful local clock and low-power glance without coupling timekeeping to system time, networking, or the proven Communicator transport lifecycle.
 
+## D-026 — Boot-scoped display orientation without input remapping
+
+**Status:** Accepted for v0.1 hardware validation
+
+Settings exposes `PRAWA` and `LEWA` as a volatile display-orientation preference. Right is the boot default. `board` keeps the M5GFX mapping local: Right selects rotation 1 and Left selects rotation 3. Both rotations retain the normal logical 240×135 landscape drawing surface, so Launcher, Communicator, RadioLab, Clock, Clock Glance, and other normal screens inherit the selected orientation without per-screen branches.
+
+Changing the preference applies it immediately and redraws the complete Orientation screen. It is independent of the active theme and uses the same semantic display colors. No persistence is introduced, so reboot restores Right.
+
+This setting rotates only the display. Physical M5 / BtnA remains the primary action and physical side / BtnB remains the secondary action; user-facing `M5` and `BOCZNY` terminology and all interaction semantics remain unchanged.
+
+**Rationale:** Rotating the whole device should improve left-handed physical use without coupling product orientation to navigation, input mapping, applications, or persistence.

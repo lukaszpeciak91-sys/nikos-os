@@ -37,7 +37,7 @@ bool Board::begin()
 
     M5.begin(config);
 
-    M5.Display.setRotation(1);
+    set_display_orientation(DisplayOrientation::Right);
     M5.Display.setBrightness(kDisplayActiveBrightness);
     M5.Display.setTextWrap(false);
 
@@ -202,6 +202,12 @@ void Board::power_off()
 void Board::set_theme(ui_theme::Theme theme)
 {
     theme_ = theme;
+}
+
+void Board::set_display_orientation(DisplayOrientation orientation)
+{
+    M5.Display.setRotation(
+        orientation == DisplayOrientation::Left ? 3 : 1);
 }
 
 void Board::clear_screen()
