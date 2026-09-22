@@ -127,20 +127,13 @@ void CommunicatorApp::reset_session()
     selected_options_index_ = 0;
     selected_response_index_ = 0;
 
-    sent_preset_ = catalogue::PresetId::Greeting;
     incoming_preset_ = catalogue::PresetId::Greeting;
     incoming_response_ = catalogue::ResponseId::GreetingHello;
     response_set_ = catalogue::ResponseSet{};
-
     current_incoming_ = messaging::IncomingMessage{};
-    deferred_incoming_ = messaging::IncomingMessage{};
-    deferred_incoming_valid_ = false;
-    suspended_waiting_ = SuspendedWaitingContext{};
 
-    expected_response_reference_ = 0;
-    pending_response_delivery_id_ = 0;
-    last_greeting_message_id_ = 0;
-    delivery_failure_restore_suspended_ = false;
+    latest_outgoing_message_id_ = 0;
+    latest_delivery_status_ = DeliveryStatus::None;
 
     signal_unavailable_feedback_ = false;
     signal_alert_active_ = false;
@@ -163,7 +156,7 @@ CommunicatorApp::UpdateResult CommunicatorApp::update(
         handle_delivery_receipt(receipt);
     }
 
-    if (!signal_alert_active_ && state_ != State::DeliveryFailed) {
+    if (!signal_alert_active_) {
         (void)process_incoming();
     }
 
@@ -218,53 +211,52 @@ bool CommunicatorApp::timer_preemption_active() const
     switch (state_) {
         case State::IncomingPreset:
         case State::ChoosingResponse:
-        case State::WaitingForResponseDelivery:
         case State::IncomingResponse:
         case State::WaitDecision:
-        case State::DeliveryFailed:
             return true;
         case State::Main:
-        case State::WaitingForResponse:
-        case State::WaitingForWaitResponse:
         default:
             return false;
     }
 }
 
-bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
+bool CommunicatorApp::valid_user_message(
+    const messaging::IncomingMessage& message) const
 {
-    if (message.kind == messaging::IncomingKind::Ring) {
-        if (signal_alert_active_) {
-            return false;
-        }
-
-        start_signal_alert();
-        return true;
+    catalogue::PresetId preset;
+    if (!catalogue::preset_from_wire(message.preset_id, preset)) {
+        return false;
     }
 
     if (message.kind == messaging::IncomingKind::PresetMessage) {
-        catalogue::PresetId preset;
-        if (!catalogue::preset_from_wire(message.value_id, preset)) {
-            return false;
-        }
+        return true;
+    }
 
-        const bool idle_message = state_ == State::Main;
-        const bool wait_followup =
-            state_ == State::WaitingForResponseDelivery
-            && preset == catalogue::PresetId::Wait;
-        const bool collision_yield =
-            should_yield_simultaneous_preset(preset);
+    if (message.kind != messaging::IncomingKind::PresetResponse) {
+        return false;
+    }
 
-        if (!idle_message && !wait_followup && !collision_yield) {
-            return false;
-        }
+    catalogue::ResponseId response;
+    return catalogue::response_from_wire(message.response_id, response)
+        && catalogue::response_allowed_for(preset, response);
+}
 
-        if (collision_yield) {
-            suspend_waiting_for_response();
-        }
+bool CommunicatorApp::accept_incoming(
+    const messaging::IncomingMessage& message)
+{
+    if (!valid_user_message(message)) {
+        return false;
+    }
 
-        current_incoming_ = message;
-        incoming_preset_ = preset;
+    catalogue::PresetId preset;
+    (void)catalogue::preset_from_wire(message.preset_id, preset);
+
+    current_incoming_ = message;
+    incoming_preset_ = preset;
+    options_active_ = false;
+    radio_mode_change_failed_ = false;
+
+    if (message.kind == messaging::IncomingKind::PresetMessage) {
         response_set_ = catalogue::responses_for(preset);
         selected_response_index_ = 0;
         state_ = State::IncomingPreset;
@@ -272,271 +264,83 @@ bool CommunicatorApp::accept_incoming(const messaging::IncomingMessage& message)
         return true;
     }
 
-    if (message.kind != messaging::IncomingKind::PresetResponse) {
-        return false;
-    }
-
     catalogue::ResponseId response;
-    if (!catalogue::response_from_wire(message.value_id, response)) {
-        return false;
-    }
-
-    if (state_ == State::Main
-        && response == catalogue::ResponseId::GreetingHello
-        && last_greeting_message_id_ != 0
-        && message.reference_message_id == last_greeting_message_id_) {
-        current_incoming_ = message;
-        incoming_response_ = response;
-        last_greeting_message_id_ = 0;
-        state_ = State::IncomingResponse;
-        notify_incoming();
-        return true;
-    }
-
-    const bool waiting_for_response =
-        state_ == State::WaitingForResponse
-        || state_ == State::WaitingForWaitResponse;
-
-    if (!waiting_for_response
-        || message.reference_message_id != expected_response_reference_
-        || !catalogue::response_allowed_for(sent_preset_, response)) {
-        return false;
-    }
-
-    current_incoming_ = message;
+    (void)catalogue::response_from_wire(message.response_id, response);
     incoming_response_ = response;
-
-    if (state_ == State::WaitingForResponse
-        && catalogue::needs_wait_decision(response)) {
-        state_ = State::WaitDecision;
-    } else {
-        state_ = State::IncomingResponse;
-    }
-
+    state_ = catalogue::needs_wait_decision(response)
+        ? State::WaitDecision
+        : State::IncomingResponse;
     notify_incoming();
     return true;
 }
 
 bool CommunicatorApp::process_incoming()
 {
-    if (deferred_incoming_valid_
-        && accept_incoming(deferred_incoming_)) {
-        deferred_incoming_valid_ = false;
-        return true;
-    }
+    messaging::IncomingMessage latest_user_message{};
+    bool latest_user_message_valid = false;
+    bool ring_received = false;
 
     messaging::IncomingMessage incoming;
     while (messaging_.peek_incoming(incoming)) {
-        if (incoming.kind == messaging::IncomingKind::PresetResponse) {
-            catalogue::ResponseId response;
-            if (catalogue::response_from_wire(incoming.value_id, response)
-                && response == catalogue::ResponseId::HumanOk) {
-                ESP_LOGI(
-                    kTag,
-                    "Discard obsolete HumanOk id=%lu ref=%lu",
-                    static_cast<unsigned long>(incoming.logical_message_id),
-                    static_cast<unsigned long>(
-                        incoming.reference_message_id));
-                if (!messaging_.consume_incoming(
-                        incoming.logical_message_id)) {
-                    return false;
-                }
-                continue;
-            }
-        }
-
-        if (accept_incoming(incoming)) {
-            (void)messaging_.consume_incoming(incoming.logical_message_id);
-            return true;
-        }
-
-        if (!can_defer_incoming(incoming)
-            || deferred_incoming_valid_) {
-            return false;
-        }
-
-        // Retain exactly one temporarily incompatible event locally so it
-        // cannot block a later event required by the current exchange.
-        deferred_incoming_ = incoming;
-        deferred_incoming_valid_ = true;
-
         if (!messaging_.consume_incoming(incoming.logical_message_id)) {
-            deferred_incoming_valid_ = false;
-            return false;
+            break;
+        }
+
+        if (incoming.kind == messaging::IncomingKind::Ring) {
+            ring_received = true;
+            continue;
+        }
+
+        if (valid_user_message(incoming)) {
+            latest_user_message = incoming;
+            latest_user_message_valid = true;
+        } else {
+            ESP_LOGW(
+                kTag,
+                "Discard invalid user message id=%lu preset=%u response=%u",
+                static_cast<unsigned long>(incoming.logical_message_id),
+                static_cast<unsigned>(incoming.preset_id),
+                static_cast<unsigned>(incoming.response_id));
         }
     }
 
-    return false;
-}
-
-bool CommunicatorApp::can_defer_incoming(
-    const messaging::IncomingMessage& message) const
-{
-    if (message.kind == messaging::IncomingKind::Ring) {
-        return true;
+    bool accepted = false;
+    if (latest_user_message_valid) {
+        accepted = accept_incoming(latest_user_message);
     }
 
-    if (message.kind == messaging::IncomingKind::PresetMessage) {
-        catalogue::PresetId preset;
-        return catalogue::preset_from_wire(message.value_id, preset);
+    if (ring_received && !signal_alert_active_) {
+        start_signal_alert();
+        accepted = true;
     }
 
-    if (message.kind != messaging::IncomingKind::PresetResponse) {
-        return false;
-    }
-
-    catalogue::ResponseId response;
-    if (!catalogue::response_from_wire(message.value_id, response)) {
-        return false;
-    }
-
-    if (response == catalogue::ResponseId::GreetingHello) {
-        return last_greeting_message_id_ != 0
-            && message.reference_message_id == last_greeting_message_id_;
-    }
-
-    const bool matches_active_wait =
-        expected_response_reference_ != 0
-        && message.reference_message_id == expected_response_reference_
-        && catalogue::response_allowed_for(sent_preset_, response);
-
-    const bool matches_suspended_wait =
-        suspended_waiting_.valid
-        && message.reference_message_id
-            == suspended_waiting_.expected_response_reference
-        && catalogue::response_allowed_for(
-            suspended_waiting_.sent_preset,
-            response);
-
-    return matches_active_wait || matches_suspended_wait;
-}
-
-bool CommunicatorApp::should_yield_simultaneous_preset(
-    catalogue::PresetId preset) const
-{
-    if (state_ != State::WaitingForResponse
-        || suspended_waiting_.valid
-        || preset == catalogue::PresetId::Greeting
-        || !messaging_.peer_known()) {
-        return false;
-    }
-
-    // Both peers know the same pair of MACs. Exactly the lower self MAC yields.
-    return messaging_.self_mac() < messaging_.peer_mac();
-}
-
-void CommunicatorApp::suspend_waiting_for_response()
-{
-    suspended_waiting_.valid = true;
-    suspended_waiting_.sent_preset = sent_preset_;
-    suspended_waiting_.expected_response_reference =
-        expected_response_reference_;
-
-    // Recognition of the original expected response moves to the suspended
-    // context while the peer's colliding exchange is handled.
-    expected_response_reference_ = 0;
-}
-
-void CommunicatorApp::restore_suspended_waiting(bool render)
-{
-    if (!suspended_waiting_.valid) {
-        state_ = State::Main;
-        if (render) {
-            render_main();
-        }
-        return;
-    }
-
-    sent_preset_ = suspended_waiting_.sent_preset;
-    expected_response_reference_ =
-        suspended_waiting_.expected_response_reference;
-    suspended_waiting_ = SuspendedWaitingContext{};
-    state_ = State::WaitingForResponse;
-
-    if (render) {
-        render_waiting_for_response();
-    }
+    return accepted;
 }
 
 void CommunicatorApp::handle_delivery_receipt(
     const messaging::DeliveryReceipt& receipt)
 {
-    const bool response_delivery_receipt =
-        receipt.logical_message_id == pending_response_delivery_id_;
-    if (response_delivery_receipt) {
-        const bool original_response_context =
-            state_ == State::WaitingForResponseDelivery;
-        pending_response_delivery_id_ = 0;
-
-        if (receipt.outcome == messaging::DeliveryOutcome::Delivered) {
-            if (original_response_context) {
-                if (suspended_waiting_.valid) {
-                    restore_suspended_waiting(
-                        active_ && !signal_alert_active_);
-                } else {
-                    state_ = State::Main;
-                    if (active_ && !signal_alert_active_) {
-                        render_main();
-                    }
-                }
-            } else {
-                ESP_LOGI(
-                    kTag,
-                    "Late response delivery Delivered id=%lu; preserving newer conversation",
-                    static_cast<unsigned long>(receipt.logical_message_id));
-            }
-            return;
-        }
-
-        if (!original_response_context) {
-            // The technical failure is real and remains recorded by the
-            // messaging delivery metrics/logs, but a newer accepted human
-            // exchange owns the UI now and must not be destroyed by it.
-            ESP_LOGW(
-                kTag,
-                "Late response delivery Failed id=%lu; preserving newer conversation",
-                static_cast<unsigned long>(receipt.logical_message_id));
-            return;
-        }
-        // Still in the original response-delivery context: fall through to
-        // the existing explicit NIE DOSTARCZONO failure handling below.
-    } else if (receipt.outcome == messaging::DeliveryOutcome::Delivered) {
+    if (receipt.logical_message_id != latest_outgoing_message_id_) {
+        ESP_LOGI(
+            kTag,
+            "Ignore stale delivery receipt id=%lu latest=%lu",
+            static_cast<unsigned long>(receipt.logical_message_id),
+            static_cast<unsigned long>(latest_outgoing_message_id_));
         return;
     }
 
-    const bool failed_suspended_delivery =
-        suspended_waiting_.valid
-        && receipt.logical_message_id
-            == suspended_waiting_.expected_response_reference;
-    if (failed_suspended_delivery) {
-        // The peer exchange that caused this outgoing request to be
-        // suspended is already the active conversation. Drop only the
-        // failed suspended context and leave that accepted exchange intact.
-        suspended_waiting_ = SuspendedWaitingContext{};
-        delivery_failure_restore_suspended_ = false;
-        return;
-    }
+    latest_delivery_status_ =
+        receipt.outcome == messaging::DeliveryOutcome::Delivered
+        ? DeliveryStatus::Delivered
+        : DeliveryStatus::Failed;
 
-    delivery_failure_restore_suspended_ =
-        suspended_waiting_.valid;
-
-    if (receipt.logical_message_id == expected_response_reference_) {
-        expected_response_reference_ = 0;
-    }
-    if (receipt.logical_message_id == pending_response_delivery_id_) {
-        pending_response_delivery_id_ = 0;
-    }
-    if (receipt.logical_message_id == last_greeting_message_id_) {
-        last_greeting_message_id_ = 0;
-    }
-
-    options_active_ = false;
-    radio_mode_change_failed_ = false;
-    state_ = State::DeliveryFailed;
-
-    if (active_ && !signal_alert_active_) {
-        render_delivery_failed();
-    }
+    ESP_LOGI(
+        kTag,
+        "Latest delivery id=%lu outcome=%s",
+        static_cast<unsigned long>(receipt.logical_message_id),
+        receipt.outcome == messaging::DeliveryOutcome::Delivered
+            ? "delivered"
+            : "failed");
 }
 
 void CommunicatorApp::handle_input(const board::InputState& input)
@@ -560,13 +364,6 @@ void CommunicatorApp::handle_input(const board::InputState& input)
             break;
         case State::WaitDecision:
             handle_wait_decision_input(input);
-            break;
-        case State::DeliveryFailed:
-            handle_delivery_failed_input(input);
-            break;
-        case State::WaitingForResponse:
-        case State::WaitingForResponseDelivery:
-        case State::WaitingForWaitResponse:
             break;
     }
 }
@@ -679,8 +476,7 @@ void CommunicatorApp::handle_incoming_preset_input(
         return;
     }
 
-    if (input.secondary_short
-        && incoming_preset_ == catalogue::PresetId::Greeting) {
+    if (input.secondary_short) {
         state_ = State::Main;
         render_main();
     }
@@ -724,33 +520,10 @@ void CommunicatorApp::handle_wait_decision_input(
     }
 }
 
-void CommunicatorApp::handle_delivery_failed_input(
-    const board::InputState& input)
-{
-    if (!input.primary_short && !input.secondary_short) {
-        return;
-    }
-
-    const bool restore_suspended =
-        delivery_failure_restore_suspended_
-        && suspended_waiting_.valid;
-    delivery_failure_restore_suspended_ = false;
-
-    if (restore_suspended) {
-        restore_suspended_waiting(true);
-    } else {
-        state_ = State::Main;
-        render_main();
-    }
-}
-
 bool CommunicatorApp::send_selected_preset()
 {
-    if (!messaging_.peer_known()) {
-        return false;
-    }
-
-    if (selected_main_index_ >= catalogue::kPresetOrder.size()) {
+    if (!messaging_.peer_known()
+        || selected_main_index_ >= catalogue::kPresetOrder.size()) {
         return false;
     }
 
@@ -762,32 +535,20 @@ bool CommunicatorApp::send_selected_preset()
         return false;
     }
 
-    sent_preset_ = preset;
-    const std::uint32_t logical_message_id =
-        messaging_.outgoing_logical_message_id();
-
-    if (preset == catalogue::PresetId::Greeting) {
-        last_greeting_message_id_ = logical_message_id;
-        state_ = State::Main;
-        render_main();
-        return true;
-    }
-
-    expected_response_reference_ = logical_message_id;
-    state_ = State::WaitingForResponse;
-    render_waiting_for_response();
+    track_latest_send();
+    state_ = State::Main;
+    render_main();
     return true;
 }
 
 bool CommunicatorApp::send_signal()
 {
-    if (!messaging_.peer_known()) {
+    if (!messaging_.peer_known() || !messaging_.send_ring()) {
         return false;
     }
 
-    // SYGNAŁ is intentionally outside the preset catalogue and conversation
-    // state machine. Delivery still uses messaging RING retry/ACK/dedupe.
-    return messaging_.send_ring();
+    track_latest_send();
+    return true;
 }
 
 bool CommunicatorApp::send_selected_response()
@@ -801,21 +562,14 @@ bool CommunicatorApp::send_selected_response()
         response_set_.ids[selected_response_index_];
 
     if (!messaging_.send_preset_response(
-            static_cast<std::uint16_t>(response),
-            current_incoming_.logical_message_id)) {
+            static_cast<std::uint16_t>(incoming_preset_),
+            static_cast<std::uint16_t>(response))) {
         return false;
     }
 
-    if (incoming_preset_ == catalogue::PresetId::Greeting) {
-        state_ = State::Main;
-        render_main();
-        return true;
-    }
-
-    pending_response_delivery_id_ =
-        messaging_.outgoing_logical_message_id();
-    state_ = State::WaitingForResponseDelivery;
-    render_waiting_for_response_delivery();
+    track_latest_send();
+    state_ = State::Main;
+    render_main();
     return true;
 }
 
@@ -827,12 +581,17 @@ bool CommunicatorApp::send_wait_followup()
         return false;
     }
 
-    sent_preset_ = catalogue::PresetId::Wait;
-    expected_response_reference_ =
-        messaging_.outgoing_logical_message_id();
-    state_ = State::WaitingForWaitResponse;
-    render_waiting_for_response();
+    track_latest_send();
+    state_ = State::Main;
+    render_main();
     return true;
+}
+
+void CommunicatorApp::track_latest_send()
+{
+    latest_outgoing_message_id_ =
+        messaging_.outgoing_logical_message_id();
+    latest_delivery_status_ = DeliveryStatus::Sending;
 }
 
 void CommunicatorApp::notify_incoming()
