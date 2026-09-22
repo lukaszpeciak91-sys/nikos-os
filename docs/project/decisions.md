@@ -364,3 +364,22 @@ No automatic whole-device shutdown, light/deep sleep, CPU sleep, battery power p
 
 **Rationale:** LCD/backlight savings can be validated independently without risking the already working Communicator transport/session lifecycle.
 
+
+## D-025 — RTC-backed local clock and top-level Clock Glance v0.1
+
+**Status:** Accepted for hardware validation
+
+Nikoś OS v0.1 initializes the M5StickC Plus SE RTC explicitly through `board` after `M5.begin()` while keeping M5Unified `config.internal_rtc = false`. This avoids the library's automatic system-time synchronization path. RTC initialization must not write/reset the stored time and failure never blocks boot.
+
+`clock::ClockService` owns product-level `HH:MM` validity/read/set behavior. A reading is valid only when the RTC is available, the hardware time read succeeds, the RTC VL/voltage-low indication is clear, and decoded hour/minute/second ranges are valid. No persistent "clock configured" flag is used. Manual set writes `HH:MM:00` and verifies the result by reading the RTC back.
+
+Launcher owns the visible Clock menu/editor and the cached main-header `HH:MM` field. Header sampling is low-rate and only redraws the time region when minute/validity changes; clock redraws do not count as display activity.
+
+Clock Glance is a transient top-level `app_main` UI entered only from `DisplayOff + WakeReason::UserButton`. The first wake gesture remains fully consumed by `DisplayLifecycle`. A second fresh gesture dismisses the glance, is itself suppressed through physical release, and redraws the current Launcher/Communicator/RadioLab state without resetting that application's selection/conversation/session. With no second gesture, the glance returns directly to `DisplayOff` after the experimental ~4 s timeout.
+
+Accepted user-visible Communicator traffic has priority: normal incoming messages and SYGNAL cancel/bypass Clock Glance and render immediately at the existing semantic acceptance point. Radio/messaging ownership, retry/deadline timing, RX profiles, Presence, application ACK, TxResult pacing, MessageId/dedupe, and STANDARD/LR are unchanged.
+
+This clock capability stores the local wall-clock time entered by the user. Date/calendar, timezone, DST, NTP, Internet time, Timer, Stopwatch, alarms, and NVS clock persistence are out of scope.
+
+**Rationale:** The hardware RTC can provide a useful local clock and low-power glance without coupling timekeeping to system time, networking, or the proven Communicator transport lifecycle.
+

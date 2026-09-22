@@ -26,6 +26,7 @@ public:
 
     bool begin();
     bool end();
+    void redraw();
     void reset_session();
     UpdateResult update(const board::InputState& input);
 

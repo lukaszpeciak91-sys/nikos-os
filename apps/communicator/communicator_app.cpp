@@ -97,6 +97,22 @@ bool CommunicatorApp::end()
     return messaging_.set_rx_profile(messaging::RxProfile::Background);
 }
 
+void CommunicatorApp::redraw()
+{
+    if (!active_) {
+        return;
+    }
+
+    if (signal_alert_active_) {
+        render_signal_alert(signal_animation_wide_);
+    } else if (signal_unavailable_feedback_) {
+        render_signal_unavailable();
+    } else {
+        render_current();
+    }
+}
+
+
 void CommunicatorApp::reset_session()
 {
     signal_sound_.stop();

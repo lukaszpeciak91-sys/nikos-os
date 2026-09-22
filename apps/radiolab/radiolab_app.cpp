@@ -86,9 +86,24 @@ void RadioLabApp::end()
     reset_session_state();
 }
 
-RadioLabApp::UpdateResult RadioLabApp::update(
-    const board::InputState& input)
+void RadioLabApp::redraw()
 {
+    render_enabled_ = true;
+    const std::uint32_t now = now_ms();
+    if (hello_screen_active_) {
+        board_.clear_screen();
+        board_.draw_text_region(58, 47, 130, 38, "HELLO", 4);
+    } else {
+        show_main_screen(now);
+    }
+}
+
+
+RadioLabApp::UpdateResult RadioLabApp::update(
+    const board::InputState& input,
+    bool render_enabled)
+{
+    render_enabled_ = render_enabled;
     const std::uint32_t input_now = now_ms();
 
     process_input(input, input_now);
@@ -102,7 +117,7 @@ RadioLabApp::UpdateResult RadioLabApp::update(
     process_timers(current_now);
     update_battery_sample(current_now);
 
-    if (!hello_screen_active_) {
+    if (render_enabled_ && !hello_screen_active_) {
         render_main_if_changed(current_now);
         render_action_area_if_changed(current_now);
     }
@@ -667,6 +682,10 @@ void RadioLabApp::show_hello_screen()
     }
 
     hello_screen_active_ = true;
+    if (!render_enabled_) {
+        return;
+    }
+
     board_.clear_screen();
     board_.draw_text_region(58, 47, 130, 38, "HELLO", 4);
 }
