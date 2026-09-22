@@ -3,6 +3,7 @@ idf_component_register(
     INCLUDE_DIRS "include"
     REQUIRES
         board
+        clock
         freertos
         settings
         signal_sound
