@@ -121,7 +121,7 @@ It currently owns:
 - receiver-side in-memory dedupe
 - duplicate ACK behavior without duplicate notification
 - discovery-oriented broadcast Presence with bounded jitter while no peer is known, plus one-shot serialized unicast Presence reply to received broadcast discovery
-- a small volatile queue of incoming logical message notifications, exposed through explicit peek/consume so UI rejection cannot destructively remove an event
+- a small volatile incoming transport buffer exposed through peek/consume; Communicator drains it and retains only the newest valid user-visible message, so it is not an inbox/history
 - delivery completion receipts for the currently relevant logical operation; superseded operations do not produce stale UI receipts
 - foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
