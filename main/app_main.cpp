@@ -166,6 +166,7 @@ extern "C" void app_main(void)
                         ESP_LOGW(
                             kTag,
                             "Communicator messaging failed to start");
+                        display_lifecycle.note_visible_activity();
                         launcher.begin(false);
                     }
                 } else if (
@@ -253,6 +254,7 @@ extern "C" void app_main(void)
                         }
 
                         resume_messaging_after_radiolab = false;
+                        display_lifecycle.note_visible_activity();
                         launcher.begin_tools(communicator_enabled);
                     }
                 }
