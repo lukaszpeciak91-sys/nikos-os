@@ -49,10 +49,15 @@ bool ClockService::set_time(
         return false;
     }
 
-    const Reading verified = read();
-    return verified.valid
-        && verified.time.hour == hour
-        && verified.time.minute == minute;
+    board::RtcTime verified_time;
+    if (board_.rtc_voltage_low()
+        || !board_.read_rtc_time(verified_time)) {
+        return false;
+    }
+
+    return verified_time.hour == hour
+        && verified_time.minute == minute
+        && verified_time.second <= 1U;
 }
 
 void ClockService::format_hhmm(
