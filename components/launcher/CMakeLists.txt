@@ -4,6 +4,7 @@ idf_component_register(
     REQUIRES
         board
         clock
+        countdown
         freertos
         settings
         signal_sound
