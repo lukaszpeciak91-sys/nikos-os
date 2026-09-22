@@ -11,7 +11,7 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - ESP-IDF 5.5.5, M5Unified 0.2.22, and M5GFX 0.2.29 are pinned.
 - Minimal `board`, `radio`, and `protocol` boundaries implemented.
 - Boot shows a short deterministic branded signal-synchronization splash and enters the frozen six-item top-level launcher: Komunikator, Narzedzia, Rozrywka, Zegar, Ustawienia, Wylacz. A local four-row viewport keeps the header, battery indicator, and footer clear.
-- Narzedzia currently contains RadioLab and Powrot; RadioLab returns to Narzedzia after exit. Rozrywka remains a Powrot placeholder. Zegar now shows RTC-backed HH:MM (or --:--), USTAW CZAS, MINUTNIK, and POWROT. Ustawienia contains Dzwiek -> selectable signal-sound patterns, Motyw, and Powrot.
+- Narzedzia currently contains RadioLab and Powrot; RadioLab returns to Narzedzia after exit. Rozrywka remains a Powrot placeholder. Zegar now shows RTC-backed HH:MM (or --:--), USTAW CZAS, MINUTNIK, STOPER, and POWROT. Ustawienia contains Dzwiek, Motyw, Orientacja, and Powrot.
 - RadioLab uses the same firmware on both equal peers.
 - Versioned DISCOVERY bootstrap, one active peer, PING, application ACK, HELLO, RSSI capture, RTT, recent reachability, and explicit NORMAL/LR selection are implemented.
 - User-facing controls consistently use M5 = open/select and BOCZNY = next; internal primary/secondary names remain implementation details. The launcher separately presents Communicator OFF, searching, known/sendable, and recently reachable states from an app_main-owned status snapshot.
@@ -20,7 +20,8 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Display lifecycle remains independent from device/radio state: Active -> Dimmed after ~15 s -> DisplayOff after ~45 s from last meaningful activity. DisplayOff keeps app_main and Communicator background messaging alive. A user-button wake now shows the ~4 s full-screen Clock Glance; the first gesture is consumed, a second fresh gesture dismisses/restores the exact prior UI and is also consumed, and timeout returns directly to DisplayOff. Dimmed input still wakes and performs its normal action.
 - Accepted user-visible Communicator messages and SYGNAL wake the LCD to normal brightness through semantic UI wake points; Presence/ACK/retry/TxResult/reachability traffic does not wake it. No automatic whole-device shutdown or CPU sleep is part of this lifecycle.
 - Local Clock v0.1 explicitly initializes the hardware RTC without system-time synchronization, treats VL/read/range failures as invalid (`--:--`), supports manual HH:MM setting with seconds=00/readback verification, and shows cached HH:MM before battery in the main launcher header.
-- Countdown Timer v0.1 is a boot-scoped monotonic service independent from RTC. It supports the approved 00:30..15:00 sequence, background Running/Paused state across Launcher/Communicator/RadioLab/Clock Glance/DisplayOff, PAUZA/WZNOW, RESETUJ, retained ZEGAR status, and a pending full-screen KONIEC alert using the selected SYGNAL sound. Communicator foreground traffic has priority without clearing Timer expiration; Stopwatch remains unimplemented.
+- Countdown Timer v0.1 is a boot-scoped monotonic service independent from RTC. It supports the approved 00:30..15:00 sequence, background Running/Paused state across Launcher/Communicator/RadioLab/Clock Glance/DisplayOff, PAUZA/WZNOW, RESETUJ, retained ZEGAR status, and a pending full-screen KONIEC alert using the selected SYGNAL sound. Communicator foreground traffic has priority without clearing Timer expiration.
+- Stopwatch v0.1 is a Launcher-local monotonic session under ZEGAR. It supports START/STOP/WZNOW/RESETUJ/POWROT, displays MM:SS through 99:59, preserves its local state under Clock Glance and Timer alert redraws, and is intentionally discarded on explicit exit or fresh Launcher re-entry; it has no background service, alarm, sound, persistence, RTC coupling, or radio integration.
 - Launcher `WYLACZ` provides explicit whole-device shutdown through a default-NIE confirmation; shutdown cleanup is orchestrated by `app_main`, while M5-specific power-off remains inside `board`.
 - The board still contains the earlier embedded Polish-font experiment behind a scoped helper, but hardware testing rejected it for normal product UI. Launcher and Communicator now use deterministic native M5GFX Font0 rendering with temporary ASCII-first copy.
 - The visual layer supports five boot-scoped hardware-validation themes through semantic display roles: Nikos, Bursztyn, Grafit, Lava, and Matrix. Every normal palette role differs meaningfully, while active/reachable, attention, and danger remain theme-independent semantic colors.
@@ -57,6 +58,10 @@ The current near-term implementation plan and checklist is tracked in [next-phas
 ## Countdown Timer v0.1 hardware validation
 
 Use [countdown-timer-hardware-test-plan.md](countdown-timer-hardware-test-plan.md) for the required physical A-K validation on the M5StickC Plus SE.
+
+## Stopwatch v0.1 hardware validation
+
+Use [stopwatch-hardware-test-plan.md](stopwatch-hardware-test-plan.md) for the required physical A-I validation on the M5StickC Plus SE.
 
 ## Known blockers
 
@@ -103,4 +108,5 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-22 — Polished physical-device copy and confirmations, separated launcher Communicator service/peer status, and expanded the central semantic palette to five distinct hardware-validation themes without changing transport or display-lifecycle policy.
 - 2026-09-22 — Added RTC-backed local HH:MM, manual time setting, cached launcher-header time, and the ~4 s Clock Glance with double gesture suppression and immediate Communicator wake priority.
 - 2026-09-22 — Added the boot-scoped PRAWA / LEWA display-orientation setting with immediate Board-wide rotation and unchanged M5/BOCZNY button semantics.
-- 2026-09-22 — Added background Countdown Timer v0.1 with monotonic deadline timing, pause/resume/reset, background operation through DisplayOff and foreground app changes, one-shot pending expiration, selected-SYGNAL alert reuse, Communicator preemption, and RadioLab render suppression; Stopwatch remains unimplemented.
+- 2026-09-22 — Added background Countdown Timer v0.1 with monotonic deadline timing, pause/resume/reset, background operation through DisplayOff and foreground app changes, one-shot pending expiration, selected-SYGNAL alert reuse, Communicator preemption, and RadioLab render suppression.
+- 2026-09-22 — Added Launcher-local Stopwatch v0.1 with monotonic START/STOP/WZNOW/RESETUJ semantics, MM:SS display, explicit session-discarding POWROT, and redraw-safe Clock Glance/Timer overlay behavior without a background service.

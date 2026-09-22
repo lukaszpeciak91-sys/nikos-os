@@ -407,6 +407,16 @@ The configured sequence is fixed: 00:30 through 05:00 in 30-second steps, then 0
 
 Accepted user-visible Communicator traffic has higher priority than Timer alert UI/audio. If communication is accepted while Timer expiration is pending or visible, Communicator takes the foreground and the Countdown remains `Expired` until it can be presented after communication priority ends. No generic notification queue is added. RadioLab continues processing with rendering disabled while the Timer overlay is visible and redraws its retained session after dismissal.
 
-Running/paused Timer state by itself does not alter Clock Glance. Only an unacknowledged expiration bypasses/cancels Clock Glance. DisplayOff never pauses Countdown. Explicit whole-device shutdown discards Timer state. Stopwatch remains unimplemented.
+Running/paused Timer state by itself does not alter Clock Glance. Only an unacknowledged expiration bypasses/cancels Clock Glance. DisplayOff never pauses Countdown. Explicit whole-device shutdown discards Timer state.
 
 **Rationale:** Countdown timing needs a stable monotonic lifetime independent from wall-clock correctness, while the alert needs explicit acknowledgment and narrow top-level orchestration so it can coexist with the existing display and communication priority rules without creating a general notification subsystem.
+
+## D-028 — Stopwatch is a Launcher-local monotonic session
+
+**Status:** Accepted
+
+STOPER v0.1 is not a second background timing service. Its authoritative state remains inside Launcher as a small `Idle / Running / Stopped` session using monotonic `esp_timer_get_time()` timestamp differences and accumulated elapsed microseconds. It displays `MM:SS`, updates only when the visible whole second changes, and clamps the representable UI at `99:59`.
+
+Clock Glance and the Countdown Timer alert are transient overlays and therefore preserve the current Stopwatch session through normal Launcher redraw. Explicit Stopwatch exit discards the session, and a fresh `Launcher::begin(...)` resets it after foreground transitions such as Communicator. Stopwatch has no alarm, sound, pending event, persistence, RTC coupling, radio behavior, FreeRTOS task, scheduler, or generic timing framework.
+
+**Rationale:** Stopwatch needs precise local elapsed-time measurement but none of Countdown's background ownership or notification semantics. Keeping it Launcher-local preserves the product distinction and avoids adding another long-lived service.

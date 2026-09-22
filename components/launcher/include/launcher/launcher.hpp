@@ -43,6 +43,12 @@ public:
     Action update(const board::InputState& input);
 
 private:
+    enum class StopwatchState : std::uint8_t {
+        Idle,
+        Running,
+        Stopped,
+    };
+
     enum class Screen : std::uint8_t {
         Main,
         Tools,
@@ -50,6 +56,7 @@ private:
         Clock,
         TimerSetup,
         TimerActive,
+        Stopwatch,
         ClockSetHour,
         ClockSetMinute,
         ClockSetFailed,
@@ -65,6 +72,10 @@ private:
 
     void update_battery_sample(std::uint32_t now_ms);
     void update_clock_sample(std::uint32_t now_ms, bool force = false);
+    void reset_stopwatch_session();
+    void exit_stopwatch_to_clock();
+    std::uint64_t stopwatch_elapsed_us() const;
+    std::uint32_t stopwatch_display_seconds() const;
     void render();
     void render_main();
     void render_tools();
@@ -72,12 +83,14 @@ private:
     void render_clock();
     void render_timer_setup();
     void render_timer_active();
+    void render_stopwatch();
     void render_clock_editor(bool editing_hour);
     void render_clock_set_failed();
     void render_header_time_if_changed();
     void render_clock_time_if_changed();
     void render_clock_timer_if_changed();
     void render_timer_countdown_if_changed();
+    void render_stopwatch_time_if_changed();
     void render_settings();
     void render_signal_sound();
     void render_theme();
@@ -99,6 +112,12 @@ private:
     std::uint8_t tools_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
     std::uint8_t timer_selection_ = 0;
+    StopwatchState stopwatch_state_ = StopwatchState::Idle;
+    std::uint8_t stopwatch_selection_ = 0;
+    std::uint64_t stopwatch_run_started_us_ = 0;
+    std::uint64_t stopwatch_accumulated_us_ = 0;
+    bool rendered_stopwatch_time_valid_ = false;
+    std::uint32_t rendered_stopwatch_seconds_ = 0;
     std::uint8_t edit_hour_ = 0;
     std::uint8_t edit_minute_ = 0;
     std::uint8_t settings_selection_ = 0;

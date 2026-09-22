@@ -15,7 +15,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
 - `Narzędzia` contains `RadioLab` plus visible `Powrót`; RadioLab remains an application sibling of Communicator even though it is launched through the tools category.
-- `Rozrywka` remains a placeholder with visible `Powrót`. `Zegar` now exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, and visible `POWROT`; Timer/Stopwatch remain separate future work. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
+- `Rozrywka` remains a placeholder with visible `Powrót`. `Zegar` exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT`. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -46,7 +46,7 @@ Owns the small product-level local wall-clock capability above `board`:
 
 `board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Initialization does not write/reset time registers and RTC failure does not block boot.
 
-The v0.1 clock is local wall-clock time only. It has no date/calendar model, timezone, DST, NTP, system-time synchronization, Timer, Stopwatch, alarm clock, or NVS clock-configured flag.
+The v0.1 clock service is local wall-clock time only. It has no date/calendar model, timezone, DST, NTP, system-time synchronization, Timer/Stopwatch timing ownership, alarm clock, or NVS clock-configured flag.
 
 ### radio
 
@@ -149,6 +149,14 @@ Launcher owns only the Timer setup/active UI and actions. The service remains au
 
 Expiration transitions once to `Expired` and remains a pending user-visible event until explicit acknowledgment. `app_main` owns the full-screen Timer alert overlay, wakes the display once when presenting it, cancels Clock Glance, and reuses the selected `signal_sound::Player` pattern. Audio completion never acknowledges the event. Accepted Communicator traffic has higher priority and may preempt the Timer overlay without clearing `Expired`; the pending Timer is shown after the communication foreground priority ends. RadioLab continues its normal processing with rendering suppressed while the Timer overlay is visible. No Timer state survives whole-device shutdown.
 
+### launcher-local stopwatch
+
+Stopwatch v0.1 is intentionally local to the Launcher `STOPER` screen rather than an `app_main`-owned background service. Launcher retains only `Idle / Running / Stopped` session state, the current-run monotonic start timestamp, and accumulated elapsed microseconds. Elapsed time is derived from `esp_timer_get_time()` timestamp differences so main-loop jitter does not accumulate measurement error.
+
+The visible value is `MM:SS`, updated only when the displayed whole second changes and clamped at `99:59`. Stopwatch redraws do not create display activity, so normal Dimmed/DisplayOff behavior remains unchanged. Clock Glance and the Countdown alert may temporarily cover STOPER; `launcher.redraw()` preserves and recomputes the local session. Explicit `POWROT`/BOCZNY exit discards the session, and a fresh `Launcher::begin(...)` also resets it after foreground transitions such as Communicator.
+
+Stopwatch has no task, `app_main` service, alarm, sound, pending notification, persistence, NVS state, RTC dependency, RadioLab integration, or networking behavior.
+
 ### settings
 
 `settings::State` owns the current boot-scoped user preference state. It now contains three real runtime preferences:
@@ -210,7 +218,7 @@ The current messaging RX schedules remain experimental transport configuration a
 
 ### launcher
 
-Owns only the current fixed launcher navigation and its explicit shallow category screens.
+Owns the current fixed launcher navigation, its explicit shallow category screens, and the local-session Stopwatch presentation/state.
 
 It does not own radio lifecycle internals, application registries, persistence, profiles, plugin loading, or hardware power control. The launcher may request whole-device shutdown only after explicit confirmation. RadioLab is launched from `Narzędzia`; after RadioLab exits, the launcher returns to `Narzędzia` rather than MAIN.
 

@@ -5,6 +5,7 @@ idf_component_register(
         board
         clock
         countdown
+        esp_timer
         freertos
         settings
         signal_sound
