@@ -181,7 +181,10 @@ CommunicatorApp::UpdateResult CommunicatorApp::update(
         return UpdateResult::Running;
     }
 
-    if (state_ == State::Main && !options_active_) {
+    if (state_ == State::Main
+        && !options_active_
+        && display_lifecycle_.state()
+            != power::DisplayState::DisplayOff) {
         render_main_if_status_changed();
     }
 
