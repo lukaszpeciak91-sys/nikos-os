@@ -77,6 +77,71 @@ InputState Board::poll_input()
     return state;
 }
 
+bool Board::initialize_rtc()
+{
+    rtc_available_ =
+        M5.In_I2C.isEnabled()
+        && M5.Rtc.begin(&M5.In_I2C, M5.getBoard());
+
+    if (!rtc_available_) {
+        ESP_LOGW(kTag, "RTC initialization failed; clock unavailable");
+    }
+    return rtc_available_;
+}
+
+bool Board::rtc_available() const
+{
+    return rtc_available_ && M5.Rtc.isEnabled();
+}
+
+bool Board::rtc_voltage_low() const
+{
+    return !rtc_available() || M5.Rtc.getVoltLow();
+}
+
+bool Board::read_rtc_time(RtcTime& time) const
+{
+    if (!rtc_available()) {
+        return false;
+    }
+
+    m5::rtc_time_t rtc_time;
+    if (!M5.Rtc.getTime(&rtc_time)) {
+        return false;
+    }
+
+    if (rtc_time.hours < 0
+        || rtc_time.hours > 23
+        || rtc_time.minutes < 0
+        || rtc_time.minutes > 59
+        || rtc_time.seconds < 0
+        || rtc_time.seconds > 59) {
+        return false;
+    }
+
+    time.hour = static_cast<std::uint8_t>(rtc_time.hours);
+    time.minute = static_cast<std::uint8_t>(rtc_time.minutes);
+    time.second = static_cast<std::uint8_t>(rtc_time.seconds);
+    return true;
+}
+
+bool Board::write_rtc_time(const RtcTime& time)
+{
+    if (!rtc_available()
+        || time.hour > 23
+        || time.minute > 59
+        || time.second > 59) {
+        return false;
+    }
+
+    const m5::rtc_time_t rtc_time(
+        static_cast<std::int8_t>(time.hour),
+        static_cast<std::int8_t>(time.minute),
+        static_cast<std::int8_t>(time.second));
+    M5.Rtc.setTime(rtc_time);
+    return true;
+}
+
 PowerStatus Board::power_status() const
 {
     PowerStatus status;
