@@ -46,7 +46,7 @@ private:
     void reset_session_state();
 
     bool link_is_fresh(std::uint32_t now_ms) const;
-    void update_battery_sample(std::uint32_t now_ms);
+    void update_battery_sample(std::uint32_t now_ms, bool force = false);
     void show_main_screen(std::uint32_t now_ms);
     void render_main_if_changed(std::uint32_t now_ms);
     void render_action_area_if_changed(std::uint32_t now_ms);
