@@ -260,7 +260,8 @@ extern "C" void app_main(void)
         const nikos::board::InputState& input = display_input.input;
 
         if (timer_deferred_for_communication
-            && state == RuntimeState::Launcher) {
+            && (state != RuntimeState::Communicator
+                || !communicator.timer_preemption_active())) {
             timer_deferred_for_communication = false;
         }
 
@@ -282,7 +283,7 @@ extern "C" void app_main(void)
         if (timer_expired
             && !timer_deferred_for_communication
             && state == RuntimeState::Communicator
-            && communicator.attention_alert_active()) {
+            && communicator.timer_preemption_active()) {
             timer_alert_visible = false;
             timer_deferred_for_communication = true;
             clock_glance_active = false;
