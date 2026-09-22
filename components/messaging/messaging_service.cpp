@@ -162,6 +162,7 @@ bool Service::stop()
 
     next_message_id_ = 1;
     outgoing_ = OutgoingState{};
+    pending_outgoing_ = PendingOutgoing{};
     unicast_in_flight_ = UnicastInFlight{};
     traffic_ = TrafficCounters{};
 
@@ -368,22 +369,22 @@ radio::Mode Service::radio_mode() const
     return config_.mode;
 }
 
-bool Service::send_preset_message(std::uint16_t message_id)
+bool Service::send_preset_message(std::uint16_t preset_id)
 {
     return start_outgoing(
         communicator_protocol::MessageType::PresetMessage,
-        message_id,
+        preset_id,
         0);
 }
 
 bool Service::send_preset_response(
-    std::uint16_t response_id,
-    std::uint32_t reference_message_id)
+    std::uint16_t preset_id,
+    std::uint16_t response_id)
 {
     return start_outgoing(
         communicator_protocol::MessageType::PresetResponse,
-        response_id,
-        reference_message_id);
+        preset_id,
+        response_id);
 }
 
 bool Service::send_ring()
@@ -396,12 +397,17 @@ bool Service::send_ring()
 
 bool Service::outgoing_pending() const
 {
-    return outgoing_.active;
+    return outgoing_.active
+        || outgoing_.completion_pending_transport
+        || pending_outgoing_.valid;
 }
 
 std::uint32_t Service::outgoing_logical_message_id() const
 {
-    return outgoing_.active ? outgoing_.message.message_id : 0;
+    if (pending_outgoing_.valid) {
+        return pending_outgoing_.message.message_id;
+    }
+    return outgoing_.message.message_id;
 }
 
 bool Service::peer_known() const
@@ -616,8 +622,8 @@ void Service::process_rx(const radio::RxEvent& event)
     IncomingMessage incoming;
     incoming.kind = to_incoming_kind(message.type);
     incoming.logical_message_id = message.message_id;
-    incoming.reference_message_id = message.reference_id;
-    incoming.value_id = message.value_id;
+    incoming.preset_id = message.preset_id;
+    incoming.response_id = message.response_id;
 
     // Do not application-ACK/dedupe a new logical message until it has been
     // retained locally. If this small queue is full, the sender will retry.
