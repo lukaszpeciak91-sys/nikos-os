@@ -61,10 +61,12 @@ namespace nikos::communicator {
 CommunicatorApp::CommunicatorApp(
     board::Board& board,
     messaging::Service& messaging,
+    power::DisplayLifecycle& display_lifecycle,
     signal_sound::Player& signal_sound,
     const char* peer_label)
     : board_(board),
       messaging_(messaging),
+      display_lifecycle_(display_lifecycle),
       signal_sound_(signal_sound),
       peer_label_(peer_label)
 {
@@ -137,7 +139,8 @@ void CommunicatorApp::reset_session()
     rendered_signal_bars_ = 0;
 }
 
-CommunicatorApp::UpdateResult CommunicatorApp::update()
+CommunicatorApp::UpdateResult CommunicatorApp::update(
+    const board::InputState& input)
 {
     messaging::DeliveryReceipt receipt;
     if (messaging_.poll_delivery(receipt)) {
@@ -166,8 +169,6 @@ CommunicatorApp::UpdateResult CommunicatorApp::update()
     if (state_ == State::Main && !options_active_) {
         render_main_if_status_changed();
     }
-
-    const board::InputState input = board_.poll_input();
 
     if (input.secondary_long) {
         if (state_ == State::Main && options_active_) {
@@ -797,7 +798,7 @@ bool CommunicatorApp::send_wait_followup()
 void CommunicatorApp::notify_incoming()
 {
     signal_sound_.stop();
-    board_.wake_display();
+    display_lifecycle_.note_visible_activity();
     board_.tone(kNotificationToneHz, kNotificationToneMs);
 
     if (active_) {
@@ -815,7 +816,7 @@ void CommunicatorApp::start_signal_alert()
     const std::uint32_t now = now_ms();
     signal_last_animation_ms_ = now;
 
-    board_.wake_display();
+    display_lifecycle_.note_visible_activity();
     signal_sound_.play_selected();
     render_signal_alert(signal_animation_wide_);
 }
