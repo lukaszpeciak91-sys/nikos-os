@@ -119,7 +119,6 @@ private:
     catalogue::ResponseId incoming_response_ =
         catalogue::ResponseId::GreetingHello;
     catalogue::ResponseSet response_set_{};
-    messaging::IncomingMessage current_incoming_{};
 
     std::uint32_t latest_outgoing_message_id_ = 0;
     DeliveryStatus latest_delivery_status_ = DeliveryStatus::None;
