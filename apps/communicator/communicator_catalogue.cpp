@@ -45,8 +45,6 @@ const char* response_text(ResponseId id)
             return "TAK";
         case ResponseId::DontWait:
             return "NIE";
-        case ResponseId::HumanOk:
-            return "OK";
         default:
             return "?";
     }
@@ -81,7 +79,6 @@ bool response_from_wire(std::uint16_t raw, ResponseId& id)
         case ResponseId::WillCheck:
         case ResponseId::YesWait:
         case ResponseId::DontWait:
-        case ResponseId::HumanOk:
             id = static_cast<ResponseId>(raw);
             return true;
         default:
