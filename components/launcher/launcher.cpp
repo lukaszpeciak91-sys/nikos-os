@@ -821,7 +821,7 @@ void Launcher::render_main()
                 communicator_status_ != CommunicatorStatus::Off;
             const board::DisplayColor indicator_color =
                 active
-                    ? board::DisplayColor::StatusActive
+                    ? board::DisplayColor::Accent
                     : board::DisplayColor::SecondaryText;
 
             board_.fill_circle(
@@ -853,8 +853,8 @@ void Launcher::render_main()
                 12,
                 status_text,
                 1,
-                active
-                    ? board::DisplayColor::PrimaryText
+                communicator_status_ == CommunicatorStatus::Available
+                    ? board::DisplayColor::StatusActive
                     : board::DisplayColor::SecondaryText,
                 row_background);
         }
@@ -1026,7 +1026,7 @@ void Launcher::render_clock()
         121,
         212,
         12,
-        "M5 WYBIERZ | SIDE DALEJ",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1080,8 +1080,8 @@ void Launcher::render_clock_editor(bool editing_hour)
         212,
         12,
         editing_hour
-            ? "SIDE +1 | M5 DALEJ"
-            : "SIDE +1 | M5 ZAPISZ",
+            ? "BOCZNY +1 | M5 DALEJ"
+            : "BOCZNY +1 | M5 ZAPISZ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1090,7 +1090,7 @@ void Launcher::render_clock_editor(bool editing_hour)
         119,
         212,
         12,
-        "SIDE HOLD = POWROT",
+        "BOCZNY DLUGO = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1123,7 +1123,7 @@ void Launcher::render_clock_set_failed()
         108,
         180,
         14,
-        "M5 / SIDE = POWROT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
