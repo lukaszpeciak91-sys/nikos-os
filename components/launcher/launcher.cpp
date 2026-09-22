@@ -1158,7 +1158,7 @@ void Launcher::render_timer_setup()
 
     board_.draw_text_region(
         14,
-        8,
+        6,
         212,
         20,
         "MINUTNIK",
@@ -1168,7 +1168,7 @@ void Launcher::render_timer_setup()
 
     board_.draw_text_region(
         75,
-        35,
+        30,
         90,
         28,
         duration_text,
@@ -1178,7 +1178,7 @@ void Launcher::render_timer_setup()
 
     board_.draw_text_region(
         22,
-        75,
+        63,
         196,
         18,
         "M5 START",
@@ -1188,10 +1188,20 @@ void Launcher::render_timer_setup()
 
     board_.draw_text_region(
         22,
-        96,
+        82,
         196,
         18,
         "BOCZNY +CZAS",
+        2,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        22,
+        101,
+        196,
+        18,
+        "POWROT",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
