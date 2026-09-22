@@ -18,7 +18,10 @@ public:
 
     void begin();
     void end();
-    UpdateResult update(const board::InputState& input);
+    void redraw();
+    UpdateResult update(
+        const board::InputState& input,
+        bool render_enabled = true);
 
 private:
     enum class DeliveryFeedback : std::uint8_t {
@@ -109,6 +112,7 @@ private:
     bool action_area_render_valid_ = false;
     DeliveryFeedback rendered_delivery_feedback_ = DeliveryFeedback::None;
 
+    bool render_enabled_ = true;
     bool main_render_state_valid_ = false;
     bool rendered_link_fresh_ = false;
     bool rendered_rssi_valid_ = false;

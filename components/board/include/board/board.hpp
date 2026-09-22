@@ -30,6 +30,12 @@ struct PowerStatus {
     ChargeState charge_state = ChargeState::Unknown;
 };
 
+struct RtcTime {
+    std::uint8_t hour = 0;
+    std::uint8_t minute = 0;
+    std::uint8_t second = 0;
+};
+
 struct InputState {
     bool primary_pressed = false;
     bool secondary_pressed = false;
@@ -43,6 +49,12 @@ class Board final {
 public:
     bool begin();
     InputState poll_input();
+
+    bool initialize_rtc();
+    bool rtc_available() const;
+    bool rtc_voltage_low() const;
+    bool read_rtc_time(RtcTime& time) const;
+    bool write_rtc_time(const RtcTime& time);
 
     PowerStatus power_status() const;
     void tone(float frequency_hz, std::uint32_t duration_ms);
@@ -93,6 +105,7 @@ private:
     std::uint32_t resolve_display_color(DisplayColor color) const;
 
     ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
+    bool rtc_available_ = false;
 };
 
 const char* charge_state_name(ChargeState state);

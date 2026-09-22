@@ -15,7 +15,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
 - `Narzędzia` contains `RadioLab` plus visible `Powrót`; RadioLab remains an application sibling of Communicator even though it is launched through the tools category.
-- `Rozrywka`, `Zegar`, and `Ustawienia` currently contain only visible `Powrót` rows and reserve semantic space for future entertainment, time-related tools, and configuration respectively.
+- `Rozrywka` remains a placeholder with visible `Powrót`. `Zegar` now exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, and visible `POWROT`; Timer/Stopwatch remain separate future work. `Ustawienia` owns the existing sound/theme choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -33,6 +33,20 @@ Owns M5-specific hardware integration:
 - battery information
 - display wake/activation
 - M5-specific hardware integration
+
+### clock
+
+Owns the small product-level local wall-clock capability above `board`:
+
+- trustworthy `HH:MM` read semantics;
+- RTC validity derived from hardware availability, successful read, valid ranges, and clear RTC voltage-low/VL indication;
+- manual `HH:MM` setting with seconds forced to `00`;
+- write verification through RTC readback;
+- lightweight `HH:MM` formatting with `--:--` for invalid/unavailable time.
+
+`board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Initialization does not write/reset time registers and RTC failure does not block boot.
+
+The v0.1 clock is local wall-clock time only. It has no date/calendar model, timezone, DST, NTP, system-time synchronization, Timer, Stopwatch, alarm clock, or NVS clock-configured flag.
 
 ### radio
 
@@ -173,7 +187,7 @@ Owns the first small product-level display lifecycle policy only:
 - full wake-gesture consumption after `DisplayOff`;
 - a one-shot `WakeReason::UserButton` result when a physical user button wakes `DisplayOff`, exposed with the centrally filtered input for `app_main`.
 
-`board` remains the hardware owner for normal brightness, dim brightness, LCD sleep, and wake. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton`. The one-shot user-button wake result is the intentional extension point for a future Clock Glance in `app_main`; Clock Glance rendering, RTC/time support, and its approved future ~4 s direct return to `DisplayOff` are not implemented in this PR.
+`board` remains the hardware owner for normal brightness, dim brightness, LCD sleep, wake, and RTC hardware access. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton` and take priority over Clock Glance. A physical `DisplayOff` user wake now enters the top-level Clock Glance transient UI in `app_main`; no second application action leaks from either the first wake gesture or the second glance-dismiss gesture.
 
 `DisplayOff` is LCD/backlight state only. It does not stop `app_main`, messaging, Communicator background reception, or the configured ESP-NOW RX schedule, and it never performs whole-device shutdown.
 
@@ -238,6 +252,9 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Display lifecycle is independent from device and Communicator service lifecycle: `DisplayOff` means LCD/backlight only.
 - The first user-button gesture that wakes `DisplayOff` is consumed through physical release; a fresh subsequent gesture is required for application action.
 - Accepted user-visible Communicator content may wake the display, while transport-internal Presence/ACK/retry/TxResult/reachability activity does not.
+- RTC validity relies on the hardware RTC read plus the RTC VL indication, not an NVS-configured flag.
+- Clock Glance is a top-level transient UI driven only by `WakeReason::UserButton`; accepted Communicator content bypasses/cancels it immediately.
+- Clock Glance timeout is ~4 s and returns directly to `DisplayOff` without entering `Dimmed`; normal Active/Dimmed/DisplayOff timing resumes after glance dismissal.
 - RadioLab may temporarily take exclusive radio ownership only through the explicit messaging pause/resume handoff.
 - RadioLab pauses/resumes messaging only when Communicator messaging was active before the handoff; RadioLab exit must never start an OFF messaging session.
 - ESP-NOW MAC send success is not application-level delivery.

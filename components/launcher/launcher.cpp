@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdio>
+#include <cstring>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -27,6 +28,7 @@ constexpr std::uint32_t kSignalFrameMs = 110;
 constexpr std::uint32_t kSyncFrameMs = 140;
 constexpr std::uint32_t kFormFrameMs = 170;
 constexpr std::uint32_t kBatterySampleIntervalMs = 1000;
+constexpr std::uint32_t kClockSampleIntervalMs = 1000;
 
 std::uint8_t signal_sound_index(nikos::settings::SignalSound sound)
 {
@@ -176,9 +178,11 @@ namespace nikos::launcher {
 
 Launcher::Launcher(
     board::Board& board,
+    clock::ClockService& clock_service,
     settings::State& settings,
     signal_sound::Player& signal_sound)
     : board_(board),
+      clock_service_(clock_service),
       settings_(settings),
       signal_sound_(signal_sound)
 {
@@ -223,12 +227,14 @@ void Launcher::begin(bool communicator_active)
     communicator_active_ = communicator_active;
     selected_index_ = 0;
     tools_selection_ = 0;
+    clock_selection_ = 0;
     settings_selection_ = 0;
     signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
     theme_selection_ = theme_index(settings_.theme);
     active_communicator_selection_ = 0;
 
     const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
     update_battery_sample(now);
     render();
 }
@@ -241,6 +247,15 @@ void Launcher::begin_tools(bool communicator_active)
     tools_selection_ = 0;
 
     const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
+    update_battery_sample(now);
+    render();
+}
+
+void Launcher::redraw()
+{
+    const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
     update_battery_sample(now);
     render();
 }
@@ -248,10 +263,14 @@ void Launcher::begin_tools(bool communicator_active)
 Action Launcher::update(const board::InputState& input)
 {
     const std::uint32_t now = now_ms();
+    update_clock_sample(now);
     update_battery_sample(now);
 
     if (screen_ == Screen::Main) {
+        render_header_time_if_changed();
         render_battery_if_changed();
+    } else if (screen_ == Screen::Clock) {
+        render_clock_time_if_changed();
     }
 
     if (screen_ == Screen::EnableCommunicator) {
@@ -311,8 +330,7 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
-    if (screen_ == Screen::Entertainment
-        || screen_ == Screen::Clock) {
+    if (screen_ == Screen::Entertainment) {
         if (input.secondary_long || input.primary_short) {
             screen_ = Screen::Main;
             render();
@@ -320,10 +338,88 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_short) {
-            // There is exactly one selectable item: visible "Powrot".
             render();
         }
 
+        return Action::None;
+    }
+
+    if (screen_ == Screen::Clock) {
+        if (input.secondary_long) {
+            screen_ = Screen::Main;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            clock_selection_ =
+                static_cast<std::uint8_t>((clock_selection_ + 1U) % 2U);
+            render();
+            return Action::None;
+        }
+
+        if (input.primary_short) {
+            if (clock_selection_ == 0U) {
+                const clock::Reading reading = clock_service_.read();
+                edit_hour_ = reading.valid ? reading.time.hour : 0U;
+                edit_minute_ = reading.valid ? reading.time.minute : 0U;
+                screen_ = Screen::ClockSetHour;
+            } else {
+                screen_ = Screen::Main;
+            }
+            render();
+        }
+
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ClockSetHour
+        || screen_ == Screen::ClockSetMinute) {
+        if (input.secondary_long) {
+            screen_ = Screen::Clock;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            if (screen_ == Screen::ClockSetHour) {
+                edit_hour_ = static_cast<std::uint8_t>((edit_hour_ + 1U) % 24U);
+            } else {
+                edit_minute_ = static_cast<std::uint8_t>((edit_minute_ + 1U) % 60U);
+            }
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (screen_ == Screen::ClockSetHour) {
+            screen_ = Screen::ClockSetMinute;
+            render();
+            return Action::None;
+        }
+
+        if (clock_service_.set_time(edit_hour_, edit_minute_)) {
+            update_clock_sample(now, true);
+            clock_selection_ = 0;
+            screen_ = Screen::Clock;
+        } else {
+            update_clock_sample(now, true);
+            screen_ = Screen::ClockSetFailed;
+        }
+        render();
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ClockSetFailed) {
+        if (input.primary_short
+            || input.secondary_short
+            || input.secondary_long) {
+            screen_ = Screen::Clock;
+            render();
+        }
         return Action::None;
     }
 
@@ -471,6 +567,7 @@ Action Launcher::update(const board::InputState& input)
             screen_ = Screen::Entertainment;
             break;
         case 3:
+            clock_selection_ = 0;
             screen_ = Screen::Clock;
             break;
         case 4:
@@ -502,6 +599,26 @@ void Launcher::update_battery_sample(std::uint32_t now_ms)
     battery_sample_valid_ = true;
 }
 
+void Launcher::update_clock_sample(
+    std::uint32_t now_ms,
+    bool force)
+{
+    if (!force
+        && clock_sample_valid_
+        && now_ms - last_clock_sample_ms_ < kClockSampleIntervalMs) {
+        return;
+    }
+
+    cached_clock_ = clock_service_.read();
+    clock::ClockService::format_hhmm(
+        cached_clock_,
+        cached_clock_text_,
+        sizeof(cached_clock_text_));
+    last_clock_sample_ms_ = now_ms;
+    clock_sample_valid_ = true;
+}
+
+
 void Launcher::render()
 {
     switch (screen_) {
@@ -516,6 +633,15 @@ void Launcher::render()
             break;
         case Screen::Clock:
             render_clock();
+            break;
+        case Screen::ClockSetHour:
+            render_clock_editor(true);
+            break;
+        case Screen::ClockSetMinute:
+            render_clock_editor(false);
+            break;
+        case Screen::ClockSetFailed:
+            render_clock_set_failed();
             break;
         case Screen::Settings:
             render_settings();
@@ -541,6 +667,7 @@ void Launcher::render()
 void Launcher::render_main()
 {
     clear_shell(board_);
+    rendered_header_clock_text_[0] = '\0';
     rendered_battery_valid_ = false;
 
     board_.draw_text_region(
@@ -568,6 +695,7 @@ void Launcher::render_main()
         26,
         board::DisplayColor::SecondaryText);
 
+    render_header_time_if_changed();
     render_battery_if_changed();
 
     std::size_t first_visible = 0;
@@ -762,10 +890,11 @@ void Launcher::render_entertainment()
 void Launcher::render_clock()
 {
     clear_shell(board_);
+    rendered_clock_screen_text_[0] = '\0';
 
     board_.draw_text_region(
         14,
-        18,
+        10,
         212,
         20,
         "ZEGAR",
@@ -773,31 +902,200 @@ void Launcher::render_clock()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_text_region(
-        22,
-        58,
-        196,
-        22,
-        "Powrot",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_line(
-        14,
-        58,
-        14,
-        75,
-        board::DisplayColor::Accent);
+    render_clock_time_if_changed();
+
+    constexpr const char* kItems[2] = {
+        "USTAW CZAS",
+        "POWROT",
+    };
+
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = index == clock_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(74 + index * 24);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            20,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            board_.draw_line(
+                14,
+                y,
+                14,
+                static_cast<std::int16_t>(y + 16),
+                board::DisplayColor::Accent);
+        }
+    }
 
     board_.draw_text_region(
         14,
-        112,
+        121,
         212,
-        14,
-        "M5 POWROT",
+        12,
+        "M5 WYBIERZ | SIDE DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
+}
+
+void Launcher::render_clock_editor(bool editing_hour)
+{
+    clear_shell(board_);
+
+    char time_text[6]{};
+    std::snprintf(
+        time_text,
+        sizeof(time_text),
+        "%02u:%02u",
+        static_cast<unsigned>(edit_hour_),
+        static_cast<unsigned>(edit_minute_));
+
+    board_.draw_text_region(
+        14,
+        10,
+        212,
+        20,
+        "USTAW CZAS",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        75,
+        42,
+        90,
+        28,
+        time_text,
+        3,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        82,
+        76,
+        100,
+        16,
+        editing_hour ? "GODZINA" : "MINUTA",
+        1,
+        board::DisplayColor::Accent,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        14,
+        100,
+        212,
+        12,
+        editing_hour
+            ? "SIDE +1 | M5 DALEJ"
+            : "SIDE +1 | M5 ZAPISZ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        14,
+        119,
+        212,
+        12,
+        "SIDE HOLD = POWROT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_clock_set_failed()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        16,
+        212,
+        20,
+        "USTAW CZAS",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        44,
+        54,
+        170,
+        22,
+        "NIE ZAPISANO",
+        2,
+        board::DisplayColor::Danger,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        42,
+        108,
+        180,
+        14,
+        "M5 / SIDE = POWROT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_header_time_if_changed()
+{
+    if (std::strncmp(
+            rendered_header_clock_text_,
+            cached_clock_text_,
+            sizeof(rendered_header_clock_text_)) == 0) {
+        return;
+    }
+
+    board_.draw_text_region(
+        138,
+        8,
+        36,
+        12,
+        cached_clock_text_,
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    std::snprintf(
+        rendered_header_clock_text_,
+        sizeof(rendered_header_clock_text_),
+        "%s",
+        cached_clock_text_);
+}
+
+void Launcher::render_clock_time_if_changed()
+{
+    if (std::strncmp(
+            rendered_clock_screen_text_,
+            cached_clock_text_,
+            sizeof(rendered_clock_screen_text_)) == 0) {
+        return;
+    }
+
+    board_.draw_text_region(
+        75,
+        36,
+        90,
+        28,
+        cached_clock_text_,
+        3,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    std::snprintf(
+        rendered_clock_screen_text_,
+        sizeof(rendered_clock_screen_text_),
+        "%s",
+        cached_clock_text_);
 }
 
 void Launcher::render_settings()

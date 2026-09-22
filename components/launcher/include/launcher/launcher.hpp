@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "board/board.hpp"
+#include "clock/clock_service.hpp"
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 
@@ -21,12 +22,14 @@ class Launcher final {
 public:
     Launcher(
         board::Board& board,
+        clock::ClockService& clock_service,
         settings::State& settings,
         signal_sound::Player& signal_sound);
 
     void show_splash();
     void begin(bool communicator_active);
     void begin_tools(bool communicator_active);
+    void redraw();
     Action update(const board::InputState& input);
 
 private:
@@ -35,6 +38,9 @@ private:
         Tools,
         Entertainment,
         Clock,
+        ClockSetHour,
+        ClockSetMinute,
+        ClockSetFailed,
         Settings,
         SignalSound,
         Theme,
@@ -44,11 +50,16 @@ private:
     };
 
     void update_battery_sample(std::uint32_t now_ms);
+    void update_clock_sample(std::uint32_t now_ms, bool force = false);
     void render();
     void render_main();
     void render_tools();
     void render_entertainment();
     void render_clock();
+    void render_clock_editor(bool editing_hour);
+    void render_clock_set_failed();
+    void render_header_time_if_changed();
+    void render_clock_time_if_changed();
     void render_settings();
     void render_signal_sound();
     void render_theme();
@@ -58,16 +69,27 @@ private:
     void render_battery_if_changed();
 
     board::Board& board_;
+    clock::ClockService& clock_service_;
     settings::State& settings_;
     signal_sound::Player& signal_sound_;
     Screen screen_ = Screen::Main;
     bool communicator_active_ = false;
     std::uint8_t selected_index_ = 0;
     std::uint8_t tools_selection_ = 0;
+    std::uint8_t clock_selection_ = 0;
+    std::uint8_t edit_hour_ = 0;
+    std::uint8_t edit_minute_ = 0;
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t theme_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
+
+    bool clock_sample_valid_ = false;
+    std::uint32_t last_clock_sample_ms_ = 0;
+    clock::Reading cached_clock_{};
+    char cached_clock_text_[6] = "--:--";
+    char rendered_header_clock_text_[6] = "";
+    char rendered_clock_screen_text_[6] = "";
 
     bool battery_sample_valid_ = false;
     std::uint32_t last_battery_sample_ms_ = 0;
