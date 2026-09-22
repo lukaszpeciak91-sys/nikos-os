@@ -694,6 +694,7 @@ void Launcher::render_main()
         26,
         board::DisplayColor::SecondaryText);
 
+    render_header_time_if_changed();
     render_battery_if_changed();
 
     std::size_t first_visible = 0;
