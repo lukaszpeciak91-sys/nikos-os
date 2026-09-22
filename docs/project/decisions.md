@@ -420,3 +420,15 @@ STOPER v0.1 is not a second background timing service. Its authoritative state r
 Clock Glance and the Countdown Timer alert are transient overlays and therefore preserve the current Stopwatch session through normal Launcher redraw. Explicit Stopwatch exit discards the session, and a fresh `Launcher::begin(...)` resets it after foreground transitions such as Communicator. Stopwatch has no alarm, sound, pending event, persistence, RTC coupling, radio behavior, FreeRTOS task, scheduler, or generic timing framework.
 
 **Rationale:** Stopwatch needs precise local elapsed-time measurement but none of Countdown's background ownership or notification semantics. Keeping it Launcher-local preserves the product distinction and avoids adding another long-lived service.
+
+## D-029 — DisplayOff suppresses passive display-only maintenance
+
+**Status:** Accepted for hardware validation
+
+`DisplayState::DisplayOff` remains LCD/backlight state only, not OS suspension. While the LCD is off, `app_main` suppresses Launcher UI updates that would otherwise poll RTC/battery telemetry or redraw hidden Clock/Timer/Stopwatch presentation, while keeping messaging, Countdown expiration detection, signal-sound advancement, Communicator semantic processing, and RadioLab processing alive.
+
+Launcher Communicator status may still update its cached snapshot while hidden but does not redraw the sleeping LCD. RadioLab continues RX/events/timers through `update(..., false)` and skips display-only battery sampling; a visible RadioLab redraw refreshes battery telemetry before presenting retained state. Communicator suppresses only passive main-status redraw while DisplayOff; accepted incoming content and SYGNAL retain their existing semantic wake/render behavior.
+
+Visible Launcher restore continues to use its existing redraw path, which refreshes RTC and battery telemetry before rendering. Clock Glance keeps its independent fresh RTC read. Active/Dimmed timing, wake-gesture suppression, radio/messaging timing, RTC hardware operation, and all transport power policy remain unchanged. No CPU light/deep sleep or new power-management framework is introduced.
+
+**Rationale:** Timestamp- and service-driven semantics do not require hidden LCD maintenance. Removing invisible RTC/I2C/LCD work provides a small pre-hardware-test power cleanup without coupling display inactivity to radio or OS inactivity.
