@@ -383,7 +383,7 @@ This clock capability stores the local wall-clock time entered by the user. Date
 
 **Rationale:** The hardware RTC can provide a useful local clock and low-power glance without coupling timekeeping to system time, networking, or the proven Communicator transport lifecycle.
 
-## D-026 — Background Countdown is monotonic and expiration remains pending
+## D-027 — Background Countdown is monotonic and expiration remains pending
 
 **Status:** Accepted for hardware validation
 
