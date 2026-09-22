@@ -343,3 +343,18 @@ This does not change communication semantics or localization ownership. PresetId
 
 **Rationale:** On a 240×135 physical LCD, readable native typography is more important than preserving diacritics through a custom font that degrades all text.
 
+
+## D-024 — Display lifecycle is independent from Communicator/device lifecycle
+
+**Status:** Accepted for hardware validation
+
+Nikoś OS display lifecycle v0.1 has three product states: `Active`, `Dimmed`, and `DisplayOff`. The experimental policy dims after 15 seconds and turns the LCD/backlight off after 45 seconds from the same last meaningful activity timestamp.
+
+`DisplayOff` does not stop the main loop, messaging service, Communicator background reception, or ESP-NOW RX scheduling. The first physical user-button gesture from `DisplayOff` wakes to normal brightness and is consumed until the involved user buttons are released, so the wake gesture cannot also activate UI behavior. A button gesture from `Dimmed` restores normal brightness but continues through normal application handling.
+
+Accepted user-visible Communicator messages and received SYGNAL wake/reset the lifecycle at Communicator semantic acceptance points. Transport-internal Presence, application ACK, retry, TxResult, reachability, and dedupe activity do not count as display activity.
+
+The `power::DisplayLifecycle` component owns only display state/timing/wake-input policy. `board` owns M5GFX-specific brightness/sleep/wakeup operations, and `app_main` coordinates filtered input with the active foreground application. No automatic whole-device shutdown, light/deep sleep, CPU sleep, battery power policy, NVS setting, event bus, or extra task is introduced.
+
+**Rationale:** LCD/backlight savings can be validated independently without risking the already working Communicator transport/session lifecycle.
+
