@@ -1,5 +1,7 @@
 #include "power/display_lifecycle.hpp"
 
+#include "esp_timer.h"
+
 namespace {
 
 constexpr std::uint32_t kDimAfterMs = 15000;
@@ -27,19 +29,20 @@ DisplayLifecycle::DisplayLifecycle(board::Board& board)
 {
 }
 
-void DisplayLifecycle::begin(std::uint32_t now_ms)
+void DisplayLifecycle::begin()
 {
     suppress_wake_gesture_until_release_ = false;
-    enter_active(now_ms);
+    enter_active(now_ms());
 }
 
-void DisplayLifecycle::update(std::uint32_t now_ms)
+void DisplayLifecycle::update()
 {
+    const std::uint32_t now = now_ms();
     if (state_ == DisplayState::DisplayOff) {
         return;
     }
 
-    const std::uint32_t inactive_ms = now_ms - last_activity_ms_;
+    const std::uint32_t inactive_ms = now - last_activity_ms_;
     if (inactive_ms >= kDisplayOffAfterMs) {
         enter_display_off();
         return;
@@ -52,9 +55,9 @@ void DisplayLifecycle::update(std::uint32_t now_ms)
 }
 
 board::InputState DisplayLifecycle::filter_input(
-    const board::InputState& input,
-    std::uint32_t now_ms)
+    const board::InputState& input)
 {
+    const std::uint32_t now = now_ms();
     const bool button_pressed = any_user_button_pressed(input);
     const bool button_event = has_user_button_event(input);
 
@@ -67,7 +70,7 @@ board::InputState DisplayLifecycle::filter_input(
 
     if (state_ == DisplayState::DisplayOff) {
         if (button_pressed || button_event) {
-            enter_active(now_ms);
+            enter_active(now);
 
             // The wake press owns the entire physical gesture. Keep all
             // click/hold/release-derived events suppressed until both user
@@ -78,7 +81,7 @@ board::InputState DisplayLifecycle::filter_input(
     }
 
     if (button_pressed || button_event) {
-        note_visible_activity(now_ms);
+        note_visible_activity();
     }
 
     return input;
@@ -87,7 +90,7 @@ board::InputState DisplayLifecycle::filter_input(
 void DisplayLifecycle::note_visible_activity(std::uint32_t now_ms)
 {
     if (state_ != DisplayState::Active) {
-        enter_active(now_ms);
+        enter_active(now);
         return;
     }
 
@@ -97,6 +100,11 @@ void DisplayLifecycle::note_visible_activity(std::uint32_t now_ms)
 DisplayState DisplayLifecycle::state() const
 {
     return state_;
+}
+
+std::uint32_t DisplayLifecycle::now_ms()
+{
+    return static_cast<std::uint32_t>(esp_timer_get_time() / 1000U);
 }
 
 void DisplayLifecycle::enter_active(std::uint32_t now_ms)
