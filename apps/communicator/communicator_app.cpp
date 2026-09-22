@@ -696,27 +696,17 @@ void CommunicatorApp::render_current()
                 render_main();
             }
             break;
-        case State::WaitingForResponse:
-        case State::WaitingForWaitResponse:
-            render_waiting_for_response();
-            break;
         case State::IncomingPreset:
             render_incoming_preset();
             break;
         case State::ChoosingResponse:
             render_response_choices();
             break;
-        case State::WaitingForResponseDelivery:
-            render_waiting_for_response_delivery();
-            break;
         case State::IncomingResponse:
             render_incoming_response();
             break;
         case State::WaitDecision:
             render_wait_decision();
-            break;
-        case State::DeliveryFailed:
-            render_delivery_failed();
             break;
     }
 }
@@ -1050,50 +1040,6 @@ void CommunicatorApp::render_main_if_status_changed()
     }
 }
 
-void CommunicatorApp::render_waiting_for_response()
-{
-    clear_screen();
-    draw_header("KOMUNIKATOR");
-
-    board_.draw_text_region(
-        8,
-        32,
-        224,
-        56,
-        "",
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_text_region(
-        12,
-        45,
-        216,
-        32,
-        catalogue::preset_text(sent_preset_),
-        preset_text_scale(sent_preset_),
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-
-    board_.draw_text_region(
-        45,
-        96,
-        170,
-        15,
-        "CZEKAM...",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        58,
-        121,
-        150,
-        11,
-        "BOCZNY DLUGO = MENU",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-}
-
 void CommunicatorApp::render_incoming_preset()
 {
     clear_screen();
@@ -1124,17 +1070,12 @@ void CommunicatorApp::render_incoming_preset()
         90,
         board::DisplayColor::Accent);
 
-    const bool can_dismiss =
-        incoming_preset_ == catalogue::PresetId::Greeting;
-
     board_.draw_text_region(
         27,
         108,
         205,
         20,
-        can_dismiss
-            ? "M5 DALEJ  BOCZNY ZAMKNIJ"
-            : "M5 DALEJ",
+        "M5 DALEJ  BOCZNY ZAMKNIJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1209,53 +1150,6 @@ void CommunicatorApp::render_response_choices()
         "M5 WYBIERZ  BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-}
-
-void CommunicatorApp::render_waiting_for_response_delivery()
-{
-    clear_screen();
-    draw_header("WYSYLAM");
-
-    board_.draw_text_region(
-        10,
-        27,
-        220,
-        14,
-        catalogue::preset_text(incoming_preset_),
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-
-    const catalogue::ResponseId response =
-        response_set_.ids[selected_response_index_];
-    board_.draw_text_region(
-        8,
-        48,
-        224,
-        43,
-        "",
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_text_region(
-        14,
-        57,
-        212,
-        28,
-        catalogue::response_text(response),
-        response_text_scale(response),
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-
-    board_.draw_text_region(
-        70,
-        101,
-        130,
-        13,
-        "DOSTARCZAM...",
-        1,
-        board::DisplayColor::StatusActive,
         board::DisplayColor::Background);
 }
 
@@ -1339,31 +1233,6 @@ void CommunicatorApp::render_wait_decision()
         195,
         17,
         "BOCZNY ZAMKNIJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-}
-
-void CommunicatorApp::render_delivery_failed()
-{
-    clear_screen();
-    draw_header("KOMUNIKATOR");
-
-    board_.draw_text_region(
-        12,
-        48,
-        216,
-        24,
-        "NIE DOSTARCZONO",
-        2,
-        board::DisplayColor::Danger,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        8,
-        112,
-        224,
-        18,
-        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
