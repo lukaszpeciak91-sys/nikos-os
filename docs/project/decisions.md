@@ -407,7 +407,7 @@ The configured sequence is fixed: 00:30 through 05:00 in 30-second steps, then 0
 
 Accepted user-visible Communicator traffic has higher priority than Timer alert UI/audio. If communication is accepted while Timer expiration is pending or visible, Communicator takes the foreground and the Countdown remains `Expired` until it can be presented after communication priority ends. No generic notification queue is added. RadioLab continues processing with rendering disabled while the Timer overlay is visible and redraws its retained session after dismissal.
 
-Running/paused Timer state by itself does not alter Clock Glance. Only an unacknowledged expiration bypasses/cancels Clock Glance. DisplayOff never pauses Countdown. Explicit whole-device shutdown discards Timer state. Stopwatch remains unimplemented.
+Running/paused Timer state by itself does not alter Clock Glance. Only an unacknowledged expiration bypasses/cancels Clock Glance. DisplayOff never pauses Countdown. Explicit whole-device shutdown discards Timer state.
 
 **Rationale:** Countdown timing needs a stable monotonic lifetime independent from wall-clock correctness, while the alert needs explicit acknowledgment and narrow top-level orchestration so it can coexist with the existing display and communication priority rules without creating a general notification subsystem.
 
