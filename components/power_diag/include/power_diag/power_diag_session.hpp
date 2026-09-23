@@ -48,6 +48,7 @@ struct Observation {
 struct Snapshot {
     SessionState state = SessionState::Inactive;
 
+    std::uint64_t started_at_us = 0;
     std::uint64_t total_us = 0;
     std::uint64_t lcd_active_us = 0;
     std::uint64_t lcd_dimmed_us = 0;
@@ -84,6 +85,7 @@ private:
     void reset_session_battery_from_cached_sample();
 
     SessionState state_ = SessionState::Inactive;
+    std::uint64_t started_at_us_ = 0;
     std::uint64_t last_observation_us_ = 0;
     Observation last_observation_{};
 
