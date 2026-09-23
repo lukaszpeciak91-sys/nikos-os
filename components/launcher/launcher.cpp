@@ -334,6 +334,20 @@ void Launcher::set_communicator_status(
     }
 }
 
+void Launcher::set_communicator_delivery_status(
+    CommunicatorDeliveryStatus status,
+    bool render_if_changed)
+{
+    if (communicator_delivery_status_ == status) {
+        return;
+    }
+
+    communicator_delivery_status_ = status;
+    if (render_if_changed) {
+        render();
+    }
+}
+
 Action Launcher::update(const board::InputState& input)
 {
     const std::uint32_t now = now_ms();
@@ -1010,6 +1024,8 @@ void Launcher::render()
             render_shutdown_confirm();
             break;
     }
+
+    render_communicator_delivery_status();
 }
 
 void Launcher::render_main()
@@ -2282,6 +2298,48 @@ void Launcher::render_shutdown_confirm()
     board_.draw_text_region(44, 121, 190, 12,
         "M5 WYBIERZ | BOCZNY DALEJ", 1,
         board::DisplayColor::SecondaryText, board::DisplayColor::Background);
+}
+
+void Launcher::render_communicator_delivery_status()
+{
+    if (communicator_delivery_status_
+        == CommunicatorDeliveryStatus::None) {
+        return;
+    }
+
+    const char* text = "WYSYLAM...";
+    board::DisplayColor color = board::DisplayColor::Accent;
+
+    if (communicator_delivery_status_
+        == CommunicatorDeliveryStatus::Delivered) {
+        text = "DOSTARCZONO";
+        color = board::DisplayColor::StatusActive;
+    } else if (
+        communicator_delivery_status_
+        == CommunicatorDeliveryStatus::Failed) {
+        text = "NIE DOSTARCZONO";
+        color = board::DisplayColor::Danger;
+    }
+
+    board_.draw_text_region(
+        50,
+        120,
+        140,
+        15,
+        "",
+        1,
+        color,
+        board::DisplayColor::Surface);
+    board_.draw_line(50, 120, 189, 120, color);
+    board_.draw_text_region(
+        61,
+        123,
+        118,
+        10,
+        text,
+        1,
+        color,
+        board::DisplayColor::Surface);
 }
 
 void Launcher::render_battery_if_changed()

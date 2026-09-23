@@ -17,6 +17,13 @@ public:
         ExitRequested,
     };
 
+    enum class DeliveryFeedback : std::uint8_t {
+        None,
+        Sending,
+        Delivered,
+        Failed,
+    };
+
     CommunicatorApp(
         board::Board& board,
         messaging::Service& messaging,
@@ -30,6 +37,12 @@ public:
     void reset_session();
     UpdateResult update(const board::InputState& input);
 
+    // Service delivery receipts/timeouts without running foreground input or
+    // incoming-message handling. Returns true when visible feedback changes.
+    bool service_delivery();
+    DeliveryFeedback delivery_feedback() const;
+    bool delivery_feedback_overlay_allowed() const;
+
     // Drain retained transport events. User-visible messages use latest-wins;
     // RING remains a separate attention event.
     bool process_incoming();
@@ -42,13 +55,6 @@ private:
         ChoosingResponse,
         IncomingResponse,
         WaitDecision,
-    };
-
-    enum class DeliveryStatus : std::uint8_t {
-        None,
-        Sending,
-        Delivered,
-        Failed,
     };
 
     bool accept_incoming(const messaging::IncomingMessage& message);
@@ -86,6 +92,7 @@ private:
     void render_response_choices();
     void render_incoming_response();
     void render_wait_decision();
+    void render_delivery_feedback();
     void render_signal_unavailable();
     void render_signal_alert(bool wide_arcs);
     void draw_bell_glyph(
@@ -121,7 +128,8 @@ private:
     catalogue::ResponseSet response_set_{};
 
     std::uint32_t latest_outgoing_message_id_ = 0;
-    DeliveryStatus latest_delivery_status_ = DeliveryStatus::None;
+    DeliveryFeedback latest_delivery_feedback_ = DeliveryFeedback::None;
+    std::uint32_t delivery_result_started_ms_ = 0;
 
     bool signal_unavailable_feedback_ = false;
     bool signal_alert_active_ = false;

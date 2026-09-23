@@ -26,6 +26,13 @@ enum class CommunicatorStatus : std::uint8_t {
     Available,
 };
 
+enum class CommunicatorDeliveryStatus : std::uint8_t {
+    None,
+    Sending,
+    Delivered,
+    Failed,
+};
+
 class Launcher final {
 public:
     Launcher(
@@ -40,6 +47,9 @@ public:
     void begin_tools(CommunicatorStatus communicator_status);
     void set_communicator_status(
         CommunicatorStatus communicator_status,
+        bool render_if_changed = true);
+    void set_communicator_delivery_status(
+        CommunicatorDeliveryStatus status,
         bool render_if_changed = true);
     void redraw();
     Action update(const board::InputState& input);
@@ -101,6 +111,7 @@ private:
     void render_active_communicator();
     void render_disable_communicator();
     void render_shutdown_confirm();
+    void render_communicator_delivery_status();
     void render_battery_if_changed();
 
     board::Board& board_;
@@ -110,6 +121,8 @@ private:
     signal_sound::Player& signal_sound_;
     Screen screen_ = Screen::Main;
     CommunicatorStatus communicator_status_ = CommunicatorStatus::Off;
+    CommunicatorDeliveryStatus communicator_delivery_status_ =
+        CommunicatorDeliveryStatus::None;
     std::uint8_t selected_index_ = 0;
     std::uint8_t tools_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
