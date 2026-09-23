@@ -476,3 +476,27 @@ Display and communication priority remain unchanged. Delivery feedback never cal
 Working Communicator message screens use recovered vertical space for user content instead of repeating `KOMUNIKATOR`, `WIADOMOSC`, `WYBIERZ`, or `DECYZJA` headings. Received responses always show the originating preset as smaller context and the response as the dominant content. The latest-wins message model from D-031 remains unchanged.
 
 **Rationale:** Delivery is useful technical feedback but must not become conversation state. A narrow transient banner preserves confidence in delivery while keeping the 240×135 display focused on the current human message and action.
+
+## D-033 — BatteryGuard uses sparse advisory sampling and confirmed-voltage shutdown
+
+**Status:** Accepted for hardware validation
+
+Nikoś OS uses a tiny system-level `BatteryGuard` above the existing `Board::power_status()` measurement. The guard samples approximately every 10 seconds, including while DisplayOff. This safety sample is separate from Launcher battery telemetry and does not restore hidden Launcher polling or passive DisplayOff redraw work.
+
+Initial hardware-validation thresholds are:
+
+- LOW at battery percentage <= 20%;
+- VERY_LOW at battery percentage <= 10%;
+- CRITICAL at battery voltage <= 3300 mV while not charging.
+
+LOW and VERY_LOW are advisory overlays only. They never independently wake DisplayOff. VERY_LOW supersedes pending LOW. LOW re-arms only after recovery above 25%, and a still-pending LOW is cancelled at that recovery; VERY_LOW re-arms only after recovery above 15%, and a still-pending VERY_LOW is likewise cancelled. Entering Charging clears pending advisory state, re-arms advisory thresholds, resets any critical-voltage confirmation, and app_main removes an advisory that is already visible before restoring the retained runtime UI.
+
+A non-positive AXP192 voltage read is normalized by Board to an invalid PowerStatus (`voltage_mv=-1`, `level_percent=-1`, `ChargeState::Unknown`). BatteryGuard never treats that sample as advisory or critical evidence and resets any in-progress critical confirmation.
+
+CRITICAL shutdown is not based on percentage and never occurs from one sample. It requires **two valid low-voltage samples approximately 10 seconds apart**, each <= 3300 mV while not charging. A higher/invalid voltage or Charging resets confirmation. Once confirmed, app_main wakes the display, replaces ordinary overlays with `NISKA BATERIA / WYLACZAM...` for about 1.75 seconds, then uses the same narrow controlled-shutdown helper as Launcher `WYLACZ`: stop sound, reset Communicator session, stop messaging, stop radio, and call `Board::power_off()`.
+
+Advisory presentation priority is below accepted Communicator traffic/SYGNAL and Countdown expiration, but above Clock Glance/ordinary UI. Advisory dismissal consumes the M5/BOCZNY gesture and restores the retained runtime UI. POWER remains the system display off/wake control and does not acknowledge battery warnings.
+
+The 20%, 10%, and 3300 mV values are initial hardware-validation values, not permanent calibrated battery truth.
+
+**Rationale:** Sparse sampling adds negligible overhead while providing advisory UX and a confirmed-voltage controlled shutdown before very deep discharge, without creating a general power-management framework.

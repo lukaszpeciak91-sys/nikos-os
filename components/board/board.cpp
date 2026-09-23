@@ -22,6 +22,18 @@ constexpr std::uint16_t kDangerRgb565 = 0xC2EB;         // #C65F5F
 constexpr char kPolishFontSanityText[] =
     "ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
 
+std::int32_t battery_level_from_voltage_mv(std::int16_t voltage_mv)
+{
+    // Match M5Unified 0.2.22 Power_Class::getBatteryLevel() voltage
+    // mapping for AXP192, but reuse the already validated Board voltage
+    // snapshot instead of triggering a second independent PMU voltage read.
+    const std::int32_t level = static_cast<std::int32_t>(
+        (static_cast<float>(voltage_mv) - 3300.0F)
+        * 100.0F
+        / (4150.0F - 3350.0F));
+
+    return level < 0 ? 0 : (level >= 100 ? 100 : level);
+}
 
 }  // namespace
 
@@ -146,8 +158,18 @@ bool Board::write_rtc_time(const RtcTime& time)
 PowerStatus Board::power_status() const
 {
     PowerStatus status;
-    status.voltage_mv = M5.Power.getBatteryVoltage();
-    status.level_percent = M5.Power.getBatteryLevel();
+
+    const std::int16_t voltage_mv = M5.Power.getBatteryVoltage();
+    if (voltage_mv <= 0) {
+        // AXP192 register-read failures may surface as 0 mV. Keep the whole
+        // battery sample explicitly invalid so downstream policy can never
+        // mistake an I2C failure for a deeply discharged battery.
+        return status;
+    }
+
+    status.voltage_mv = voltage_mv;
+    status.level_percent =
+        battery_level_from_voltage_mv(voltage_mv);
 
     switch (M5.Power.isCharging()) {
         case m5::Power_Class::is_charging:

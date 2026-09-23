@@ -246,6 +246,12 @@ The separate `SYGNAŁ` attention feature is a transient UI/audio overlay over th
 
 RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
 
+### BatteryGuard
+
+BatteryGuard is a small system policy component above `Board::power_status()`. It performs one safety sample approximately every 10 seconds, including while DisplayOff, independently from Launcher UI telemetry. `Board::power_status()` normalizes a non-positive AXP192 battery-voltage read to an invalid sample (`voltage_mv=-1`, `level_percent=-1`, `ChargeState::Unknown`) so a failed PMU/I2C read cannot look like deep discharge. Percentage is used only for advisory LOW/VERY_LOW thresholds; automatic shutdown uses confirmed valid battery voltage while not charging.
+
+The guard owns only sampling cadence, threshold/hysteresis state, pending advisory severity, and critical confirmation. Recovery above the advisory re-arm threshold cancels that advisory if it is still pending; Charging clears pending advisory state and critical confirmation. `app_main` owns overlay priority, charging-driven removal of an already visible advisory, and the controlled shutdown presentation/cleanup. Battery policy is not embedded in Launcher, Communicator, RadioLab, or DisplayLifecycle.
+
 ## Architectural invariants
 
 - RadioLab and Nikoś Communicator are sibling applications.
