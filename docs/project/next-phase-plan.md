@@ -17,12 +17,12 @@ The first infrastructure phase intentionally supports one known peer and keeps m
 - [x] Add small bounded configurable presence jitter to avoid deterministic RX-window aliasing.
 - [x] Use stable logical message IDs across retries.
 - [x] Support PRESET_MESSAGE, PRESET_RESPONSE, ACK, and RING wire types.
-- [x] Retry one outgoing logical message until its matching application ACK.
-- [x] Suspend retransmission while the known peer is stale/unreachable and resume the same logical message ID after recovery.
+- [x] Keep one active bounded outgoing logical delivery plus one latest-wins pending replacement; matching application ACK remains the only Delivered condition.
+- [x] Keep bounded delivery eligible for a known peer even when recent-RX status is stale; recent reachability is status, not a send gate.
 - [x] Dedupe received logical messages while ACKing duplicate copies again.
-- [x] Keep incoming logical events retained until Communicator accepts them; use non-destructive peek plus explicit consume.
-- [x] Allow exactly one temporarily incompatible incoming event to be deferred locally so it cannot head-of-line block a later event required by the active exchange.
-- [x] Resolve true simultaneous conversational initiation deterministically by MAC ordering, with exactly one suspended WaitingForResponse context on the yielding side.
+- [x] Keep the incoming queue as a transport buffer only; Communicator drains retained events and keeps the newest valid user-visible PresetMessage/PresetResponse.
+- [x] Keep outgoing replacement latest-wins without adding a user-visible send queue, while preserving the single serialized TxResult attribution slot.
+- [x] Remove WaitingForResponse/suspended-collision conversation coupling; human responses are independent self-contained messages.
 - [x] Keep dedupe in long-lived RAM state across foreground app changes and RadioLab pause/resume, while documenting that it resets on full reboot.
 - [x] Keep messaging state independent of foreground UI.
 - [x] Start Communicator background messaging OFF after boot.
@@ -71,12 +71,13 @@ The Communicator v0.1 preset list is now fixed in the application catalogue; lat
 
 ## Contextual response catalogue
 
-Transport direction is already supported:
+Current protocol v3 response semantics are self-contained:
 
-- `PRESET_RESPONSE + response_id`
-- `reference_message_id` can associate the response with the received logical message.
+- `PRESET_RESPONSE + message_id + preset_id + response_id`
+- the receiver validates the PresetId/ResponseId pair locally;
+- no remembered originating MessageId is required.
 
-- [x] Provide transport support for compact preset-response IDs and a logical-message reference.
+- [x] Provide self-contained preset-response transport with PresetId + ResponseId context.
 - [x] Define the Communicator v0.1 contextual response catalogue.
 - [x] Define which responses are valid for each received preset message.
 - [x] Assign compact stable IDs to approved responses.
@@ -103,10 +104,10 @@ When a message arrives, the intended experience is a dedicated full-screen notif
 - [x] Provide deduped incoming logical-message events below the UI layer.
 - [x] Show the received message prominently on a dedicated screen.
 - [x] Play one short ~90 ms audible alert.
-- [x] Keep the received message visible until the user acts.
+- [x] Keep only the newest received user message as the current UX message; a newer valid message replaces an older unanswered one.
 - [x] Show clear button guidance consistent with the current Nikoś OS interaction model.
 - [x] Provide one action for contextual responses.
-- [x] Allow dismiss only where the v0.1 flow permits it (notably greeting and final OK card).
+- [x] Allow every received preset to be skipped locally with BOCZNY short.
 - [x] Wake the display and surface Communicator from the launcher for accepted incoming traffic.
 
 The M5StickC Plus SE has no built-in vibration motor, so current hardware feedback relies on sound and display.
@@ -134,8 +135,8 @@ The internal wire/delivery type remains RING; the user-facing Communicator actio
 - [x] Implement preset-message selection and transmission.
 - [x] Implement received-message decoding into local visible strings.
 - [x] Implement the dedicated receive notification UI.
-- [x] Implement contextual preset responses and the deterministic human-OK flow.
-- [x] Treat `CZEŚĆ!` as conversation-level fire-and-forget; optional `Cześć!` reply is terminal and requires no human OK.
+- [x] Implement self-contained contextual preset responses validated by PresetId + ResponseId, independent of local waiting state.
+- [x] Keep human replies optional and non-blocking; no mandatory HumanOk or WaitingForResponse state remains.
 - [x] Implement separate user-facing `SYGNAŁ` attention behavior using the existing internal RING delivery type.
 - [x] Keep retry/dedupe/delivery semantics in `messaging::Service`, not in the UI.
 - [x] Avoid chat history and avoid expanding this into a generic messaging framework without a proven requirement.
