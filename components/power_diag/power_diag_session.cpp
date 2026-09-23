@@ -7,6 +7,7 @@ void PowerDiagSession::start(
     const Observation& observation)
 {
     state_ = SessionState::Running;
+    started_at_us_ = now_us;
     last_observation_us_ = now_us;
     last_observation_ = observation;
 
@@ -86,6 +87,7 @@ Snapshot PowerDiagSession::snapshot() const
     Snapshot result;
     result.state = state_;
 
+    result.started_at_us = started_at_us_;
     result.total_us = total_us_;
     result.lcd_active_us = lcd_active_us_;
     result.lcd_dimmed_us = lcd_dimmed_us_;
