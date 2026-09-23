@@ -500,3 +500,19 @@ Advisory presentation priority is below accepted Communicator traffic/SYGNAL and
 The 20%, 10%, and 3300 mV values are initial hardware-validation values, not permanent calibrated battery truth.
 
 **Rationale:** Sparse sampling adds negligible overhead while providing advisory UX and a confirmed-voltage controlled shutdown before very deep discharge, without creating a general power-management framework.
+
+## D-035 — PowerDiag is a volatile background diagnostic session, not telemetry infrastructure
+
+**Status:** Accepted for hardware validation
+
+PowerDiag v0.1 adds two narrow layers. `PowerDiagSession` owns RAM-only measurement state and monotonic 64-bit accumulators; `PowerDiagApp` owns the two-page UI and START/NEW TEST navigation. A Running session survives leaving the PowerDiag UI and continues through Launcher, DisplayOff, Clock Glance, Communicator, Countdown, Stopwatch, RadioLab, and advisory overlays. Reboot or whole-device power-off naturally clears it.
+
+app_main supplies semantic observations rather than allowing the session to query Launcher, CommunicatorApp, or RadioLabApp internals. The session accumulates total time, LCD Active/Dimmed/Off time, Communicator-enabled time, Communicator-foreground time, and RadioLab-foreground time from `esp_timer_get_time()` timestamp deltas.
+
+PowerDiag reuses BatteryGuard's existing approximately-10-second `Board::power_status()` safety sample. BatteryGuard returns the same sampled `PowerStatus` in `UpdateResult`; no second PowerDiag PMU poll is introduced. Valid samples retain battery start/current/minimum voltage, start/current percentage, signed voltage delta, and latest charge state. Invalid samples do not affect battery baseline/minimum calculations.
+
+Messaging exposes only one new observation accessor, `current_rx_schedule()`, returning the already-configured current FG/BG schedule. PowerDiag may display Communicator ON/OFF, RX profile/interval/window, radio mode, peer known/reachable state, and latest valid RSSI, but does not change transport configuration.
+
+No NVS, flash logging, FreeRTOS task, event bus, scheduler, generic telemetry/logging framework, battery history, or user-message counters are introduced in v0.1.
+
+**Rationale:** The first hardware power comparisons need enough retained context to explain battery/runtime differences without changing the behavior being measured.
