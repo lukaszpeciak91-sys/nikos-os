@@ -312,6 +312,11 @@ RxProfile Service::rx_profile() const
     return rx_profile_;
 }
 
+RxSchedule Service::current_rx_schedule() const
+{
+    return rx_schedule_for(rx_profile_);
+}
+
 bool Service::set_radio_mode(radio::Mode mode)
 {
     if (mode == config_.mode) {
