@@ -962,6 +962,8 @@ void CommunicatorApp::render_main()
     rendered_peer_known_ = peer_known;
     rendered_peer_reachable_ = recently_seen;
     rendered_signal_bars_ = bars;
+
+    render_delivery_feedback();
 }
 
 void CommunicatorApp::render_options()
@@ -1068,6 +1070,8 @@ void CommunicatorApp::render_options()
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
+
+    render_delivery_feedback();
 }
 
 void CommunicatorApp::render_main_if_status_changed()
@@ -1094,39 +1098,47 @@ void CommunicatorApp::render_main_if_status_changed()
 void CommunicatorApp::render_incoming_preset()
 {
     clear_screen();
-    draw_header("WIADOMOSC");
 
     board_.draw_text_region(
         8,
-        31,
+        18,
         224,
-        60,
+        70,
         "",
         1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_text_region(
-        12,
-        45,
-        216,
-        34,
+        14,
+        38,
+        212,
+        36,
         catalogue::preset_text(incoming_preset_),
         preset_text_scale(incoming_preset_),
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_line(
         8,
-        31,
+        18,
         8,
-        90,
+        87,
         board::DisplayColor::Accent);
 
     board_.draw_text_region(
-        27,
+        14,
         108,
-        205,
-        20,
-        "M5 DALEJ  BOCZNY ZAMKNIJ",
+        104,
+        16,
+        "M5 ODPOWIEDZ",
+        1,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        132,
+        108,
+        96,
+        16,
+        "BOCZNY POMIN",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1135,57 +1147,47 @@ void CommunicatorApp::render_incoming_preset()
 void CommunicatorApp::render_response_choices()
 {
     clear_screen();
-    draw_header("WYBIERZ");
 
     board_.draw_text_region(
-        8,
-        23,
-        224,
-        38,
-        "",
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_text_region(
         12,
-        30,
+        8,
         216,
-        25,
+        20,
         catalogue::preset_text(incoming_preset_),
-        2,
+        context_text_scale(incoming_preset_),
         board::DisplayColor::SecondaryText,
-        board::DisplayColor::Surface);
+        board::DisplayColor::Background);
 
     const catalogue::ResponseId response =
         response_set_.ids[selected_response_index_];
     board_.draw_text_region(
         8,
-        66,
+        34,
         224,
-        39,
+        60,
         "",
         1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_text_region(
         14,
-        74,
+        50,
         212,
-        27,
+        32,
         catalogue::response_text(response),
         response_text_scale(response),
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_line(
         8,
-        66,
+        34,
         8,
-        104,
+        93,
         board::DisplayColor::Accent);
 
     board_.draw_text_region(
         102,
-        108,
+        97,
         46,
         10,
         choice_counter(selected_response_index_, response_set_.count),
@@ -1194,10 +1196,10 @@ void CommunicatorApp::render_response_choices()
         board::DisplayColor::Background);
 
     board_.draw_text_region(
-        31,
-        122,
-        190,
-        11,
+        27,
+        118,
+        202,
+        14,
         "M5 WYBIERZ  BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
@@ -1207,13 +1209,22 @@ void CommunicatorApp::render_response_choices()
 void CommunicatorApp::render_incoming_response()
 {
     clear_screen();
-    draw_header("WIADOMOSC");
+
+    board_.draw_text_region(
+        12,
+        8,
+        216,
+        20,
+        catalogue::preset_text(incoming_preset_),
+        context_text_scale(incoming_preset_),
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     board_.draw_text_region(
         8,
-        36,
+        34,
         224,
-        58,
+        62,
         "",
         1,
         board::DisplayColor::PrimaryText,
@@ -1229,16 +1240,16 @@ void CommunicatorApp::render_incoming_response()
         board::DisplayColor::Surface);
     board_.draw_line(
         8,
-        36,
+        34,
         8,
-        93,
+        95,
         board::DisplayColor::Accent);
 
     board_.draw_text_region(
-        48,
-        112,
-        180,
-        18,
+        45,
+        116,
+        186,
+        16,
         "M5 / BOCZNY = ZAMKNIJ",
         1,
         board::DisplayColor::SecondaryText,
@@ -1248,45 +1259,99 @@ void CommunicatorApp::render_incoming_response()
 void CommunicatorApp::render_wait_decision()
 {
     clear_screen();
-    draw_header("DECYZJA");
+
+    board_.draw_text_region(
+        12,
+        7,
+        216,
+        20,
+        catalogue::preset_text(incoming_preset_),
+        context_text_scale(incoming_preset_),
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
 
     board_.draw_text_region(
         8,
         31,
         224,
-        46,
+        50,
         "",
         1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
     board_.draw_text_region(
         14,
-        41,
+        42,
         212,
         30,
         catalogue::response_text(incoming_response_),
         response_text_scale(incoming_response_),
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
+    board_.draw_line(
+        8,
+        31,
+        8,
+        80,
+        board::DisplayColor::Accent);
 
     board_.draw_text_region(
         28,
         87,
         195,
-        18,
-        "M5    CZEKAC?",
+        20,
+        "M5 CZEKAC?",
         2,
         board::DisplayColor::Accent,
         board::DisplayColor::Background);
     board_.draw_text_region(
         28,
-        110,
+        113,
         195,
-        17,
+        16,
         "BOCZNY ZAMKNIJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
+}
+
+void CommunicatorApp::render_delivery_feedback()
+{
+    if (latest_delivery_feedback_ == DeliveryFeedback::None
+        || !delivery_feedback_overlay_allowed()) {
+        return;
+    }
+
+    const char* text = "WYSYLAM...";
+    board::DisplayColor color = board::DisplayColor::Accent;
+
+    if (latest_delivery_feedback_ == DeliveryFeedback::Delivered) {
+        text = "DOSTARCZONO";
+        color = board::DisplayColor::StatusActive;
+    } else if (latest_delivery_feedback_ == DeliveryFeedback::Failed) {
+        text = "NIE DOSTARCZONO";
+        color = board::DisplayColor::Danger;
+    }
+
+    board_.draw_text_region(
+        50,
+        114,
+        140,
+        20,
+        "",
+        1,
+        color,
+        board::DisplayColor::Surface);
+    board_.draw_line(50, 114, 189, 114, color);
+    board_.draw_text_region(
+        61,
+        119,
+        118,
+        12,
+        text,
+        1,
+        color,
+        board::DisplayColor::Surface);
 }
 
 void CommunicatorApp::render_signal_unavailable()
