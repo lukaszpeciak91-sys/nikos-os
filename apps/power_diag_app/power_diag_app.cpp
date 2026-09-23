@@ -1,5 +1,6 @@
 #include "power_diag/power_diag_app.hpp"
 
+#include <cstddef>
 #include <cstdio>
 
 namespace {
