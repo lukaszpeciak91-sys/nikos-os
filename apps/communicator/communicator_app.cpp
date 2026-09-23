@@ -857,14 +857,14 @@ void CommunicatorApp::render_main()
         board::DisplayColor::Surface);
 
     if (preset_focused) {
-        const board::DisplayColor focus_color =
+        draw_selection_marker(
+            board_,
+            8,
+            38,
+            48,
             peer_known
                 ? board::DisplayColor::Accent
-                : board::DisplayColor::SecondaryText;
-        board_.draw_line(8, 38, 231, 38, focus_color);
-        board_.draw_line(8, 85, 231, 85, focus_color);
-        board_.draw_line(8, 38, 8, 85, focus_color);
-        board_.draw_line(231, 38, 231, 85, focus_color);
+                : board::DisplayColor::SecondaryText);
     }
 
     constexpr const char* kPresetCounters[] = {
@@ -1192,12 +1192,11 @@ void CommunicatorApp::render_response_choices()
         response_text_scale(response),
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
-    board_.draw_line(
+    draw_selection_marker(
+        board_,
         8,
         34,
-        8,
-        93,
-        board::DisplayColor::Accent);
+        60);
 
     board_.draw_text_region(
         102,
