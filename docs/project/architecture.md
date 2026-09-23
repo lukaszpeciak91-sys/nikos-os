@@ -14,7 +14,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
-- `Narzędzia` contains `RadioLab` plus visible `Powrót`; RadioLab remains an application sibling of Communicator even though it is launched through the tools category.
+- `Narzędzia` contains `RadioLab`, `PowerDiag`, and visible `Powrót`; RadioLab and PowerDiag remain application siblings launched through the tools category.
 - `Rozrywka` remains a placeholder with visible `Powrót`. `Zegar` exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT`. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
@@ -251,6 +251,18 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 BatteryGuard is a small system policy component above `Board::power_status()`. It performs one safety sample approximately every 10 seconds, including while DisplayOff, independently from Launcher UI telemetry. `Board::power_status()` normalizes a non-positive AXP192 battery-voltage read to an invalid sample (`voltage_mv=-1`, `level_percent=-1`, `ChargeState::Unknown`) so a failed PMU/I2C read cannot look like deep discharge. Percentage is used only for advisory LOW/VERY_LOW thresholds; automatic shutdown uses confirmed valid battery voltage while not charging.
 
 The guard owns only sampling cadence, threshold/hysteresis state, pending advisory severity, and critical confirmation. Recovery above the advisory re-arm threshold cancels that advisory if it is still pending; Charging clears pending advisory state and critical confirmation. `app_main` owns overlay priority, charging-driven removal of an already visible advisory, and the controlled shutdown presentation/cleanup. Battery policy is not embedded in Launcher, Communicator, RadioLab, or DisplayLifecycle.
+
+### PowerDiag
+
+PowerDiag is a volatile diagnostic measurement tool, not telemetry infrastructure. `PowerDiagSession` owns one RAM-only Inactive/Running session and has no rendering dependency. While Running, app_main feeds it a compact observation snapshot every normal main-loop iteration; the session accumulates 64-bit monotonic durations for total test time, LCD Active/Dimmed/DisplayOff, Communicator enabled time, Communicator foreground time, and RadioLab foreground time.
+
+`PowerDiagApp` owns only the two diagnostic pages, START/NEW TEST confirmation, and local page/input state. Leaving the UI does not stop or reset the session. Re-entry reads the retained Snapshot. PowerDiag adds no task, event bus, generic logging/telemetry layer, NVS/flash persistence, or user-message counters.
+
+Battery data reuses the exact `PowerStatus` already sampled by BatteryGuard. BatteryGuard exposes that same sampled value in its `UpdateResult`; app_main forwards it to `PowerDiagSession::record_battery_sample()` only when the safety sample occurs. PowerDiag never calls `Board::power_status()` and therefore adds no periodic PMU/I2C battery read. Invalid samples are ignored for baseline/current/minimum calculations.
+
+Messaging exposes one read-only `current_rx_schedule()` accessor so app_main can observe the currently configured FG/BG interval and wake window without exposing or mutating the full transport configuration. PowerDiag observes RX profile/schedule, radio mode, peer known/reachable state, and latest valid RSSI only; it does not change messaging/radio policy.
+
+PowerDiag is an ordinary foreground runtime for display purposes. DisplayOff suppresses its redraw work while the RAM session continues. Clock Glance, Countdown alert, BatteryGuard advisory, and accepted Communicator traffic retain their existing priority; restoring an ordinary temporary overlay redraws the previously open PowerDiag page. Incoming Communicator content may replace the PowerDiag foreground UI, while the diagnostic session continues.
 
 ## Architectural invariants
 
