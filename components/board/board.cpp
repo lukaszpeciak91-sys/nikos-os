@@ -146,7 +146,16 @@ bool Board::write_rtc_time(const RtcTime& time)
 PowerStatus Board::power_status() const
 {
     PowerStatus status;
-    status.voltage_mv = M5.Power.getBatteryVoltage();
+
+    const std::int16_t voltage_mv = M5.Power.getBatteryVoltage();
+    if (voltage_mv <= 0) {
+        // AXP192 register-read failures may surface as 0 mV. Keep the whole
+        // battery sample explicitly invalid so downstream policy can never
+        // mistake an I2C failure for a deeply discharged battery.
+        return status;
+    }
+
+    status.voltage_mv = voltage_mv;
     status.level_percent = M5.Power.getBatteryLevel();
 
     switch (M5.Power.isCharging()) {
