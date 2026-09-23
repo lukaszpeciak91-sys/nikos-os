@@ -12,6 +12,7 @@ constexpr std::uint32_t kNotificationToneMs = 90;
 constexpr float kNotificationToneHz = 2600.0F;
 
 constexpr std::uint32_t kSignalAnimationMs = 120;
+constexpr std::uint8_t kSignalPlaybackCount = 10;
 constexpr std::uint32_t kDeliveryResultVisibleMs = 2500;
 
 constexpr std::int16_t kScreenWidth = 240;
@@ -119,6 +120,7 @@ bool CommunicatorApp::end()
         signal_return_to_launcher_ = false;
         signal_audio_complete_rendered_ = false;
     }
+    signal_playback_cycles_started_ = 0;
 
     active_ = false;
     return messaging_.set_rx_profile(messaging::RxProfile::Background);
@@ -167,6 +169,7 @@ void CommunicatorApp::reset_session()
     signal_return_to_launcher_ = false;
     signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
+    signal_playback_cycles_started_ = 0;
     signal_last_animation_ms_ = 0;
 
     rendered_peer_state_valid_ = false;
@@ -681,6 +684,7 @@ void CommunicatorApp::start_signal_alert()
     signal_alert_active_ = true;
     signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
+    signal_playback_cycles_started_ = 1;
 
     const std::uint32_t now = now_ms();
     signal_last_animation_ms_ = now;
@@ -705,6 +709,12 @@ void CommunicatorApp::update_signal_alert(std::uint32_t now)
         return;
     }
 
+    if (signal_playback_cycles_started_ < kSignalPlaybackCount) {
+        ++signal_playback_cycles_started_;
+        signal_sound_.play_selected();
+        return;
+    }
+
     if (!signal_audio_complete_rendered_) {
         signal_audio_complete_rendered_ = true;
         signal_animation_wide_ = false;
@@ -718,6 +728,7 @@ void CommunicatorApp::dismiss_signal_alert()
     signal_alert_active_ = false;
     signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
+    signal_playback_cycles_started_ = 0;
 
     const bool return_to_launcher = signal_return_to_launcher_;
     signal_return_to_launcher_ = false;
