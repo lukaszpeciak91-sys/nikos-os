@@ -103,7 +103,7 @@ void BatteryGuard::update_advisory(
 bool BatteryGuard::update_critical(
     const board::PowerStatus& status)
 {
-    if (status.voltage_mv < 0
+    if (status.voltage_mv <= 0
         || status.voltage_mv > kCriticalVoltageMv) {
         critical_confirm_count_ = 0;
         return false;
