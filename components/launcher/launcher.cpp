@@ -1777,12 +1777,11 @@ void Launcher::render_clock_timer_if_changed()
             : board::DisplayColor::Background);
 
     if (selected) {
-        board_.draw_line(
+        draw_selection_marker(
+            board_,
             14,
             y,
-            14,
-            static_cast<std::int16_t>(y + 15),
-            board::DisplayColor::Accent);
+            16);
     }
 
     rendered_clock_timer_state_ = state;
