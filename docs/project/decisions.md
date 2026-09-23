@@ -515,7 +515,7 @@ The five runtime identities are:
 - Lava: black / warm light text / ember orange-red;
 - Noir: strict black / white / gray.
 
-Noir replaces the previous fifth gray-oriented identity and intentionally remaps normal semantic status, attention, and danger presentation to monochrome at the Board color-resolution boundary. Applications continue requesting the same semantic roles and do not branch on theme. Meaning remains available through text, marker shape, filled/hollow treatment, and brightness hierarchy rather than hue alone.
+Noir replaces the previous gray-oriented Graphite identity and intentionally remaps normal semantic status, attention, and danger presentation to monochrome at the Board color-resolution boundary. Applications continue requesting the same semantic roles and do not branch on theme. Meaning remains available through text, marker shape, filled/hollow treatment, and brightness hierarchy rather than hue alone.
 
 All five palettes remain compile-time RGB565 constants behind `ui_theme`; no framebuffer/color-depth change, generic styling engine, theme-specific navigation, or runtime RGB editor is introduced.
 
