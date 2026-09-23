@@ -141,7 +141,7 @@ PowerDiagApp::UpdateResult PowerDiagApp::update(
 {
     if (view_ == View::ConfirmNewTest) {
         if (input.secondary_long) {
-            view_ = View::Page1;
+            view_ = confirmation_return_view_;
             confirmation_selection_ = 0;
             render(snapshot);
             return UpdateResult::Running;
@@ -160,7 +160,7 @@ PowerDiagApp::UpdateResult PowerDiagApp::update(
                 return UpdateResult::NewTestRequested;
             }
 
-            view_ = View::Page1;
+            view_ = confirmation_return_view_;
             confirmation_selection_ = 0;
             render(snapshot);
         }
@@ -185,6 +185,7 @@ PowerDiagApp::UpdateResult PowerDiagApp::update(
             return UpdateResult::StartRequested;
         }
 
+        confirmation_return_view_ = view_;
         view_ = View::ConfirmNewTest;
         confirmation_selection_ = 0;
         render(snapshot);
@@ -390,7 +391,12 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
         sizeof(radiolab));
 
     char line[40]{};
-    std::snprintf(line, sizeof(line), "COMM ON  %s", comm_on);
+    std::snprintf(
+        line,
+        sizeof(line),
+        "COMM %s  %s",
+        snapshot.observation.communicator_enabled ? "ON" : "OFF",
+        comm_on);
     board_.draw_text_region(
         10, 28, 220, 14, line, 1,
         board::DisplayColor::PrimaryText,
