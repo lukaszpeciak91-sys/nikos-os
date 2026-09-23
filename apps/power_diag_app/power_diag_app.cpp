@@ -360,7 +360,7 @@ void PowerDiagApp::render_energy(const Snapshot& snapshot)
         sizeof(lcd_on));
     format_mmss(snapshot.lcd_off_us, lcd_off, sizeof(lcd_off));
 
-    char lcd_text[40]{};
+    char lcd_text[48]{};
     std::snprintf(
         lcd_text,
         sizeof(lcd_text),
