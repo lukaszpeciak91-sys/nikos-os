@@ -37,6 +37,25 @@ std::uint8_t context_text_scale(
     return preset == PresetId::Walk ? 1 : 2;
 }
 
+void draw_selection_marker(
+    nikos::board::Board& board,
+    std::int16_t x,
+    std::int16_t y,
+    std::int16_t height,
+    nikos::board::DisplayColor color =
+        nikos::board::DisplayColor::Accent)
+{
+    const std::int16_t bottom =
+        static_cast<std::int16_t>(y + height - 1);
+    board.draw_line(x, y, x, bottom, color);
+    board.draw_line(
+        static_cast<std::int16_t>(x + 1),
+        y,
+        static_cast<std::int16_t>(x + 1),
+        bottom,
+        color);
+}
+
 const char* choice_counter(std::uint8_t index, std::uint8_t count)
 {
     if (count <= 1U) {
@@ -889,7 +908,12 @@ void CommunicatorApp::render_main()
     board_.draw_text_region(
         22, 102, 72, 18, "SYGNAL", 2, signal_color, signal_background);
     if (signal_selected) {
-        board_.draw_line(8, 100, 8, 118, board::DisplayColor::Attention);
+        draw_selection_marker(
+            board_,
+            8,
+            100,
+            19,
+            board::DisplayColor::Attention);
     }
 
     const board::DisplayColor options_background =
@@ -917,7 +941,7 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::SecondaryText,
         options_background);
     if (options_selected) {
-        board_.draw_line(94, 100, 94, 118, board::DisplayColor::Accent);
+        draw_selection_marker(board_, 94, 100, 19);
     }
 
     const board::DisplayColor return_background =
@@ -945,7 +969,7 @@ void CommunicatorApp::render_main()
             : board::DisplayColor::SecondaryText,
         return_background);
     if (return_selected) {
-        board_.draw_line(158, 100, 158, 118, board::DisplayColor::Accent);
+        draw_selection_marker(board_, 158, 100, 19);
     }
 
     board_.draw_text_region(
@@ -1016,12 +1040,7 @@ void CommunicatorApp::render_options()
         mode_background);
 
     if (mode_selected) {
-        board_.draw_line(
-            8,
-            30,
-            8,
-            69,
-            board::DisplayColor::Accent);
+        draw_selection_marker(board_, 8, 30, 40);
     }
 
     board_.draw_text_region(
@@ -1039,12 +1058,7 @@ void CommunicatorApp::render_options()
             : board::DisplayColor::Background);
 
     if (return_selected) {
-        board_.draw_line(
-            8,
-            79,
-            8,
-            96,
-            board::DisplayColor::Accent);
+        draw_selection_marker(board_, 8, 79, 18);
     }
 
     board_.draw_text_region(
