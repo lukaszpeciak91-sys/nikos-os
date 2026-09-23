@@ -12,6 +12,7 @@ constexpr std::uint32_t kNotificationToneMs = 90;
 constexpr float kNotificationToneHz = 2600.0F;
 
 constexpr std::uint32_t kSignalAnimationMs = 120;
+constexpr std::uint32_t kDeliveryResultVisibleMs = 2500;
 
 constexpr std::int16_t kScreenWidth = 240;
 constexpr std::int16_t kScreenHeight = 135;
@@ -27,6 +28,13 @@ std::uint8_t response_text_scale(
     nikos::communicator::catalogue::ResponseId)
 {
     return 3;
+}
+
+std::uint8_t context_text_scale(
+    nikos::communicator::catalogue::PresetId preset)
+{
+    using nikos::communicator::catalogue::PresetId;
+    return preset == PresetId::Walk ? 1 : 2;
 }
 
 const char* choice_counter(std::uint8_t index, std::uint8_t count)
@@ -132,7 +140,8 @@ void CommunicatorApp::reset_session()
     response_set_ = catalogue::ResponseSet{};
 
     latest_outgoing_message_id_ = 0;
-    latest_delivery_status_ = DeliveryStatus::None;
+    latest_delivery_feedback_ = DeliveryFeedback::None;
+    delivery_result_started_ms_ = 0;
 
     signal_unavailable_feedback_ = false;
     signal_alert_active_ = false;
@@ -147,14 +156,46 @@ void CommunicatorApp::reset_session()
     rendered_signal_bars_ = 0;
 }
 
+bool CommunicatorApp::service_delivery()
+{
+    bool changed = false;
+
+    messaging::DeliveryReceipt receipt;
+    if (messaging_.poll_delivery(receipt)) {
+        const DeliveryFeedback before = latest_delivery_feedback_;
+        handle_delivery_receipt(receipt);
+        changed = latest_delivery_feedback_ != before;
+    }
+
+    if ((latest_delivery_feedback_ == DeliveryFeedback::Delivered
+            || latest_delivery_feedback_ == DeliveryFeedback::Failed)
+        && now_ms() - delivery_result_started_ms_
+            >= kDeliveryResultVisibleMs) {
+        latest_delivery_feedback_ = DeliveryFeedback::None;
+        latest_outgoing_message_id_ = 0;
+        delivery_result_started_ms_ = 0;
+        changed = true;
+    }
+
+    return changed;
+}
+
+CommunicatorApp::DeliveryFeedback CommunicatorApp::delivery_feedback() const
+{
+    return latest_delivery_feedback_;
+}
+
+bool CommunicatorApp::delivery_feedback_overlay_allowed() const
+{
+    return active_
+        && state_ == State::Main
+        && !signal_alert_active_
+        && !signal_unavailable_feedback_;
+}
+
 CommunicatorApp::UpdateResult CommunicatorApp::update(
     const board::InputState& input)
 {
-    messaging::DeliveryReceipt receipt;
-    if (messaging_.poll_delivery(receipt)) {
-        handle_delivery_receipt(receipt);
-    }
-
     if (!signal_alert_active_) {
         (void)process_incoming();
     }
@@ -337,10 +378,11 @@ void CommunicatorApp::handle_delivery_receipt(
         return;
     }
 
-    latest_delivery_status_ =
+    latest_delivery_feedback_ =
         receipt.outcome == messaging::DeliveryOutcome::Delivered
-        ? DeliveryStatus::Delivered
-        : DeliveryStatus::Failed;
+        ? DeliveryFeedback::Delivered
+        : DeliveryFeedback::Failed;
+    delivery_result_started_ms_ = now_ms();
 
     ESP_LOGI(
         kTag,
@@ -599,7 +641,8 @@ void CommunicatorApp::track_latest_send()
 {
     latest_outgoing_message_id_ =
         messaging_.outgoing_logical_message_id();
-    latest_delivery_status_ = DeliveryStatus::Sending;
+    latest_delivery_feedback_ = DeliveryFeedback::Sending;
+    delivery_result_started_ms_ = 0;
 }
 
 void CommunicatorApp::notify_incoming()
