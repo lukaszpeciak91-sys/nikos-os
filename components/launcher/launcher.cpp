@@ -437,14 +437,17 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             tools_selection_ =
-                static_cast<std::uint8_t>((tools_selection_ + 1U) % 2U);
+                static_cast<std::uint8_t>((tools_selection_ + 1U) % 3U);
             render();
             return Action::None;
         }
 
         if (input.primary_short) {
-            if (tools_selection_ == 0) {
+            if (tools_selection_ == 0U) {
                 return Action::OpenRadioLab;
+            }
+            if (tools_selection_ == 1U) {
+                return Action::OpenPowerDiag;
             }
 
             screen_ = Screen::Main;
@@ -1179,7 +1182,7 @@ void Launcher::render_tools()
 
     board_.draw_text_region(
         14,
-        14,
+        8,
         212,
         20,
         "NARZEDZIA",
@@ -1187,21 +1190,22 @@ void Launcher::render_tools()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kTools[2] = {
+    constexpr const char* kTools[3] = {
         "RadioLab",
+        "PowerDiag",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 2; ++index) {
+    for (std::uint8_t index = 0; index < 3; ++index) {
         const bool selected = index == tools_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(48 + index * 28);
+            static_cast<std::int16_t>(37 + index * 25);
 
         board_.draw_text_region(
             22,
             y,
             196,
-            22,
+            21,
             kTools[index],
             2,
             selected
@@ -1220,9 +1224,10 @@ void Launcher::render_tools()
                 board::DisplayColor::Accent);
         }
     }
+
     board_.draw_text_region(
         14,
-        112,
+        116,
         212,
         14,
         "M5 WYBIERZ | BOCZNY DALEJ",
