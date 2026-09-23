@@ -158,16 +158,16 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 `settings::State` owns the current boot-scoped user preference state. It now contains three real runtime preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
-- visual theme: Nikos (default), Bursztyn, Grafit, Lava, or Matrix;
+- visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
 - display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
 
 The state is created by composition in `app_main`, is shared with the launcher Settings UI and the narrow consumers that need each typed value, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
 
 ### ui_theme
 
-`ui_theme` owns five fixed compile-time visual palettes: Nikos, Bursztyn, Grafit, Lava, and Matrix. Each hardware-validation candidate defines a distinct full normal palette across Background, Surface, PrimaryText, SecondaryText, and Accent; the values are experimental rather than permanent product identity.
+`ui_theme` owns five fixed compile-time visual palettes in runtime order: Nikos, Bursztyn, Matrix, Lava, and Noir. The v0.2 values are hardware-tuned for the 1.14-inch ST7789V2 panel: all backgrounds are true black, all selected surfaces remain close to black, and identity comes primarily from primary/secondary typography plus a restrained accent marker rather than large bright fills. The values remain hardware-validation candidates rather than permanent product identity.
 
-All current and future normal screens, including Clock and Clock Glance, request semantic `DisplayColor` roles through `Board` rather than hard-coded RGB values or direct M5GFX color calls. Applications do not contain per-theme branches. Thus normal screens inherit the selected palette automatically. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Product-semantic roles such as `StatusActive`, `StatusInactive`, `Attention`, and `Danger` remain fixed across themes so status, SYGNAŁ attention, and error/destructive meaning do not drift with the selected palette. These physical-LCD palette values are experimental pending hardware validation, not final product constants.
+All current and future normal screens, including Clock and Clock Glance, request semantic `DisplayColor` roles through `Board` rather than hard-coded RGB values or direct M5GFX color calls. Applications do not contain per-theme branches. Thus normal screens inherit the selected palette automatically. Theme-varying roles are `Background`, `Surface`, `PrimaryText`, `SecondaryText`, and `Accent`. Normal chromatic themes retain the existing fixed product-semantic status/attention/danger colors. Noir is the deliberate exception: Board remaps `StatusActive`, `StatusInactive`, `Attention`, and `Danger` to white/gray palette values while semantic state remains unchanged. Existing text, symbols, filled/hollow markers, and shape differences continue to carry meaning, so Noir does not depend on hue alone.
 
 The active palette is held by `board` and selected from `settings::State::theme`. No generic styling engine, per-screen palette, or runtime RGB editor is introduced.
 
@@ -308,6 +308,6 @@ The guard owns only sampling cadence, threshold/hysteresis state, pending adviso
 - Settings signal-sound and visual-theme selections are boot-scoped volatile state owned by composition; neither is persisted in NVS.
 - Settings preview and received Communicator `SYGNAŁ` must use the same `signal_sound::Player` and fixed pattern definitions.
 - Applications request semantic display roles; theme-specific RGB565 values remain centralized in `ui_theme` and are resolved by `board`.
-- Theme accent is distinct from fixed semantic status/attention/danger colors.
+- Theme accent is distinct from semantic status/attention/danger roles; Noir deliberately resolves those semantic roles to monochrome white/gray presentation.
 - Experimental RX and recent-RX timing values are configuration, not send-permission invariants. The current foreground profile uses an approximately 7 s recent-RX timeout and the background profile approximately 20 s; after that age the UI may show a neutral known-peer state, but peer identity is retained and bounded delivery remains allowed.
 - Persistent schemas and wire protocols must be versioned once introduced.
