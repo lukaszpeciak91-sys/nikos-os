@@ -14,6 +14,7 @@ enum class AdvisoryLevel : std::uint8_t {
 
 struct UpdateResult {
     bool sampled = false;
+    bool charging_detected = false;
     bool critical_confirmed = false;
 };
 
