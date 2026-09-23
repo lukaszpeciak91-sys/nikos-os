@@ -147,7 +147,6 @@ void PowerDiagSession::reset_session_battery_from_cached_sample()
     current_voltage_mv_ = -1;
     current_percent_ = -1;
     minimum_voltage_mv_ = -1;
-    charge_state_ = board::ChargeState::Unknown;
 
     if (!cached_battery_valid_) {
         return;
@@ -158,7 +157,6 @@ void PowerDiagSession::reset_session_battery_from_cached_sample()
     current_voltage_mv_ = cached_battery_.voltage_mv;
     current_percent_ = cached_battery_.level_percent;
     minimum_voltage_mv_ = cached_battery_.voltage_mv;
-    charge_state_ = cached_battery_.charge_state;
 }
 
 }  // namespace nikos::power_diag
