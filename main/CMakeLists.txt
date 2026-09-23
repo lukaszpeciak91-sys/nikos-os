@@ -12,6 +12,8 @@ idf_component_register(
         messaging
         nvs_flash
         power
+        power_diag
+        power_diag_app
         radio
         radiolab
         settings
