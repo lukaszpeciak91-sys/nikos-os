@@ -523,12 +523,12 @@ extern "C" void app_main(void)
             battery_advisory_level =
                 nikos::battery_guard::AdvisoryLevel::None;
             redraw_runtime_ui(
-                    state,
-                    launcher,
-                    communicator,
-                    power_diag,
-                    power_diag_session,
-                    radiolab);
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
         }
 
         const nikos::power::FilteredInput display_input =
@@ -650,12 +650,12 @@ extern "C" void app_main(void)
                 display_lifecycle.suppress_user_gesture_until_release();
                 display_lifecycle.note_visible_activity();
                 redraw_runtime_ui(
-                    state,
-                    launcher,
-                    communicator,
-                    power_diag,
-                    power_diag_session,
-                    radiolab);
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
             }
 
             vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
@@ -718,12 +718,12 @@ extern "C" void app_main(void)
                     display_lifecycle.suppress_user_gesture_until_release();
                     display_lifecycle.note_visible_activity();
                     redraw_runtime_ui(
-                    state,
-                    launcher,
-                    communicator,
-                    power_diag,
-                    power_diag_session,
-                    radiolab);
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
 
                     vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
                     continue;
@@ -811,12 +811,12 @@ extern "C" void app_main(void)
                 display_lifecycle.note_visible_activity();
                 clock_glance_active = false;
                 redraw_runtime_ui(
-                    state,
-                    launcher,
-                    communicator,
-                    power_diag,
-                    power_diag_session,
-                    radiolab);
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
             } else if (
                 now_ms() - clock_glance_started_ms
                     >= kClockGlanceDurationMs) {
