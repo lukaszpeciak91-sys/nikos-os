@@ -1,3 +1,4 @@
+#include "battery_guard/battery_guard.hpp"
 #include "board/board.hpp"
 #include "clock/clock_service.hpp"
 #include "communicator/communicator_app.hpp"
@@ -25,6 +26,7 @@ constexpr std::uint32_t kSplashDurationMs = 750;
 constexpr std::uint32_t kLoopDelayMs = 20;
 constexpr std::uint32_t kRadioErrorDisplayMs = 1200;
 constexpr std::uint32_t kClockGlanceDurationMs = 4000;
+constexpr std::uint32_t kCriticalShutdownMessageMs = 1750;
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
@@ -101,6 +103,135 @@ void render_timer_alert(nikos::board::Board& board)
         1,
         nikos::board::DisplayColor::SecondaryText,
         nikos::board::DisplayColor::Background);
+}
+
+void render_battery_advisory(
+    nikos::board::Board& board,
+    nikos::battery_guard::AdvisoryLevel level)
+{
+    board.clear_screen();
+
+    if (level == nikos::battery_guard::AdvisoryLevel::VeryLow) {
+        board.draw_text_region(
+            45,
+            10,
+            170,
+            20,
+            "BARDZO NISKA",
+            2,
+            nikos::board::DisplayColor::Danger,
+            nikos::board::DisplayColor::Background);
+        board.draw_text_region(
+            76,
+            32,
+            100,
+            20,
+            "BATERIA",
+            2,
+            nikos::board::DisplayColor::Danger,
+            nikos::board::DisplayColor::Background);
+        board.draw_text_region(
+            18,
+            64,
+            210,
+            20,
+            "PODLACZ LADOWARKE",
+            2,
+            nikos::board::DisplayColor::PrimaryText,
+            nikos::board::DisplayColor::Background);
+        board.draw_text_region(
+            52,
+            91,
+            150,
+            14,
+            "LUB WYLACZ URZADZENIE",
+            1,
+            nikos::board::DisplayColor::SecondaryText,
+            nikos::board::DisplayColor::Background);
+    } else {
+        board.draw_text_region(
+            40,
+            25,
+            170,
+            22,
+            "NISKA BATERIA",
+            2,
+            nikos::board::DisplayColor::Attention,
+            nikos::board::DisplayColor::Background);
+        board.draw_text_region(
+            18,
+            61,
+            210,
+            22,
+            "PODLACZ LADOWARKE",
+            2,
+            nikos::board::DisplayColor::PrimaryText,
+            nikos::board::DisplayColor::Background);
+    }
+
+    board.draw_text_region(
+        43,
+        118,
+        180,
+        14,
+        "M5 / BOCZNY = ZAMKNIJ",
+        1,
+        nikos::board::DisplayColor::SecondaryText,
+        nikos::board::DisplayColor::Background);
+}
+
+void render_critical_battery_shutdown(nikos::board::Board& board)
+{
+    board.clear_screen();
+    board.draw_text_region(
+        40,
+        28,
+        170,
+        22,
+        "NISKA BATERIA",
+        2,
+        nikos::board::DisplayColor::Danger,
+        nikos::board::DisplayColor::Background);
+    board.draw_text_region(
+        48,
+        65,
+        160,
+        34,
+        "WYLACZAM...",
+        3,
+        nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+}
+
+[[noreturn]] void controlled_shutdown(
+    nikos::board::Board& board,
+    nikos::signal_sound::Player& signal_sound,
+    nikos::communicator::CommunicatorApp& communicator,
+    nikos::messaging::Service& messaging,
+    nikos::radio::RadioService& radio)
+{
+    signal_sound.stop();
+    board.stop_tone();
+    communicator.reset_session();
+
+    if (!messaging.stop()) {
+        ESP_LOGW(
+            kTag,
+            "Messaging stop completed with cleanup errors during shutdown");
+    }
+
+    if (!radio.stop()) {
+        ESP_LOGW(
+            kTag,
+            "Radio stop completed with cleanup errors during shutdown");
+    }
+
+    board.power_off();
+
+    // M5Unified powerOff() should not return on target hardware.
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
 
 void redraw_runtime_ui(
@@ -225,6 +356,7 @@ extern "C" void app_main(void)
 
     nikos::signal_sound::Player signal_sound(board, settings);
     nikos::countdown::Service countdown(esp_timer_get_time);
+    nikos::battery_guard::BatteryGuard battery_guard(board);
     nikos::launcher::Launcher launcher(
         board,
         clock_service,
@@ -263,6 +395,9 @@ extern "C" void app_main(void)
     std::uint32_t clock_glance_started_ms = 0;
     bool timer_alert_visible = false;
     bool timer_deferred_for_communication = false;
+    bool battery_advisory_visible = false;
+    nikos::battery_guard::AdvisoryLevel battery_advisory_level =
+        nikos::battery_guard::AdvisoryLevel::None;
 
     display_lifecycle.note_visible_activity();
     launcher.begin(communicator_status(communicator_enabled, messaging));
@@ -282,15 +417,36 @@ extern "C" void app_main(void)
         countdown.update();
         signal_sound.update();
 
+        const nikos::battery_guard::UpdateResult battery_update =
+            battery_guard.update(now_ms());
+        if (battery_update.critical_confirmed) {
+            clock_glance_active = false;
+            battery_advisory_visible = false;
+
+            signal_sound.stop();
+            board.stop_tone();
+            display_lifecycle.note_visible_activity();
+            render_critical_battery_shutdown(board);
+            vTaskDelay(pdMS_TO_TICKS(kCriticalShutdownMessageMs));
+
+            controlled_shutdown(
+                board,
+                signal_sound,
+                communicator,
+                messaging,
+                radio);
+        }
+
         const nikos::power::FilteredInput display_input =
             display_lifecycle.filter_input(board.poll_input());
         const nikos::board::InputState& input = display_input.input;
 
         if (display_input.power_display_off) {
-            // POWER controls display visibility only. Clock Glance is a
-            // transient visible presentation, so intentionally hiding the LCD
-            // ends it without changing the underlying foreground application.
+            // POWER controls display visibility only. Transient visible
+            // presentations end, but a battery advisory remains pending until
+            // an M5/BOCZNY dismissal or charging/recovery policy clears it.
             clock_glance_active = false;
+            battery_advisory_visible = false;
         }
 
         if (timer_deferred_for_communication
@@ -331,6 +487,7 @@ extern "C" void app_main(void)
             timer_alert_visible = false;
             timer_deferred_for_communication = true;
             clock_glance_active = false;
+            battery_advisory_visible = false;
 
             if (any_user_button_activity(input)) {
                 display_lifecycle.suppress_user_gesture_until_release();
@@ -353,6 +510,7 @@ extern "C" void app_main(void)
             clock_glance_active = false;
 
             if (!timer_alert_visible) {
+                battery_advisory_visible = false;
                 display_lifecycle.note_visible_activity();
                 signal_sound.play_selected();
                 render_timer_alert(board);
@@ -393,6 +551,103 @@ extern "C" void app_main(void)
                     launcher,
                     communicator,
                     radiolab);
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
+
+        const nikos::battery_guard::AdvisoryLevel
+            pending_battery_advisory =
+                battery_guard.pending_advisory();
+        const bool battery_advisory_pending =
+            pending_battery_advisory
+            != nikos::battery_guard::AdvisoryLevel::None;
+
+        if ((battery_advisory_visible || battery_advisory_pending)
+            && state != RuntimeState::RadioLab
+            && communicator_enabled
+            && communicator.process_incoming()) {
+            battery_advisory_visible = false;
+            clock_glance_active = false;
+
+            if (any_user_button_activity(input)) {
+                display_lifecycle.suppress_user_gesture_until_release();
+            }
+
+            if (state == RuntimeState::Launcher) {
+                if (!communicator.begin()) {
+                    ESP_LOGW(
+                        kTag,
+                        "Communicator foreground RX profile could not be applied");
+                }
+                state = RuntimeState::Communicator;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
+
+        if (battery_advisory_visible) {
+            if (display_lifecycle.state()
+                == nikos::power::DisplayState::DisplayOff) {
+                battery_advisory_visible = false;
+            } else {
+                if (pending_battery_advisory
+                        == nikos::battery_guard::AdvisoryLevel::VeryLow
+                    && battery_advisory_level
+                        != nikos::battery_guard::AdvisoryLevel::VeryLow) {
+                    battery_advisory_level =
+                        nikos::battery_guard::AdvisoryLevel::VeryLow;
+                    render_battery_advisory(
+                        board,
+                        battery_advisory_level);
+                }
+
+                if (any_user_button_activity(input)) {
+                    battery_guard.acknowledge_advisory();
+                    battery_advisory_visible = false;
+                    display_lifecycle.suppress_user_gesture_until_release();
+                    display_lifecycle.note_visible_activity();
+                    redraw_runtime_ui(
+                        state,
+                        launcher,
+                        communicator,
+                        radiolab);
+                } else {
+                    if (state == RuntimeState::RadioLab) {
+                        (void)radiolab.update(
+                            nikos::board::InputState{},
+                            false);
+                    }
+
+                    vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                    continue;
+                }
+            }
+        }
+
+        if (!battery_advisory_visible
+            && battery_advisory_pending
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+            && !(state == RuntimeState::Communicator
+                && communicator.timer_preemption_active())) {
+            clock_glance_active = false;
+            battery_advisory_visible = true;
+            battery_advisory_level = pending_battery_advisory;
+            render_battery_advisory(board, battery_advisory_level);
+
+            // A gesture already in flight belongs to the obscured UI, not to
+            // the advisory that has just appeared.
+            if (any_user_button_activity(input)) {
+                display_lifecycle.suppress_user_gesture_until_release();
+            }
+
+            if (state == RuntimeState::RadioLab) {
+                (void)radiolab.update(
+                    nikos::board::InputState{},
+                    false);
             }
 
             vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
@@ -528,30 +783,12 @@ extern "C" void app_main(void)
                     launcher.begin(nikos::launcher::CommunicatorStatus::Off);
                 } else if (
                     action == nikos::launcher::Action::ShutdownRequested) {
-                    board.stop_tone();
-                    communicator.reset_session();
-
-                    if (!messaging.stop()) {
-                        ESP_LOGW(
-                            kTag,
-                            "Messaging stop completed with cleanup errors during shutdown");
-                    }
-
-                    communicator_enabled = false;
-                    resume_messaging_after_radiolab = false;
-
-                    if (!radio.stop()) {
-                        ESP_LOGW(
-                            kTag,
-                            "Radio stop completed with cleanup errors during shutdown");
-                    }
-
-                    board.power_off();
-
-                    // M5Unified powerOff() should not return on target hardware.
-                    while (true) {
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                    }
+                    controlled_shutdown(
+                        board,
+                        signal_sound,
+                        communicator,
+                        messaging,
+                        radio);
                 } else if (
                     action == nikos::launcher::Action::OpenRadioLab) {
                     resume_messaging_after_radiolab =
