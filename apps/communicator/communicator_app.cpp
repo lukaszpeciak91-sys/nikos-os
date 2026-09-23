@@ -303,12 +303,22 @@ bool CommunicatorApp::process_incoming()
     }
 
     bool accepted = false;
+    bool user_message_accepted = false;
     if (latest_user_message_valid) {
-        accepted = accept_incoming(latest_user_message);
+        user_message_accepted = accept_incoming(latest_user_message);
+        accepted = user_message_accepted;
     }
 
     if (ring_received && !signal_alert_active_) {
         start_signal_alert();
+
+        // A background RING by itself still returns to Launcher after
+        // dismissal. If this same drain also accepted a user-visible message,
+        // the transient signal must reveal that retained message instead.
+        if (user_message_accepted) {
+            signal_return_to_launcher_ = false;
+        }
+
         accepted = true;
     }
 
