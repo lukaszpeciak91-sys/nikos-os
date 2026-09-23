@@ -520,3 +520,19 @@ Noir replaces the previous gray-oriented Graphite identity and intentionally rem
 All five palettes remain compile-time RGB565 constants behind `ui_theme`; no framebuffer/color-depth change, generic styling engine, theme-specific navigation, or runtime RGB editor is introduced.
 
 **Rationale:** On a small ST7789V2 panel, theme identity must survive normal viewing distance. Dark selected surfaces stop selection from visually overwhelming the palette, while centralized RGB565 roles keep the implementation small and auditable.
+
+## D-035 — PowerDiag is a volatile background diagnostic session, not telemetry infrastructure
+
+**Status:** Accepted for hardware validation
+
+PowerDiag v0.1 adds two narrow layers. `PowerDiagSession` owns RAM-only measurement state and monotonic 64-bit accumulators; `PowerDiagApp` owns the two-page UI and START/NEW TEST navigation. A Running session survives leaving the PowerDiag UI and continues through Launcher, DisplayOff, Clock Glance, Communicator, Countdown, Stopwatch, RadioLab, and advisory overlays. Reboot or whole-device power-off naturally clears it.
+
+app_main supplies semantic observations rather than allowing the session to query Launcher, CommunicatorApp, or RadioLabApp internals. The session accumulates total time, LCD Active/Dimmed/Off time, Communicator-enabled time, Communicator-foreground time, and RadioLab-foreground time from `esp_timer_get_time()` timestamp deltas.
+
+PowerDiag reuses BatteryGuard's existing approximately-10-second `Board::power_status()` safety sample. BatteryGuard returns the same sampled `PowerStatus` in `UpdateResult`; no second PowerDiag PMU poll is introduced. Valid samples retain battery start/current/minimum voltage, start/current percentage, signed voltage delta, and latest charge state. Invalid samples do not affect battery baseline/minimum calculations.
+
+Messaging exposes only one new observation accessor, `current_rx_schedule()`, returning the already-configured current FG/BG schedule. PowerDiag may display Communicator ON/OFF, RX profile/interval/window, radio mode, peer known/reachable state, and latest valid RSSI, but does not change transport configuration.
+
+No NVS, flash logging, FreeRTOS task, event bus, scheduler, generic telemetry/logging framework, battery history, or user-message counters are introduced in v0.1.
+
+**Rationale:** The first hardware power comparisons need enough retained context to explain battery/runtime differences without changing the behavior being measured.
