@@ -13,7 +13,8 @@ constexpr std::uint8_t kDisplayActiveBrightness = 128;
 constexpr std::uint8_t kDisplayDimBrightness = 32;
 
 // Theme-varying colors come from ui_theme::Palette. Product-semantic colors
-// remain fixed across themes.
+// remain fixed for chromatic themes; Noir deliberately remaps them to
+// monochrome presentation at the Board boundary.
 constexpr std::uint16_t kStatusActiveRgb565 = 0x8DF5;   // #88BDA8
 constexpr std::uint16_t kStatusInactiveRgb565 = 0xB36D; // #B46F6F
 constexpr std::uint16_t kAttentionRgb565 = 0xFD20;      // existing SYGNAŁ orange
@@ -351,6 +352,7 @@ void Board::draw_screen(const char* title, const char* body)
 std::uint32_t Board::resolve_display_color(DisplayColor color) const
 {
     const ui_theme::Palette& palette = ui_theme::palette(theme_);
+    const bool noir = theme_ == ui_theme::Theme::Noir;
 
     switch (color) {
         case DisplayColor::Surface:
@@ -362,13 +364,13 @@ std::uint32_t Board::resolve_display_color(DisplayColor color) const
         case DisplayColor::Accent:
             return palette.accent;
         case DisplayColor::StatusActive:
-            return kStatusActiveRgb565;
+            return noir ? palette.accent : kStatusActiveRgb565;
         case DisplayColor::StatusInactive:
-            return kStatusInactiveRgb565;
+            return noir ? palette.secondary_text : kStatusInactiveRgb565;
         case DisplayColor::Attention:
-            return kAttentionRgb565;
+            return noir ? palette.accent : kAttentionRgb565;
         case DisplayColor::Danger:
-            return kDangerRgb565;
+            return noir ? palette.primary_text : kDangerRgb565;
         case DisplayColor::Background:
         default:
             return palette.background;
