@@ -562,13 +562,15 @@ extern "C" void app_main(void)
 
         display_lifecycle.update();
 
-        power_diag_session.observe(
-            monotonic_now_us(),
-            make_power_diag_observation(
-                state,
-                display_lifecycle,
-                communicator_enabled,
-                messaging));
+        if (power_diag_session.running()) {
+            power_diag_session.observe(
+                monotonic_now_us(),
+                make_power_diag_observation(
+                    state,
+                    display_lifecycle,
+                    communicator_enabled,
+                    messaging));
+        }
 
         bool timer_alert_presented_now = false;
 
