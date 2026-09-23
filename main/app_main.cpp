@@ -567,6 +567,8 @@ extern "C" void app_main(void)
         if ((battery_advisory_visible || battery_advisory_pending)
             && state != RuntimeState::RadioLab
             && communicator_enabled
+            && (state != RuntimeState::Communicator
+                || !communicator.timer_preemption_active())
             && communicator.process_incoming()) {
             battery_advisory_visible = false;
             clock_glance_active = false;
@@ -614,6 +616,9 @@ extern "C" void app_main(void)
                         launcher,
                         communicator,
                         radiolab);
+
+                    vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                    continue;
                 } else {
                     if (state == RuntimeState::RadioLab) {
                         (void)radiolab.update(
