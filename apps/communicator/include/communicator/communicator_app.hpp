@@ -30,37 +30,29 @@ public:
     void reset_session();
     UpdateResult update(const board::InputState& input);
 
-    // Inspect retained messaging events. Returns true when one event was
-    // accepted into the current Communicator conversation/UI state.
+    // Drain retained transport events. User-visible messages use latest-wins;
+    // RING remains a separate attention event.
     bool process_incoming();
     bool timer_preemption_active() const;
 
 private:
     enum class State : std::uint8_t {
         Main,
-        WaitingForResponse,
         IncomingPreset,
         ChoosingResponse,
-        WaitingForResponseDelivery,
         IncomingResponse,
         WaitDecision,
-        WaitingForWaitResponse,
-        DeliveryFailed,
     };
 
-    struct SuspendedWaitingContext {
-        bool valid = false;
-        catalogue::PresetId sent_preset = catalogue::PresetId::Greeting;
-        std::uint32_t expected_response_reference = 0;
+    enum class DeliveryStatus : std::uint8_t {
+        None,
+        Sending,
+        Delivered,
+        Failed,
     };
 
     bool accept_incoming(const messaging::IncomingMessage& message);
-    bool can_defer_incoming(
-        const messaging::IncomingMessage& message) const;
-    bool should_yield_simultaneous_preset(
-        catalogue::PresetId preset) const;
-    void suspend_waiting_for_response();
-    void restore_suspended_waiting(bool render);
+    bool valid_user_message(const messaging::IncomingMessage& message) const;
     void handle_delivery_receipt(
         const messaging::DeliveryReceipt& receipt);
     void handle_input(const board::InputState& input);
@@ -71,14 +63,13 @@ private:
     void handle_response_choice_input(const board::InputState& input);
     void handle_incoming_response_input(const board::InputState& input);
     void handle_wait_decision_input(const board::InputState& input);
-    void handle_delivery_failed_input(const board::InputState& input);
 
     bool send_selected_preset();
     bool send_signal();
     bool send_selected_response();
     bool send_wait_followup();
+    void track_latest_send();
 
-    bool can_accept_incoming() const;
     void notify_incoming();
 
     void start_signal_alert();
@@ -91,13 +82,10 @@ private:
     void render_main();
     void render_options();
     void render_main_if_status_changed();
-    void render_waiting_for_response();
     void render_incoming_preset();
     void render_response_choices();
-    void render_waiting_for_response_delivery();
     void render_incoming_response();
     void render_wait_decision();
-    void render_delivery_failed();
     void render_signal_unavailable();
     void render_signal_alert(bool wide_arcs);
     void draw_bell_glyph(
@@ -127,21 +115,13 @@ private:
     std::uint8_t selected_options_index_ = 0;
     std::uint8_t selected_response_index_ = 0;
 
-    catalogue::PresetId sent_preset_ = catalogue::PresetId::Greeting;
     catalogue::PresetId incoming_preset_ = catalogue::PresetId::Greeting;
     catalogue::ResponseId incoming_response_ =
         catalogue::ResponseId::GreetingHello;
     catalogue::ResponseSet response_set_{};
 
-    messaging::IncomingMessage current_incoming_{};
-    messaging::IncomingMessage deferred_incoming_{};
-    bool deferred_incoming_valid_ = false;
-    SuspendedWaitingContext suspended_waiting_{};
-
-    std::uint32_t expected_response_reference_ = 0;
-    std::uint32_t pending_response_delivery_id_ = 0;
-    std::uint32_t last_greeting_message_id_ = 0;
-    bool delivery_failure_restore_suspended_ = false;
+    std::uint32_t latest_outgoing_message_id_ = 0;
+    DeliveryStatus latest_delivery_status_ = DeliveryStatus::None;
 
     bool signal_unavailable_feedback_ = false;
     bool signal_alert_active_ = false;

@@ -162,6 +162,7 @@ bool Service::stop()
 
     next_message_id_ = 1;
     outgoing_ = OutgoingState{};
+    pending_outgoing_ = PendingOutgoing{};
     unicast_in_flight_ = UnicastInFlight{};
     traffic_ = TrafficCounters{};
 
@@ -368,22 +369,22 @@ radio::Mode Service::radio_mode() const
     return config_.mode;
 }
 
-bool Service::send_preset_message(std::uint16_t message_id)
+bool Service::send_preset_message(std::uint16_t preset_id)
 {
     return start_outgoing(
         communicator_protocol::MessageType::PresetMessage,
-        message_id,
+        preset_id,
         0);
 }
 
 bool Service::send_preset_response(
-    std::uint16_t response_id,
-    std::uint32_t reference_message_id)
+    std::uint16_t preset_id,
+    std::uint16_t response_id)
 {
     return start_outgoing(
         communicator_protocol::MessageType::PresetResponse,
-        response_id,
-        reference_message_id);
+        preset_id,
+        response_id);
 }
 
 bool Service::send_ring()
@@ -396,12 +397,17 @@ bool Service::send_ring()
 
 bool Service::outgoing_pending() const
 {
-    return outgoing_.active;
+    return outgoing_.active
+        || outgoing_.completion_pending_transport
+        || pending_outgoing_.valid;
 }
 
 std::uint32_t Service::outgoing_logical_message_id() const
 {
-    return outgoing_.active ? outgoing_.message.message_id : 0;
+    if (pending_outgoing_.valid) {
+        return pending_outgoing_.message.message_id;
+    }
+    return outgoing_.message.message_id;
 }
 
 bool Service::peer_known() const
@@ -616,8 +622,8 @@ void Service::process_rx(const radio::RxEvent& event)
     IncomingMessage incoming;
     incoming.kind = to_incoming_kind(message.type);
     incoming.logical_message_id = message.message_id;
-    incoming.reference_message_id = message.reference_id;
-    incoming.value_id = message.value_id;
+    incoming.preset_id = message.preset_id;
+    incoming.response_id = message.response_id;
 
     // Do not application-ACK/dedupe a new logical message until it has been
     // retained locally. If this small queue is full, the sender will retry.
@@ -786,31 +792,84 @@ bool Service::submit_next_ack(std::uint32_t now_ms)
 
 bool Service::start_outgoing(
     communicator_protocol::MessageType type,
-    std::uint16_t value_id,
-    std::uint32_t reference_message_id)
+    std::uint16_t preset_id,
+    std::uint16_t response_id)
 {
-    if (!started_
-        || faulted_
-        || !peer_known_
-        || outgoing_.active
-        || outgoing_.completion_pending_transport) {
+    if (!started_ || faulted_ || !peer_known_) {
+        return false;
+    }
+
+    communicator_protocol::Message requested;
+    requested.type = type;
+    requested.message_id = next_logical_message_id();
+    requested.preset_id = preset_id;
+    requested.response_id = response_id;
+
+    // Product semantics are latest-wins. Keep at most one not-yet-active
+    // replacement and discard any older queued replacement silently.
+    pending_outgoing_.valid = true;
+    pending_outgoing_.message = requested;
+
+    // A result that was waiting for UI polling belongs to an older operation
+    // once a newer send is accepted.
+    delivery_ready_ = false;
+
+    const std::uint32_t now = now_ms();
+    if (outgoing_.message.message_id == 0) {
+        (void)activate_pending_outgoing(now);
+    } else if (outgoing_.active) {
+        supersede_outgoing(now);
+    }
+
+    if (transport_active_) {
+        service_unicast(now);
+    }
+
+    return true;
+}
+
+void Service::supersede_outgoing(std::uint32_t now_ms)
+{
+    if (!outgoing_.active) {
+        return;
+    }
+
+    outgoing_.active = false;
+    outgoing_.superseded = true;
+    outgoing_.completed_ms = now_ms;
+    outgoing_.completion_pending_transport =
+        unicast_in_flight_.active
+        && unicast_in_flight_.kind == UnicastKind::OutgoingPayload
+        && unicast_in_flight_.logical_message_id
+            == outgoing_.message.message_id;
+
+    ESP_LOGI(
+        kTag,
+        "Logical delivery id=%lu superseded by newer user send",
+        static_cast<unsigned long>(outgoing_.message.message_id));
+
+    if (!outgoing_.completion_pending_transport) {
+        finalize_outgoing_metrics();
+    }
+}
+
+bool Service::activate_pending_outgoing(std::uint32_t now_ms)
+{
+    if (!pending_outgoing_.valid
+        || outgoing_.message.message_id != 0) {
         return false;
     }
 
     outgoing_ = OutgoingState{};
     outgoing_.active = true;
-    outgoing_.message.type = type;
-    outgoing_.message.message_id = next_logical_message_id();
-    outgoing_.message.reference_id = reference_message_id;
-    outgoing_.message.value_id = value_id;
-    outgoing_.started_ms = now_ms();
+    outgoing_.message = pending_outgoing_.message;
+    outgoing_.started_ms = now_ms;
+    pending_outgoing_ = PendingOutgoing{};
 
-    if (transport_active_) {
-        service_unicast(outgoing_.started_ms);
-    } else {
+    if (!transport_active_) {
         // A logical delivery created during an intentional transport handoff
         // starts with its delivery/retry clocks paused.
-        outgoing_.paused_since_ms = outgoing_.started_ms;
+        outgoing_.paused_since_ms = now_ms;
     }
 
     return true;
@@ -1127,7 +1186,9 @@ void Service::finalize_outgoing_metrics()
         "Logical delivery id=%lu kind=%s outcome=%s attempts=%lu accepted=%lu send_request_failures=%lu mac_success=%lu mac_fail=%lu tx_result_missing=%lu latency_ms=%lu",
         static_cast<unsigned long>(outgoing_.message.message_id),
         delivery_kind_name(to_delivery_kind(outgoing_.message.type)),
-        delivery_outcome_name(outgoing_.completed_outcome),
+        outgoing_.superseded
+            ? "superseded"
+            : delivery_outcome_name(outgoing_.completed_outcome),
         static_cast<unsigned long>(outgoing_.attempts),
         static_cast<unsigned long>(outgoing_.accepted_submissions),
         static_cast<unsigned long>(outgoing_.send_request_failures),
@@ -1169,6 +1230,7 @@ void Service::finalize_outgoing_metrics()
         static_cast<unsigned long>(traffic_.failed_logical_messages));
 
     outgoing_ = OutgoingState{};
+    (void)activate_pending_outgoing(now_ms());
 }
 
 bool Service::is_duplicate(std::uint32_t logical_message_id) const

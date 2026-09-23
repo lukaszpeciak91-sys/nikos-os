@@ -243,7 +243,7 @@ The first attempt is immediate when transport and a peer identity are available.
 
 Development metrics record logical delivery kind/outcome, ESP-NOW send-request attempts, immediate send-request failures, logical delivery latency, and cumulative accepted send submissions for logical payloads, application ACKs, and Presence. These are submission-level measurements, not true PHY-level Wi-Fi transmission counts.
 
-This bounded-delivery decision remains unchanged by later discovery-oriented Presence pacing, the protocol-v2 payload encoding, RX duty-cycle schedules, or TxResult attribution.
+This bounded-delivery foundation remains valid after later Presence pacing, protocol revisions, RX duty-cycle schedules, TxResult attribution, and D-031 latest-wins supersession. Under D-031, the currently relevant logical send keeps these bounds; an older user send may intentionally terminate earlier when superseded by a newer one.
 
 **Rationale:** Hardware testing showed that indefinite retransmission can waste sender energy and leave UI state waiting forever. Bounded delivery provides a safe measurement baseline before deeper MAC-aware or Presence optimization.
 
@@ -267,7 +267,7 @@ If the missing-TxResult attribution-barrier radio restart itself fails, messagin
 
 RadioLab's deliberate transport handoff still freezes logical delivery/retry timing. Any peer unicast whose callback remains unresolved at the handoff is conservatively closed as missing before radio ownership is transferred; the same logical MessageId and attempt count remain, and the resulting retry timing is frozen until resume.
 
-The TxResult pacing rules remain unchanged when Presence becomes discovery-oriented or the application payload moves to protocol v2. RX duty schedules, recent-RX timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics remain unchanged.
+The TxResult pacing rules remain unchanged when Presence becomes discovery-oriented, across protocol revisions, and under D-031 latest-wins replacement. A newer logical send never steals an older in-flight TxResult slot; the existing callback/missing-result attribution barrier resolves first. RX duty schedules, recent-RX timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics remain unchanged.
 
 **Rationale:** Destination MAC plus success/failure is insufficient to distinguish an outgoing logical payload from an application ACK to the same peer. Serializing only messaging unicast traffic gives deterministic TxResult ownership while allowing MAC success to reduce blind duplicate retransmission without weakening application-level delivery semantics.
 
@@ -293,7 +293,7 @@ Communicator OFF clears volatile peer identity. Fresh ON starts discovery again.
 
 ## D-021 — Communicator protocol v2 uses compact type-specific frames
 
-**Status:** Accepted
+**Status:** Superseded by D-031
 
 Communicator protocol v2 replaces the fixed 20-byte v1 application frame with an explicit variable-length type-specific format. Both controlled M5Stick devices must run the same v2 firmware; there is no v1 fallback, negotiation, capability exchange, or compatibility mode.
 
@@ -320,7 +320,7 @@ The 32-bit logical MessageId is deliberately retained. This protocol change redu
 
 ## D-022 — Communicator human flow is shallow and technical ACK is not a human OK
 
-**Status:** Accepted
+**Status:** Superseded by D-031
 
 On the physical 240×135 device, Communicator presents one dominant message/choice at a time. The main screen keeps one linear focus sequence—Preset 1..5, SYGNAŁ, OPCJE, POWRÓT—with secondary short = next and primary short = select. Response choice follows the same NEXT -> SELECT model and shows exactly one selectable response while retaining the received preset for context.
 
@@ -444,3 +444,21 @@ A short POWER event never reaches Launcher, Communicator, RadioLab, Countdown UI
 Product controls are therefore: `M5` = application select/open/confirm; `BOCZNY` = application next/back; short `POWER` = display off/wake; Launcher `WYLACZ` = controlled whole-device shutdown. Long POWER remains board/PMIC hardware behavior and is not intercepted, emulated, or assigned a Nikoś OS command.
 
 **Rationale:** Display visibility is a system concern already owned by DisplayLifecycle. Keeping POWER outside application navigation preserves current app state and communication reachability while providing a simple physical LCD toggle without introducing another sleep or power framework.
+
+## D-031 — Communicator is a non-blocking latest-wins pager using protocol v3
+
+**Status:** Accepted for hardware validation
+
+Communicator v0.1 separates device delivery from human conversation. Sending a preset, response, Wait follow-up, or RING never creates a required human-response waiting state or a modal delivery screen. Application ACK still means only that the peer retained the logical message; MAC success remains pacing information and never becomes Delivered.
+
+Protocol v3 uses discriminator `0xA8` and keeps the existing 2-byte header and message-type numbering. Presence is 2 B, Ring and ACK are 6 B, PresetMessage is 8 B, and PresetResponse is 10 B: 2-byte header + 4-byte logical MessageId + 2-byte PresetId + 2-byte ResponseId. Responses are therefore self-contained and are validated with the existing catalogue relation `response_allowed_for(preset, response)`. v2 is not reinterpreted or negotiated; both controlled devices must run v3 together.
+
+The user-message UX is latest-wins. The small messaging queue remains a transport buffer only; Communicator drains retained events and the newest valid PresetMessage/PresetResponse replaces any older unanswered user message. RING/SYGNAL remains a separate attention event and does not erase the retained message context. Every received preset can be skipped locally.
+
+Outgoing user sends also use latest-wins without creating a visible queue. Messaging retains at most one pending replacement. If an older ESP-NOW peer unicast is already awaiting TxResult, its transport attribution object remains intact until that callback or the existing missing-TxResult barrier resolves; only then may the newest replacement become active. Superseded logical operations do not publish stale UI delivery receipts, and Communicator additionally ignores any receipt whose MessageId is not the latest accepted send.
+
+The prior `WaitingForResponse`, `WaitingForWaitResponse`, response-delivery modal state, suspended waiting/collision restoration, expected response reference, and reference-based PresetResponse matching are removed. The contextual `CZEKAC?` action remains, but Wait is just another PresetMessage and its later answer is an ordinary self-contained PresetResponse.
+
+Retry interval/jitter, delivery timeout, attempt budget, application-ACK authority, dedupe, ACK priority, TxResult pacing/serialization, missing-TxResult recovery, discovery-oriented Presence, foreground/background RX schedules, STANDARD/LR behavior, RadioLab ownership, and DisplayLifecycle are unchanged.
+
+**Rationale:** Sparse pager-like communication should stay usable even when a human never answers. Self-contained responses and latest-wins UI remove unnecessary conversation coupling while preserving the proven transport safety and delivery semantics.

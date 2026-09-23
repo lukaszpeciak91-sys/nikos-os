@@ -78,30 +78,26 @@ This remains RadioLab-specific. It is not shared Communicator infrastructure.
 
 ### communicator_protocol
 
-Owns the versioned Communicator wire format. Current Communicator traffic uses protocol v2 only; v1 compatibility/negotiation is intentionally not implemented because both physical devices are flashed together.
+Owns the versioned Communicator wire format. Current Communicator traffic uses protocol v3 only; earlier v1/v2 compatibility or negotiation is intentionally not implemented because both controlled devices are flashed together.
 
-The v2 common header is exactly two bytes:
+The v3 common header is exactly two bytes:
 
-- byte 0: fixed v2 discriminator `0xA7`;
+- byte 0: fixed v3 discriminator `0xA8`;
 - byte 1: the existing `MessageType` value (`1..5`).
-
-The discriminator itself identifies protocol v2; version and type are deliberately not bit-packed.
 
 All multi-byte IDs are encoded explicitly in big-endian order. No packed C++ structs, reserved bytes, serializer framework, or dynamic allocation are used.
 
-| Message type | v2 payload layout | Size |
+| Message type | v3 payload layout | Size |
 | --- | --- | ---: |
 | Presence | 2 B header | 2 B |
 | Ring / SYGNAŁ | 2 B header + 4 B logical MessageId | 6 B |
 | ACK | 2 B header + 4 B referenced logical MessageId | 6 B |
 | PresetMessage | 2 B header + 4 B logical MessageId + 2 B PresetId | 8 B |
-| PresetResponse | 2 B header + 4 B logical MessageId + 4 B referenced MessageId + 2 B ResponseId | 12 B |
+| PresetResponse | 2 B header + 4 B logical MessageId + 2 B PresetId + 2 B ResponseId | 10 B |
 
-The 32-bit logical MessageId remains unchanged for retry identity and receiver dedupe. PresetId and ResponseId remain 16-bit stable semantic catalogue IDs on the wire, preserving the existing architectural ID space without introducing a 255-value ceiling. ACK has no independent logical MessageId because ACK itself is not surfaced/deduped as a user message.
+The 32-bit logical MessageId remains the retry/dedupe and ACK identity. PresetResponse is self-contained: PresetId plus ResponseId is sufficient to validate and render the human response without remembering the originating outgoing MessageId. The local catalogue validates the pair with `response_allowed_for(preset, response)`; ResponseId alone is never used to infer context.
 
-Human-readable preset/response text is never transmitted over ESP-NOW. Each device owns the same local catalogue and converts received semantic IDs to local UI text.
-
-This component is intentionally separate from RadioLab protocol and remains an explicit small codec rather than a generic serialization framework.
+Human-readable preset/response text is never transmitted over ESP-NOW. This component remains intentionally separate from RadioLab protocol.
 
 ### messaging
 
@@ -113,7 +109,7 @@ It currently owns:
 - one-peer discovery Presence state, distinct peer identity, and recent-RX/reachability status
 - latest peer RX RSSI
 - stable logical message IDs across retries
-- one outstanding outgoing logical message
+- one active outgoing logical delivery plus one latest-wins pending replacement slot; the pending slot is not a user-visible queue
 - bounded retry-until-application-ACK delivery with a fixed logical deadline, configured attempt budget, and bounded retry jitter
 - explicit Delivered/Failed logical delivery outcomes with attempt/latency instrumentation
 - one serialized messaging-unicast slot so outgoing logical payloads and application ACKs cannot have ambiguous peer-MAC-only TxResult attribution
@@ -125,8 +121,8 @@ It currently owns:
 - receiver-side in-memory dedupe
 - duplicate ACK behavior without duplicate notification
 - discovery-oriented broadcast Presence with bounded jitter while no peer is known, plus one-shot serialized unicast Presence reply to received broadcast discovery
-- a small volatile queue of incoming logical message notifications, exposed through explicit peek/consume so UI rejection cannot destructively remove an event
-- delivery completion receipts for matching application ACKs or explicit failure
+- a small volatile incoming transport buffer exposed through peek/consume; Communicator drains it and retains only the newest valid user-visible message, so it is not an inbox/history
+- delivery completion receipts for the currently relevant logical operation; superseded operations do not produce stale UI receipts
 - foreground/background experimental RX profile selection, including profile-aware reachability timeout
 
 The service has no dedicated FreeRTOS task. It is advanced from the normal main loop. Communicator retry interval/jitter, maximum send attempts, and logical delivery timeout are experimental configuration for hardware tuning rather than permanent product policy. Application ACK remains the only authoritative Delivered condition. ESP-NOW TxResult is consumed only as a pacing/measurement signal: MAC success lengthens the ACK wait, MAC failure schedules the existing bounded retry, and a missing callback has bounded recovery. Presence is discovery-oriented: while no peer is known, broadcast discovery uses the experimental 2000 ms + 0…250 ms cadence; once the peer is known, normal idle operation stops periodic Presence TX. A received broadcast Presence schedules one serialized unicast Presence reply, while a received unicast Presence never triggers another reply.
@@ -232,11 +228,13 @@ Current and future applications include:
 
 RadioLab v0.1 uses equal peers running the same firmware. It does not assign permanent BASE/MOBILE roles.
 
-Communicator is a foreground UI over the session-scoped `messaging::Service`. Enabling Communicator starts the service for the current OS session. Entering the foreground panel selects the experimental foreground messaging RX profile; exiting the panel—either through the selectable `POWRÓT` item or the secondary-long shortcut—restores the background profile without disabling the service. Incoming Communicator traffic may surface the Communicator UI from the launcher without moving delivery/retry logic into UI state. To prevent FIFO head-of-line blocking during one active exchange, Communicator may hold exactly one temporarily incompatible incoming logical event locally while later service-queue traffic is inspected; this is current-exchange state, not a general inbox/router.
+Communicator is a foreground UI over the session-scoped `messaging::Service`. Enabling Communicator starts the service for the current OS session. Entering the foreground panel selects the experimental foreground messaging RX profile; exiting restores the background profile without disabling the service. Delivery/retry work remains independent from foreground UI state.
 
-The physical 240×135 Communicator UI presents one primary message/choice at a time. Main navigation remains one linear focus sequence—five presets, SYGNAŁ, OPCJE, POWRÓT—with secondary short = next and primary short = select. Response selection likewise shows one response at a time while keeping the incoming preset visible.
+Communicator v0.1 uses a latest-wins, non-blocking pager model. Sending a preset, response, Wait follow-up, or SYGNAŁ does not create a modal delivery/conversation state. Human responses are optional independent messages. The UX retains only the newest valid received PresetMessage/PresetResponse; a newer one replaces an unanswered older one. The messaging queue remains only a small transport buffer, not an inbox/history. RING/SYGNAL is a separate attention overlay and does not erase the retained current user-message context.
 
-Application ACK is the technical delivery acknowledgement. Normal human conversation does not require a separate mandatory OK response. After this device sends a response that must complete the peer exchange, the UI waits for that response's technical delivery receipt; a matching Delivered receipt returns to Main or restores the single `SuspendedWaitingContext` after simultaneous-preset collision. Failed delivery keeps the explicit failure UX. The contextual `ZACZEKAĆ?` follow-up remains because it carries conversational meaning rather than transport confirmation; the local close alternative sends nothing.
+The physical 240×135 UI presents one primary message/choice at a time. Main navigation remains five presets, SYGNAŁ, OPCJE, POWRÓT with secondary short = next and primary short = select. Every received preset can be skipped with secondary short; response selection cycles with secondary short and sends with primary short.
+
+Application ACK is technical device-delivery acknowledgement only. It never means the human read or answered a message. PresetResponse carries its own PresetId + ResponseId context, so it can be accepted independently of any local waiting state. The contextual `ZACZEKAĆ?` action remains; sending Wait is simply another non-blocking PresetMessage and its later response is an ordinary self-contained PresetResponse.
 
 Communicator exposes one session-scoped radio-mode option through its messaging boundary. User-facing `STANDARD` maps to `radio::Mode::Normal`; `LR` maps to `radio::Mode::Lr`. The UI does not call `radio` directly. A successful mode change uses the existing radio mode switch, preserves delivery/dedupe/incoming state and the active RX profile/timing configuration, clears learned peer reachability/RSSI, and forces fresh PRESENCE discovery in the new mode. The selected Communicator mode is volatile for the OS boot and survives foreground exit, RadioLab handoff, and Communicator OFF -> ON within that boot. Full reboot resets the default to STANDARD.
 
@@ -258,9 +256,9 @@ RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Enteri
 - Background messaging lifetime must remain independent of foreground Communicator visibility.
 - Communicator background messaging is OFF after boot and must be explicitly enabled for the current OS session.
 - Communicator enabled/disabled state is volatile and must not be persisted in NVS in this phase.
-- Communicator conversation state is small, volatile, and limited to the current deterministic exchange; it is not chat history.
-- Communicator may retain at most one deferred incoming event to avoid head-of-line blocking; it must not overwrite that slot or expand it into a general inbox/reordering layer.
-- True simultaneous conversational initiation uses deterministic MAC ordering: the lower self MAC temporarily yields and may suspend exactly one WaitingForResponse context until the peer's short exchange completes; this is collision handling, not multi-conversation scheduling.
+- Communicator is a latest-wins non-blocking pager, not chat history: only the newest received user message owns the UX.
+- The transport queue is not a user-visible inbox; Communicator drains retained events and keeps the newest valid PresetMessage/PresetResponse.
+- Human response state is independent from device-delivery state; there is no WaitingForResponse or suspended-conversation restoration model.
 - Application ACK is the technical delivery acknowledgement; normal human conversation does not require a separate mandatory OK message.
 - The contextual `ZACZEKAĆ?` follow-up remains because it carries conversational meaning rather than transport confirmation; its local-close path transmits nothing.
 - Communicator physical UI shows one primary message/choice at a time and preserves secondary-short NEXT -> primary-short SELECT interaction on the two-button device.

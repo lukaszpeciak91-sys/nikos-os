@@ -44,8 +44,8 @@ enum class IncomingKind : std::uint8_t {
 struct IncomingMessage {
     IncomingKind kind = IncomingKind::PresetMessage;
     std::uint32_t logical_message_id = 0;
-    std::uint32_t reference_message_id = 0;
-    std::uint16_t value_id = 0;
+    std::uint16_t preset_id = 0;
+    std::uint16_t response_id = 0;
 };
 
 enum class DeliveryKind : std::uint8_t {
@@ -88,8 +88,8 @@ public:
 
     bool send_preset_message(std::uint16_t message_id);
     bool send_preset_response(
-        std::uint16_t response_id,
-        std::uint32_t reference_message_id);
+        std::uint16_t preset_id,
+        std::uint16_t response_id);
     bool send_ring();
 
     bool outgoing_pending() const;
@@ -128,6 +128,7 @@ private:
     struct OutgoingState {
         bool active = false;
         bool completion_pending_transport = false;
+        bool superseded = false;
         communicator_protocol::Message message{};
         DeliveryOutcome completed_outcome = DeliveryOutcome::Failed;
         std::uint32_t completed_ms = 0;
@@ -141,6 +142,11 @@ private:
         std::uint32_t mac_successes = 0;
         std::uint32_t mac_failures = 0;
         std::uint32_t tx_result_timeouts = 0;
+    };
+
+    struct PendingOutgoing {
+        bool valid = false;
+        communicator_protocol::Message message{};
     };
 
     struct TrafficCounters {
@@ -180,8 +186,10 @@ private:
     bool submit_next_ack(std::uint32_t now_ms);
     bool start_outgoing(
         communicator_protocol::MessageType type,
-        std::uint16_t value_id,
-        std::uint32_t reference_message_id);
+        std::uint16_t preset_id,
+        std::uint16_t response_id);
+    void supersede_outgoing(std::uint32_t now_ms);
+    bool activate_pending_outgoing(std::uint32_t now_ms);
     void send_outgoing(std::uint32_t now_ms);
     void service_unicast(std::uint32_t now_ms);
     void handle_missing_tx_result(
@@ -222,6 +230,7 @@ private:
 
     std::uint32_t next_message_id_ = 1;
     OutgoingState outgoing_{};
+    PendingOutgoing pending_outgoing_{};
     UnicastInFlight unicast_in_flight_{};
     TrafficCounters traffic_{};
 

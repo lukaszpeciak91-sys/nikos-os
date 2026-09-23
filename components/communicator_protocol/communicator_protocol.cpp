@@ -88,7 +88,7 @@ bool encode(
         return false;
     }
 
-    output[0] = kV2Discriminator;
+    output[0] = kV3Discriminator;
     output[1] = raw_type;
 
     switch (message.type) {
@@ -105,13 +105,13 @@ bool encode(
 
         case MessageType::PresetMessage:
             write_u32(output + kHeaderSize, message.message_id);
-            write_u16(output + 6, message.value_id);
+            write_u16(output + 6, message.preset_id);
             break;
 
         case MessageType::PresetResponse:
             write_u32(output + kHeaderSize, message.message_id);
-            write_u32(output + 6, message.reference_id);
-            write_u16(output + 10, message.value_id);
+            write_u16(output + 6, message.preset_id);
+            write_u16(output + 8, message.response_id);
             break;
 
         default:
@@ -126,7 +126,7 @@ bool decode(const std::uint8_t* data, std::size_t length, Message& message)
 {
     if (data == nullptr
         || length < kHeaderSize
-        || data[0] != kV2Discriminator
+        || data[0] != kV3Discriminator
         || !valid_type(data[1])) {
         return false;
     }
@@ -154,13 +154,13 @@ bool decode(const std::uint8_t* data, std::size_t length, Message& message)
 
         case MessageType::PresetMessage:
             decoded.message_id = read_u32(data + kHeaderSize);
-            decoded.value_id = read_u16(data + 6);
+            decoded.preset_id = read_u16(data + 6);
             break;
 
         case MessageType::PresetResponse:
             decoded.message_id = read_u32(data + kHeaderSize);
-            decoded.reference_id = read_u32(data + 6);
-            decoded.value_id = read_u16(data + 10);
+            decoded.preset_id = read_u16(data + 6);
+            decoded.response_id = read_u16(data + 8);
             break;
 
         default:
