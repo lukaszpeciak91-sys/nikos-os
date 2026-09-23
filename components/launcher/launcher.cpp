@@ -77,11 +77,11 @@ std::uint8_t theme_index(nikos::ui_theme::Theme theme)
     switch (theme) {
         case nikos::ui_theme::Theme::Bursztyn:
             return 1;
-        case nikos::ui_theme::Theme::Graphite:
+        case nikos::ui_theme::Theme::Matrix:
             return 2;
         case nikos::ui_theme::Theme::Lava:
             return 3;
-        case nikos::ui_theme::Theme::Matrix:
+        case nikos::ui_theme::Theme::Noir:
             return 4;
         case nikos::ui_theme::Theme::Nikos:
         default:
@@ -115,11 +115,11 @@ nikos::ui_theme::Theme theme_from_index(std::uint8_t index)
         case 1:
             return nikos::ui_theme::Theme::Bursztyn;
         case 2:
-            return nikos::ui_theme::Theme::Graphite;
+            return nikos::ui_theme::Theme::Matrix;
         case 3:
             return nikos::ui_theme::Theme::Lava;
         case 4:
-            return nikos::ui_theme::Theme::Matrix;
+            return nikos::ui_theme::Theme::Noir;
         case 0:
         default:
             return nikos::ui_theme::Theme::Nikos;
@@ -148,6 +148,25 @@ void clear_shell(nikos::board::Board& board)
         1,
         nikos::board::DisplayColor::PrimaryText,
         nikos::board::DisplayColor::Background);
+}
+
+void draw_selection_marker(
+    nikos::board::Board& board,
+    std::int16_t x,
+    std::int16_t y,
+    std::int16_t height,
+    nikos::board::DisplayColor color =
+        nikos::board::DisplayColor::Accent)
+{
+    const std::int16_t bottom =
+        static_cast<std::int16_t>(y + height - 1);
+    board.draw_line(x, y, x, bottom, color);
+    board.draw_line(
+        static_cast<std::int16_t>(x + 1),
+        y,
+        static_cast<std::int16_t>(x + 1),
+        bottom,
+        color);
 }
 
 void clear_logo_area(nikos::board::Board& board)
@@ -1092,18 +1111,11 @@ void Launcher::render_main()
                 1,
                 board::DisplayColor::PrimaryText,
                 board::DisplayColor::Surface);
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 8,
                 static_cast<std::int16_t>(row_y - 1),
-                8,
-                static_cast<std::int16_t>(row_y + 14),
-                board::DisplayColor::Accent);
-            board_.draw_line(
-                9,
-                static_cast<std::int16_t>(row_y - 1),
-                9,
-                static_cast<std::int16_t>(row_y + 14),
-                board::DisplayColor::Accent);
+                16);
         }
 
         board_.draw_text_region(
@@ -1212,12 +1224,11 @@ void Launcher::render_tools()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 17),
-                board::DisplayColor::Accent);
+                18);
         }
     }
     board_.draw_text_region(
@@ -1254,12 +1265,7 @@ void Launcher::render_entertainment()
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
-    board_.draw_line(
-        14,
-        58,
-        14,
-        75,
-        board::DisplayColor::Accent);
+    draw_selection_marker(board_, 14, 58, 18);
 
     board_.draw_text_region(
         14,
@@ -1321,12 +1327,11 @@ void Launcher::render_clock()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 13),
-                board::DisplayColor::Accent);
+                14);
         }
     }
 
@@ -1461,12 +1466,11 @@ void Launcher::render_timer_active()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 15),
-                board::DisplayColor::Accent);
+                16);
         }
     }
 
@@ -1559,12 +1563,11 @@ void Launcher::render_stopwatch()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 15),
-                board::DisplayColor::Accent);
+                16);
         }
     }
 
@@ -1774,12 +1777,11 @@ void Launcher::render_clock_timer_if_changed()
             : board::DisplayColor::Background);
 
     if (selected) {
-        board_.draw_line(
+        draw_selection_marker(
+            board_,
             14,
             y,
-            14,
-            static_cast<std::int16_t>(y + 15),
-            board::DisplayColor::Accent);
+            16);
     }
 
     rendered_clock_timer_state_ = state;
@@ -1886,12 +1888,11 @@ void Launcher::render_settings()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 15),
-                board::DisplayColor::Accent);
+                16);
         }
     }
 
@@ -1950,12 +1951,11 @@ void Launcher::render_signal_sound()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 15),
-                board::DisplayColor::Accent);
+                16);
         }
 
         if (active) {
@@ -1994,9 +1994,9 @@ void Launcher::render_theme()
     constexpr const char* kItems[6] = {
         "Nikos",
         "Bursztyn",
-        "Grafit",
-        "Lava",
         "Matrix",
+        "Lava",
+        "Noir",
         "Powrot",
     };
 
@@ -2030,12 +2030,11 @@ void Launcher::render_theme()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 15),
-                board::DisplayColor::Accent);
+                16);
         }
 
         if (active) {
@@ -2102,12 +2101,11 @@ void Launcher::render_orientation()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 16),
-                board::DisplayColor::Accent);
+                17);
         }
 
         if (active) {
@@ -2220,12 +2218,11 @@ void Launcher::render_active_communicator()
                 : board::DisplayColor::Background);
 
         if (selected) {
-            board_.draw_line(
+            draw_selection_marker(
+                board_,
                 14,
                 y,
-                14,
-                static_cast<std::int16_t>(y + 17),
-                board::DisplayColor::Accent);
+                18);
         }
     }
 

@@ -208,17 +208,17 @@ Settings v2 extends the existing composition-owned `settings::State` with one ty
 
 - `Nikos` / Nikoś — default after boot;
 - `Bursztyn`;
-- `Graphite` / Grafit;
+- `Matrix`;
 - `Lava`;
-- `Matrix`.
+- `Noir`.
 
 The selection is volatile for the current OS boot and is not persisted in NVS.
 
 Five fixed compile-time palettes live behind a small `ui_theme` boundary. Applications do not know RGB565 values and do not branch on the active theme. They request semantic `board::DisplayColor` roles, and the board layer resolves theme-varying roles through the active palette.
 
-For the current physical-LCD validation pass, Nikos, Bursztyn, Grafit, Lava, and Matrix each define meaningfully different values for every normal palette role. These exact palette values remain experimental pending hardware validation and are not frozen as product identity.
+For the current physical-LCD validation pass, Nikos, Bursztyn, Matrix, Lava, and Noir each define meaningfully different values for every normal palette role. These exact palette values remain experimental pending hardware validation and are not frozen as product identity.
 
-Theme-varying roles are background, surface, primary text, secondary text, and visual accent. Product-semantic status/attention/error roles remain independent of the selected theme: active/reachable stays restrained mint/green, Communicator `SYGNAŁ` stays orange, and danger/error remains distinct from attention.
+Theme-varying roles are background, surface, primary text, secondary text, and visual accent. The chromatic themes retain fixed product-semantic status/attention/error colors. Noir is intentionally strict monochrome: Board maps active/attention/danger to white and inactive to gray while keeping the existing semantic enums and non-color cues intact.
 
 Changing the theme updates `settings::State`, switches the board palette immediately, and redraws the current Theme screen. No Save/Apply step, generic styling engine, per-screen palette, or persistence is introduced.
 
@@ -500,3 +500,23 @@ Advisory presentation priority is below accepted Communicator traffic/SYGNAL and
 The 20%, 10%, and 3300 mV values are initial hardware-validation values, not permanent calibrated battery truth.
 
 **Rationale:** Sparse sampling adds negligible overhead while providing advisory UX and a confirmed-voltage controlled shutdown before very deep discharge, without creating a general power-management framework.
+
+## D-034 — Theme v0.2 uses dark selection surfaces and hardware-distinct identities
+
+**Status:** Accepted for hardware validation
+
+Physical testing on the M5StickC Plus SE showed that the earlier theme candidates were technically different but visually converged because bright selected surfaces occupied too much of the 240×135 UI. Theme v0.2 therefore keeps selected surfaces very close to black and uses high-contrast text plus a restrained two-pixel accent marker as the common selection language. Confirmation screens may keep their existing compact `>` marker. Layout, navigation, button semantics, and Font0 typography remain unchanged.
+
+The five runtime identities are:
+
+- Nikos: black / warm ivory / restrained mint;
+- Bursztyn: black / amber-gold;
+- Matrix: black / green monochrome-terminal identity;
+- Lava: black / warm light text / ember orange-red;
+- Noir: strict black / white / gray.
+
+Noir replaces the previous gray-oriented Graphite identity and intentionally remaps normal semantic status, attention, and danger presentation to monochrome at the Board color-resolution boundary. Applications continue requesting the same semantic roles and do not branch on theme. Meaning remains available through text, marker shape, filled/hollow treatment, and brightness hierarchy rather than hue alone.
+
+All five palettes remain compile-time RGB565 constants behind `ui_theme`; no framebuffer/color-depth change, generic styling engine, theme-specific navigation, or runtime RGB editor is introduced.
+
+**Rationale:** On a small ST7789V2 panel, theme identity must survive normal viewing distance. Dark selected surfaces stop selection from visually overwhelming the palette, while centralized RGB565 roles keep the implementation small and auditable.
