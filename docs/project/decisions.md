@@ -243,7 +243,7 @@ The first attempt is immediate when transport and a peer identity are available.
 
 Development metrics record logical delivery kind/outcome, ESP-NOW send-request attempts, immediate send-request failures, logical delivery latency, and cumulative accepted send submissions for logical payloads, application ACKs, and Presence. These are submission-level measurements, not true PHY-level Wi-Fi transmission counts.
 
-This bounded-delivery decision remains unchanged by later discovery-oriented Presence pacing, the protocol-v2 payload encoding, RX duty-cycle schedules, or TxResult attribution.
+This bounded-delivery foundation remains valid after later Presence pacing, protocol revisions, RX duty-cycle schedules, TxResult attribution, and D-031 latest-wins supersession. Under D-031, the currently relevant logical send keeps these bounds; an older user send may intentionally terminate earlier when superseded by a newer one.
 
 **Rationale:** Hardware testing showed that indefinite retransmission can waste sender energy and leave UI state waiting forever. Bounded delivery provides a safe measurement baseline before deeper MAC-aware or Presence optimization.
 
@@ -267,7 +267,7 @@ If the missing-TxResult attribution-barrier radio restart itself fails, messagin
 
 RadioLab's deliberate transport handoff still freezes logical delivery/retry timing. Any peer unicast whose callback remains unresolved at the handoff is conservatively closed as missing before radio ownership is transferred; the same logical MessageId and attempt count remain, and the resulting retry timing is frozen until resume.
 
-The TxResult pacing rules remain unchanged when Presence becomes discovery-oriented or the application payload moves to protocol v2. RX duty schedules, recent-RX timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics remain unchanged.
+The TxResult pacing rules remain unchanged when Presence becomes discovery-oriented, across protocol revisions, and under D-031 latest-wins replacement. A newer logical send never steals an older in-flight TxResult slot; the existing callback/missing-result attribution barrier resolves first. RX duty schedules, recent-RX timeouts, Wi-Fi power-save mode, and application ACK/dedupe semantics remain unchanged.
 
 **Rationale:** Destination MAC plus success/failure is insufficient to distinguish an outgoing logical payload from an application ACK to the same peer. Serializing only messaging unicast traffic gives deterministic TxResult ownership while allowing MAC success to reduce blind duplicate retransmission without weakening application-level delivery semantics.
 
