@@ -136,6 +136,7 @@ private:
     bool signal_return_to_launcher_ = false;
     bool signal_audio_complete_rendered_ = false;
     bool signal_animation_wide_ = false;
+    std::uint8_t signal_playback_cycles_started_ = 0;
     std::uint32_t signal_last_animation_ms_ = 0;
 
     bool rendered_peer_state_valid_ = false;
