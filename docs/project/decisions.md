@@ -489,9 +489,11 @@ Initial hardware-validation thresholds are:
 - VERY_LOW at battery percentage <= 10%;
 - CRITICAL at battery voltage <= 3300 mV while not charging.
 
-LOW and VERY_LOW are advisory overlays only. They never independently wake DisplayOff. VERY_LOW supersedes pending LOW. LOW re-arms only after recovery above 25%; VERY_LOW re-arms only after recovery above 15%. Entering Charging clears pending advisory state, re-arms advisory thresholds, and resets any critical-voltage confirmation.
+LOW and VERY_LOW are advisory overlays only. They never independently wake DisplayOff. VERY_LOW supersedes pending LOW. LOW re-arms only after recovery above 25%, and a still-pending LOW is cancelled at that recovery; VERY_LOW re-arms only after recovery above 15%, and a still-pending VERY_LOW is likewise cancelled. Entering Charging clears pending advisory state, re-arms advisory thresholds, resets any critical-voltage confirmation, and app_main removes an advisory that is already visible before restoring the retained runtime UI.
 
-CRITICAL shutdown is not based on percentage and never occurs from one sample. Voltage must remain <= 3300 mV across two consecutive approximately-10-second BatteryGuard samples while not charging. A higher/invalid voltage or Charging resets confirmation. Once confirmed, app_main wakes the display, replaces ordinary overlays with `NISKA BATERIA / WYLACZAM...` for about 1.75 seconds, then uses the same narrow controlled-shutdown helper as Launcher `WYLACZ`: stop sound, reset Communicator session, stop messaging, stop radio, and call `Board::power_off()`.
+A non-positive AXP192 voltage read is normalized by Board to an invalid PowerStatus (`voltage_mv=-1`, `level_percent=-1`, `ChargeState::Unknown`). BatteryGuard never treats that sample as advisory or critical evidence and resets any in-progress critical confirmation.
+
+CRITICAL shutdown is not based on percentage and never occurs from one sample. It requires **two valid low-voltage samples approximately 10 seconds apart**, each <= 3300 mV while not charging. A higher/invalid voltage or Charging resets confirmation. Once confirmed, app_main wakes the display, replaces ordinary overlays with `NISKA BATERIA / WYLACZAM...` for about 1.75 seconds, then uses the same narrow controlled-shutdown helper as Launcher `WYLACZ`: stop sound, reset Communicator session, stop messaging, stop radio, and call `Board::power_off()`.
 
 Advisory presentation priority is below accepted Communicator traffic/SYGNAL and Countdown expiration, but above Clock Glance/ordinary UI. Advisory dismissal consumes the M5/BOCZNY gesture and restores the retained runtime UI. POWER remains the system display off/wake control and does not acknowledge battery warnings.
 
