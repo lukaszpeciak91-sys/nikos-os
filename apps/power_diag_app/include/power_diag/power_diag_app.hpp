@@ -39,6 +39,7 @@ private:
 
     board::Board& board_;
     View view_ = View::Page1;
+    View confirmation_return_view_ = View::Page1;
     std::uint8_t confirmation_selection_ = 0;
 
     bool rendered_second_valid_ = false;
