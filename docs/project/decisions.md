@@ -462,3 +462,17 @@ The prior `WaitingForResponse`, `WaitingForWaitResponse`, response-delivery moda
 Retry interval/jitter, delivery timeout, attempt budget, application-ACK authority, dedupe, ACK priority, TxResult pacing/serialization, missing-TxResult recovery, discovery-oriented Presence, foreground/background RX schedules, STANDARD/LR behavior, RadioLab ownership, and DisplayLifecycle are unchanged.
 
 **Rationale:** Sparse pager-like communication should stay usable even when a human never answers. Self-contained responses and latest-wins UI remove unnecessary conversation coupling while preserving the proven transport safety and delivery semantics.
+
+## D-032 — Communicator delivery feedback is small, global, and non-modal
+
+**Status:** Accepted for hardware validation
+
+The latest outgoing Communicator logical operation exposes one small informational presentation: `WYSYLAM...` while unresolved, followed by `DOSTARCZONO` or `NIE DOSTARCZONO` for approximately 2.5 seconds. It never becomes a navigation state, never captures M5/BOCZNY, and a newer send immediately owns the status. Existing MessageId filtering continues to prevent stale receipts from replacing the latest send.
+
+Delivery receipts are serviced from the normal `app_main` loop immediately after `messaging.update()`, through a narrow Communicator delivery-service method that does not execute foreground input or incoming-message handling. Launcher receives only a cached presentation snapshot and renders the same small banner across ordinary menu screens. No background task, generic notification center, queue, or persistent status store is introduced.
+
+Display and communication priority remain unchanged. Delivery feedback never calls visible-activity wake, never wakes DisplayOff, and is not rendered over Clock Glance, the pending Countdown alert, incoming Communicator user content, SYGNAL, or RadioLab. A later normal redraw uses the current cached state, so hidden/suppressed feedback cannot overwrite higher-priority UI.
+
+Working Communicator message screens use recovered vertical space for user content instead of repeating `KOMUNIKATOR`, `WIADOMOSC`, `WYBIERZ`, or `DECYZJA` headings. Received responses always show the originating preset as smaller context and the response as the dominant content. The latest-wins message model from D-031 remains unchanged.
+
+**Rationale:** Delivery is useful technical feedback but must not become conversation state. A narrow transient banner preserves confidence in delivery while keeping the 240×135 display focused on the current human message and action.
