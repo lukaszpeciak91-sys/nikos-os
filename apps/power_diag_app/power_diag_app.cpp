@@ -172,6 +172,14 @@ PowerDiagApp::UpdateResult PowerDiagApp::update(
         return UpdateResult::ExitRequested;
     }
 
+    if (snapshot.state == SessionState::Inactive) {
+        if (input.primary_short) {
+            view_ = View::Page1;
+            return UpdateResult::StartRequested;
+        }
+        return UpdateResult::Running;
+    }
+
     if (input.secondary_short) {
         view_ = view_ == View::Page1
             ? View::Page2
@@ -181,10 +189,6 @@ PowerDiagApp::UpdateResult PowerDiagApp::update(
     }
 
     if (input.primary_short) {
-        if (snapshot.state == SessionState::Inactive) {
-            return UpdateResult::StartRequested;
-        }
-
         confirmation_return_view_ = view_;
         view_ = View::ConfirmNewTest;
         confirmation_selection_ = 0;
