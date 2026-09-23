@@ -186,7 +186,7 @@ It:
 - stops immediately on request;
 - uses only `board::tone()` / `board::stop_tone()` for buzzer hardware.
 
-Settings preview and received Communicator `SYGNAŁ` both use this same player and the same pattern definitions. It is not a generic audio engine, arbitrary sequencer, notification framework, or FreeRTOS audio task.
+Settings preview, Countdown expiration, and received Communicator `SYGNAŁ` all use this same player and the same pattern definitions. One `play_selected()` call remains one existing bounded playback. Communicator alone chains ten complete `play_selected()` cycles at its alert lifecycle boundary; Settings preview and Countdown still request exactly one playback. It is not a generic audio engine, arbitrary sequencer, notification framework, or FreeRTOS audio task.
 
 ### storage
 
@@ -242,7 +242,7 @@ Working message screens do not repeat the `KOMUNIKATOR` identity header. Incomin
 
 Communicator exposes one session-scoped radio-mode option through its messaging boundary. User-facing `STANDARD` maps to `radio::Mode::Normal`; `LR` maps to `radio::Mode::Lr`. The UI does not call `radio` directly. A successful mode change uses the existing radio mode switch, preserves delivery/dedupe/incoming state and the active RX profile/timing configuration, clears learned peer reachability/RSSI, and forces fresh PRESENCE discovery in the new mode. The selected Communicator mode is volatile for the OS boot and survives foreground exit, RadioLab handoff, and Communicator OFF -> ON within that boot. Full reboot resets the default to STANDARD.
 
-The separate `SYGNAŁ` attention feature is a transient UI/audio overlay over the current foreground state. It reuses the existing RING delivery type but is not a preset message and does not enter the deterministic conversation state machine. Its short buzzer/animation sequence is advanced from the normal application update loop rather than a blocking delay or separate audio/animation framework.
+The separate `SYGNAŁ` attention feature is a transient UI/audio overlay over the current foreground state. It reuses the existing RING delivery type but is not a preset message and does not enter the deterministic conversation state machine. Communicator starts the selected existing sound once, then restarts that complete playback until ten cycles have run; for the default Gentle pattern this is roughly 31 seconds total. Repetition and bell/arcs animation are advanced from the normal application update loop rather than a blocking delay, task, or separate audio/animation framework. User dismissal stops the shared player immediately and clears the Communicator repetition state.
 
 RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
 
