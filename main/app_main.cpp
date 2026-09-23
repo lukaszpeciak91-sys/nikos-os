@@ -437,6 +437,18 @@ extern "C" void app_main(void)
                 radio);
         }
 
+        if (battery_update.charging_detected
+            && battery_advisory_visible) {
+            battery_advisory_visible = false;
+            battery_advisory_level =
+                nikos::battery_guard::AdvisoryLevel::None;
+            redraw_runtime_ui(
+                state,
+                launcher,
+                communicator,
+                radiolab);
+        }
+
         const nikos::power::FilteredInput display_input =
             display_lifecycle.filter_input(board.poll_input());
         const nikos::board::InputState& input = display_input.input;
