@@ -185,6 +185,26 @@ nikos::launcher::CommunicatorStatus communicator_status(
         : nikos::launcher::CommunicatorStatus::Ready;
 }
 
+nikos::launcher::CommunicatorDeliveryStatus communicator_delivery_status(
+    nikos::communicator::CommunicatorApp::DeliveryFeedback feedback)
+{
+    using Feedback =
+        nikos::communicator::CommunicatorApp::DeliveryFeedback;
+    using Status = nikos::launcher::CommunicatorDeliveryStatus;
+
+    switch (feedback) {
+        case Feedback::Sending:
+            return Status::Sending;
+        case Feedback::Delivered:
+            return Status::Delivered;
+        case Feedback::Failed:
+            return Status::Failed;
+        case Feedback::None:
+        default:
+            return Status::None;
+    }
+}
+
 }  // namespace
 
 extern "C" void app_main(void)
@@ -252,6 +272,13 @@ extern "C" void app_main(void)
         // transport. A RadioLab handoff intentionally freezes retry/deadline
         // timing until messaging transport resumes.
         messaging.update();
+        const bool delivery_feedback_changed =
+            communicator.service_delivery();
+        launcher.set_communicator_delivery_status(
+            communicator_delivery_status(
+                communicator.delivery_feedback()),
+            false);
+
         countdown.update();
         signal_sound.update();
 
@@ -446,6 +473,10 @@ extern "C" void app_main(void)
                 }
                 state = RuntimeState::Communicator;
             } else if (launcher_visible) {
+                if (delivery_feedback_changed) {
+                    launcher.redraw();
+                }
+
                 const nikos::launcher::Action action = launcher.update(input);
 
                 if (action == nikos::launcher::Action::StartCommunicator) {
@@ -482,6 +513,9 @@ extern "C" void app_main(void)
                 } else if (
                     action == nikos::launcher::Action::StopCommunicator) {
                     communicator.reset_session();
+                    launcher.set_communicator_delivery_status(
+                        nikos::launcher::CommunicatorDeliveryStatus::None,
+                        false);
 
                     if (!messaging.stop()) {
                         ESP_LOGW(
@@ -550,6 +584,9 @@ extern "C" void app_main(void)
                                 kTag,
                                 "Messaging transport failed to resume after RadioLab error; disabling Communicator session");
                             communicator.reset_session();
+                            launcher.set_communicator_delivery_status(
+                                nikos::launcher::CommunicatorDeliveryStatus::None,
+                                false);
                             (void)messaging.stop();
                             communicator_enabled = false;
                         }
@@ -574,6 +611,12 @@ extern "C" void app_main(void)
                 launcher.begin(
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
+            } else if (
+                delivery_feedback_changed
+                && display_lifecycle.state()
+                    != nikos::power::DisplayState::DisplayOff
+                && communicator.delivery_feedback_overlay_allowed()) {
+                communicator.redraw();
             }
         } else {
             const bool radiolab_visible =
@@ -595,6 +638,9 @@ extern "C" void app_main(void)
                         kTag,
                         "Messaging transport failed to resume after RadioLab; disabling Communicator session");
                     communicator.reset_session();
+                    launcher.set_communicator_delivery_status(
+                        nikos::launcher::CommunicatorDeliveryStatus::None,
+                        false);
                     (void)messaging.stop();
                     communicator_enabled = false;
                 }
