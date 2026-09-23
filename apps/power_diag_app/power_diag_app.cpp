@@ -525,10 +525,19 @@ void PowerDiagApp::render_new_test_confirm()
 
     board_.draw_text_region(
         24,
-        116,
+        112,
+        80,
+        11,
+        "M5 OK",
+        1,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        24,
+        123,
         210,
-        16,
-        "BOCZNY ZMIEN | M5 OK",
+        11,
+        "BOCZNY ZMIEN | DLUGO ANULUJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
