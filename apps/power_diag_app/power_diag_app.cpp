@@ -423,10 +423,13 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
+    std::snprintf(
+        line,
+        sizeof(line),
+        "MODE %s",
+        radio_mode_text(observation.radio_mode));
     board_.draw_text_region(
-        10, 93, 95, 14,
-        radio_mode_text(observation.radio_mode),
-        1,
+        10, 93, 95, 14, line, 1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
@@ -446,12 +449,19 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
             : board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 
+    const char* peer_text = "--";
+    if (observation.peer_reachable) {
+        peer_text = "OK";
+    } else if (observation.peer_known) {
+        peer_text = "ZNANY";
+    }
+
     std::snprintf(
         line,
         sizeof(line),
         "CHG %s  PEER %s",
         charge_text(snapshot.charge_state),
-        observation.peer_known ? "TAK" : "NIE");
+        peer_text);
     board_.draw_text_region(
         10, 108, 220, 12, line, 1,
         board::DisplayColor::SecondaryText,
