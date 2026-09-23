@@ -1335,19 +1335,19 @@ void CommunicatorApp::render_delivery_feedback()
 
     board_.draw_text_region(
         50,
-        114,
+        120,
         140,
-        20,
+        15,
         "",
         1,
         color,
         board::DisplayColor::Surface);
-    board_.draw_line(50, 114, 189, 114, color);
+    board_.draw_line(50, 120, 189, 120, color);
     board_.draw_text_region(
         61,
-        119,
+        123,
         118,
-        12,
+        10,
         text,
         1,
         color,
