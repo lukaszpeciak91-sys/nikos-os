@@ -40,10 +40,18 @@ void BatteryGuard::sample(
 
     const board::PowerStatus status = board_.power_status();
 
+    if (status.voltage_mv <= 0) {
+        // Invalid PMU voltage samples are not battery-state evidence. Do not
+        // generate advisories and never let them advance critical shutdown.
+        critical_confirm_count_ = 0;
+        return;
+    }
+
     if (status.charge_state == board::ChargeState::Charging) {
         // USB/charging is a meaningful recovery boundary: advisories are
         // re-armed, pending advisory state is cleared, and critical
         // confirmation is cancelled.
+        result.charging_detected = true;
         low_armed_ = true;
         very_low_armed_ = true;
         pending_advisory_ = AdvisoryLevel::None;
@@ -64,9 +72,15 @@ void BatteryGuard::update_advisory(
 
     if (status.level_percent > kLowRearmPercent) {
         low_armed_ = true;
+        if (pending_advisory_ == AdvisoryLevel::Low) {
+            pending_advisory_ = AdvisoryLevel::None;
+        }
     }
     if (status.level_percent > kVeryLowRearmPercent) {
         very_low_armed_ = true;
+        if (pending_advisory_ == AdvisoryLevel::VeryLow) {
+            pending_advisory_ = AdvisoryLevel::None;
+        }
     }
 
     if (status.level_percent <= kVeryLowPercent
