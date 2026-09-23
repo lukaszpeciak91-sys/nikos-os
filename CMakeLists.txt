@@ -4,6 +4,7 @@ set(PROJECT_VER "0.2.0")
 set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/apps/radiolab"
     "${CMAKE_CURRENT_LIST_DIR}/apps/communicator"
+    "${CMAKE_CURRENT_LIST_DIR}/apps/power_diag_app"
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

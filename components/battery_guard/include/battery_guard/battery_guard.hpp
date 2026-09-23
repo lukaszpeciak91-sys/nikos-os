@@ -16,6 +16,7 @@ struct UpdateResult {
     bool sampled = false;
     bool charging_detected = false;
     bool critical_confirmed = false;
+    board::PowerStatus power_status{};
 };
 
 class BatteryGuard final {

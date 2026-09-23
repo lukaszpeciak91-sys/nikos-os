@@ -6,6 +6,8 @@
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
 #include "power/display_lifecycle.hpp"
+#include "power_diag/power_diag_app.hpp"
+#include "power_diag/power_diag_session.hpp"
 #include "radiolab/radiolab_app.hpp"
 #include "radio/radio.hpp"
 #include "settings/settings.hpp"
@@ -31,8 +33,14 @@ constexpr std::uint32_t kCriticalShutdownMessageMs = 1750;
 enum class RuntimeState : std::uint8_t {
     Launcher,
     Communicator,
+    PowerDiag,
     RadioLab,
 };
+
+std::uint64_t monotonic_now_us()
+{
+    return static_cast<std::uint64_t>(esp_timer_get_time());
+}
 
 std::uint32_t now_ms()
 {
@@ -238,11 +246,16 @@ void redraw_runtime_ui(
     RuntimeState state,
     nikos::launcher::Launcher& launcher,
     nikos::communicator::CommunicatorApp& communicator,
+    nikos::power_diag::PowerDiagApp& power_diag,
+    nikos::power_diag::PowerDiagSession& power_diag_session,
     nikos::radiolab::RadioLabApp& radiolab)
 {
     switch (state) {
         case RuntimeState::Communicator:
             communicator.redraw();
+            break;
+        case RuntimeState::PowerDiag:
+            power_diag.redraw(power_diag_session.snapshot());
             break;
         case RuntimeState::RadioLab:
             radiolab.redraw();
@@ -336,6 +349,66 @@ nikos::launcher::CommunicatorDeliveryStatus communicator_delivery_status(
     }
 }
 
+nikos::power_diag::DisplayState power_diag_display_state(
+    nikos::power::DisplayState state)
+{
+    using DiagState = nikos::power_diag::DisplayState;
+
+    switch (state) {
+        case nikos::power::DisplayState::Dimmed:
+            return DiagState::Dimmed;
+        case nikos::power::DisplayState::DisplayOff:
+            return DiagState::Off;
+        case nikos::power::DisplayState::Active:
+        default:
+            return DiagState::Active;
+    }
+}
+
+nikos::power_diag::Observation make_power_diag_observation(
+    RuntimeState runtime_state,
+    const nikos::power::DisplayLifecycle& display_lifecycle,
+    bool communicator_enabled,
+    const nikos::messaging::Service& messaging)
+{
+    nikos::power_diag::Observation observation;
+    observation.display_state =
+        power_diag_display_state(display_lifecycle.state());
+    observation.communicator_enabled = communicator_enabled;
+    observation.communicator_foreground =
+        runtime_state == RuntimeState::Communicator;
+    observation.radiolab_foreground =
+        runtime_state == RuntimeState::RadioLab;
+    observation.radio_mode =
+        messaging.radio_mode() == nikos::radio::Mode::Lr
+            ? nikos::power_diag::RadioMode::Lr
+            : nikos::power_diag::RadioMode::Normal;
+
+    if (!communicator_enabled) {
+        return observation;
+    }
+
+    observation.rx_profile =
+        messaging.rx_profile() == nikos::messaging::RxProfile::Foreground
+            ? nikos::power_diag::RxProfile::Foreground
+            : nikos::power_diag::RxProfile::Background;
+
+    const nikos::messaging::RxSchedule schedule =
+        messaging.current_rx_schedule();
+    observation.rx_interval_ms = schedule.interval_ms;
+    observation.rx_wake_window_ms = schedule.wake_window_ms;
+    observation.peer_known = messaging.peer_known();
+    observation.peer_reachable = messaging.peer_reachable();
+
+    std::int8_t rssi = 0;
+    if (messaging.latest_peer_rssi(rssi)) {
+        observation.rssi_valid = true;
+        observation.rssi = rssi;
+    }
+
+    return observation;
+}
+
 }  // namespace
 
 extern "C" void app_main(void)
@@ -386,6 +459,8 @@ extern "C" void app_main(void)
         signal_sound,
         "DRUGI M5");
     nikos::radiolab::RadioLabApp radiolab(board, radio);
+    nikos::power_diag::PowerDiagSession power_diag_session;
+    nikos::power_diag::PowerDiagApp power_diag(board);
 
     bool communicator_enabled = false;
     bool resume_messaging_after_radiolab = false;
@@ -419,6 +494,11 @@ extern "C" void app_main(void)
 
         const nikos::battery_guard::UpdateResult battery_update =
             battery_guard.update(now_ms());
+        if (battery_update.sampled) {
+            power_diag_session.record_battery_sample(
+                battery_update.power_status);
+        }
+
         if (battery_update.critical_confirmed) {
             clock_glance_active = false;
             battery_advisory_visible = false;
@@ -446,6 +526,8 @@ extern "C" void app_main(void)
                 state,
                 launcher,
                 communicator,
+                power_diag,
+                power_diag_session,
                 radiolab);
         }
 
@@ -480,6 +562,16 @@ extern "C" void app_main(void)
 
         display_lifecycle.update();
 
+        if (power_diag_session.running()) {
+            power_diag_session.observe(
+                monotonic_now_us(),
+                make_power_diag_observation(
+                    state,
+                    display_lifecycle,
+                    communicator_enabled,
+                    messaging));
+        }
+
         bool timer_alert_presented_now = false;
 
         if (timer_expired
@@ -505,7 +597,8 @@ extern "C" void app_main(void)
                 display_lifecycle.suppress_user_gesture_until_release();
             }
 
-            if (state == RuntimeState::Launcher) {
+            if (state == RuntimeState::Launcher
+                || state == RuntimeState::PowerDiag) {
                 if (!communicator.begin()) {
                     ESP_LOGW(
                         kTag,
@@ -559,10 +652,12 @@ extern "C" void app_main(void)
                 display_lifecycle.suppress_user_gesture_until_release();
                 display_lifecycle.note_visible_activity();
                 redraw_runtime_ui(
-                    state,
-                    launcher,
-                    communicator,
-                    radiolab);
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
             }
 
             vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
@@ -589,7 +684,8 @@ extern "C" void app_main(void)
                 display_lifecycle.suppress_user_gesture_until_release();
             }
 
-            if (state == RuntimeState::Launcher) {
+            if (state == RuntimeState::Launcher
+                || state == RuntimeState::PowerDiag) {
                 if (!communicator.begin()) {
                     ESP_LOGW(
                         kTag,
@@ -624,10 +720,12 @@ extern "C" void app_main(void)
                     display_lifecycle.suppress_user_gesture_until_release();
                     display_lifecycle.note_visible_activity();
                     redraw_runtime_ui(
-                        state,
-                        launcher,
-                        communicator,
-                        radiolab);
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
 
                     vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
                     continue;
@@ -686,7 +784,8 @@ extern "C" void app_main(void)
                     display_lifecycle.suppress_user_gesture_until_release();
                 }
 
-                if (state == RuntimeState::Launcher) {
+                if (state == RuntimeState::Launcher
+                    || state == RuntimeState::PowerDiag) {
                     if (!communicator.begin()) {
                         ESP_LOGW(
                             kTag,
@@ -714,10 +813,12 @@ extern "C" void app_main(void)
                 display_lifecycle.note_visible_activity();
                 clock_glance_active = false;
                 redraw_runtime_ui(
-                    state,
-                    launcher,
-                    communicator,
-                    radiolab);
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
             } else if (
                 now_ms() - clock_glance_started_ms
                     >= kClockGlanceDurationMs) {
@@ -807,6 +908,11 @@ extern "C" void app_main(void)
                         messaging,
                         radio);
                 } else if (
+                    action == nikos::launcher::Action::OpenPowerDiag) {
+                    display_lifecycle.note_visible_activity();
+                    power_diag.begin(power_diag_session.snapshot());
+                    state = RuntimeState::PowerDiag;
+                } else if (
                     action == nikos::launcher::Action::OpenRadioLab) {
                     resume_messaging_after_radiolab =
                         communicator_enabled;
@@ -871,6 +977,44 @@ extern "C" void app_main(void)
                     != nikos::power::DisplayState::DisplayOff
                 && communicator.delivery_feedback_overlay_allowed()) {
                 communicator.redraw();
+            }
+        } else if (state == RuntimeState::PowerDiag) {
+            if (communicator_enabled
+                && communicator.process_incoming()) {
+                if (!communicator.begin()) {
+                    ESP_LOGW(
+                        kTag,
+                        "Communicator foreground RX profile could not be applied");
+                }
+                state = RuntimeState::Communicator;
+            } else if (
+                display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff) {
+                const nikos::power_diag::PowerDiagApp::UpdateResult result =
+                    power_diag.update(
+                        input,
+                        power_diag_session.snapshot());
+
+                if (result
+                    == nikos::power_diag::PowerDiagApp::UpdateResult::StartRequested
+                    || result
+                    == nikos::power_diag::PowerDiagApp::UpdateResult::NewTestRequested) {
+                    power_diag_session.start(
+                        monotonic_now_us(),
+                        make_power_diag_observation(
+                            state,
+                            display_lifecycle,
+                            communicator_enabled,
+                            messaging));
+                    power_diag.redraw(power_diag_session.snapshot());
+                } else if (
+                    result
+                    == nikos::power_diag::PowerDiagApp::UpdateResult::ExitRequested) {
+                    display_lifecycle.note_visible_activity();
+                    launcher.begin_tools(
+                        communicator_status(communicator_enabled, messaging));
+                    state = RuntimeState::Launcher;
+                }
             }
         } else {
             const bool radiolab_visible =

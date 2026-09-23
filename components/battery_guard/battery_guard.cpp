@@ -39,6 +39,7 @@ void BatteryGuard::sample(
     result.sampled = true;
 
     const board::PowerStatus status = board_.power_status();
+    result.power_status = status;
 
     if (status.voltage_mv <= 0) {
         // Invalid PMU voltage samples are not battery-state evidence. Do not

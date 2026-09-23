@@ -82,6 +82,7 @@ public:
 
     bool set_rx_profile(RxProfile profile);
     RxProfile rx_profile() const;
+    RxSchedule current_rx_schedule() const;
 
     bool set_radio_mode(radio::Mode mode);
     radio::Mode radio_mode() const;
