@@ -501,25 +501,31 @@ The 20%, 10%, and 3300 mV values are initial hardware-validation values, not per
 
 **Rationale:** Sparse sampling adds negligible overhead while providing advisory UX and a confirmed-voltage controlled shutdown before very deep discharge, without creating a general power-management framework.
 
-## D-034 — Theme v0.2 uses dark selection surfaces and hardware-distinct identities
+## D-034 — Theme v0.3 uses tinted depth with a strict RGB565 boundary
 
 **Status:** Accepted for hardware validation
 
-Physical testing on the M5StickC Plus SE showed that the earlier theme candidates were technically different but visually converged because bright selected surfaces occupied too much of the 240×135 UI. Theme v0.2 therefore keeps selected surfaces very close to black and uses high-contrast text plus a restrained two-pixel accent marker as the common selection language. Confirmation screens may keep their existing compact `>` marker. Layout, navigation, button semantics, and Font0 typography remain unchanged.
+Physical testing on the M5StickC Plus SE invalidated the v0.2 assumption that all themes could share a true-black background and obtain enough identity mainly from foreground color. Bursztyn and Lava remained too similar, Matrix did not read as a green terminal, and Noir/selected surfaces showed an unexpected blue/cyan cast.
 
-The five runtime identities are:
+The blue/cyan cast had a concrete rendering-path cause. `ui_theme::Palette` stored 16-bit RGB565 values, but `Board::resolve_display_color()` widened them to `std::uint32_t` before passing them to M5GFX's templated color API. M5GFX interprets unsigned 16-bit integral colors as RGB565 and unsigned 32-bit integral colors as RGB888, so values such as Noir Surface `0x1082` were effectively interpreted as RGB888 `#001082`. The correction is to preserve the RGB565 value as `std::uint16_t` through Board resolution and immediate M5GFX calls. No ST7789 RGB/BGR order defect was found and no channel-swapping workaround is introduced.
 
-- Nikos: black / warm ivory / restrained mint;
-- Bursztyn: black / amber-gold;
-- Matrix: black / green monochrome-terminal identity;
-- Lava: black / warm light text / ember orange-red;
-- Noir: strict black / white / gray.
+Theme v0.3 keeps the restrained selection language from v0.2: selectable rows use a dark theme-specific Surface, PrimaryText, and a two-pixel theme-specific marker. Bright full-width selection fills remain rejected. Existing Launcher, Settings, Clock/Timer, Communicator list/single/options/response, and WaitDecision selection paths already use the semantic Surface plus two-pixel marker grammar and do not require per-screen color branches.
 
-Noir replaces the previous gray-oriented Graphite identity and intentionally remaps normal semantic status, attention, and danger presentation to monochrome at the Board color-resolution boundary. Applications continue requesting the same semantic roles and do not branch on theme. Meaning remains available through text, marker shape, filled/hollow treatment, and brightness hierarchy rather than hue alone.
+The five runtime identities are now whole-screen identities:
 
-All five palettes remain compile-time RGB565 constants behind `ui_theme`; no framebuffer/color-depth change, generic styling engine, theme-specific navigation, or runtime RGB editor is introduced.
+- Nikos: deep navy-black Background, dark navy/graphite Surface, warm ivory, restrained mint;
+- Bursztyn: warm brown/sepia-black Background, dark brown Surface, amber/cream-gold;
+- Matrix: green-black Background, dark green Surface, pale/dim terminal green;
+- Lava: black-burgundy Background, deep red/burgundy Surface, warm ivory, ember orange-red;
+- Noir: true black Background with neutral dark gray, gray, and white only.
 
-**Rationale:** On a small ST7789V2 panel, theme identity must survive normal viewing distance. Dark selected surfaces stop selection from visually overwhelming the palette, while centralized RGB565 roles keep the implementation small and auditable.
+All palette candidates are chosen as RGB888 design values and explicitly quantized to RGB565. Background and Surface pairs must remain meaningfully distinct after quantization, especially at very low levels. Noir uses equal-channel RGB888 inputs for every palette role and continues to remap semantic active/inactive/attention/danger roles to neutral palette values.
+
+Changing the theme updates `settings::State`, switches the Board palette, and redraws the complete Theme screen through the existing `clear_shell()` path. Code inspection found no stale partial-redraw defect in the theme switch path, so no global redraw architecture is added.
+
+All five palettes remain compile-time values behind `ui_theme`; no framebuffer/color-depth change, generic styling engine, theme-specific navigation, runtime RGB editor, or display-driver expansion is introduced.
+
+**Rationale:** Theme identity must survive on the physical 240×135 LCD at normal viewing distance. Theme-owned dark Background/Surface depth provides that identity without making selection the brightest object on screen, while a strict 16-bit RGB565 boundary prevents M5GFX from misinterpreting palette values as RGB888.
 
 ## D-035 — PowerDiag is a volatile background diagnostic session, not telemetry infrastructure
 

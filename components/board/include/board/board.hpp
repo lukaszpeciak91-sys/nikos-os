@@ -115,7 +115,7 @@ public:
     const char* detected_board_name() const;
 
 private:
-    std::uint32_t resolve_display_color(DisplayColor color) const;
+    std::uint16_t resolve_display_color(DisplayColor color) const;
 
     ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
     std::uint8_t active_brightness_ = 96;
