@@ -6,6 +6,7 @@
 #include "communicator/communicator_catalogue.hpp"
 #include "messaging/messaging_service.hpp"
 #include "power/display_lifecycle.hpp"
+#include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 
 namespace nikos::communicator {
@@ -29,6 +30,7 @@ public:
         messaging::Service& messaging,
         power::DisplayLifecycle& display_lifecycle,
         signal_sound::Player& signal_sound,
+        settings::State& settings,
         const char* peer_label);
 
     void begin();
@@ -74,7 +76,8 @@ private:
     bool send_signal();
     bool send_selected_response();
     bool send_wait_followup();
-    void track_latest_send();
+    void track_latest_send(
+        std::uint8_t main_action_index = 0xFFU);
 
     void notify_incoming();
 
@@ -86,6 +89,8 @@ private:
     std::uint8_t signal_bars() const;
     void render_current();
     void render_main();
+    void render_main_list();
+    void render_main_single();
     void render_options();
     void render_main_if_status_changed();
     void render_incoming_preset();
@@ -110,6 +115,7 @@ private:
     messaging::Service& messaging_;
     power::DisplayLifecycle& display_lifecycle_;
     signal_sound::Player& signal_sound_;
+    settings::State& settings_;
     const char* peer_label_;
 
     bool active_ = false;
@@ -129,6 +135,7 @@ private:
 
     std::uint32_t latest_outgoing_message_id_ = 0;
     DeliveryFeedback latest_delivery_feedback_ = DeliveryFeedback::None;
+    std::uint8_t latest_delivery_main_action_index_ = 0xFFU;
     std::uint32_t delivery_result_started_ms_ = 0;
 
     bool signal_unavailable_feedback_ = false;

@@ -23,6 +23,11 @@ enum class Brightness : std::uint8_t {
     High,
 };
 
+enum class CommunicatorView : std::uint8_t {
+    List,
+    Single,
+};
+
 struct BrightnessProfile {
     std::uint8_t active;
     std::uint8_t dimmed;
@@ -34,6 +39,7 @@ struct State {
     Orientation orientation = Orientation::Right;
     SignalSound signal_sound = SignalSound::Gentle;
     Brightness brightness = Brightness::Medium;
+    CommunicatorView communicator_view = CommunicatorView::List;
     ui_theme::Theme theme = ui_theme::Theme::Nikos;
 };
 

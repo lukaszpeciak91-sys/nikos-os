@@ -457,6 +457,7 @@ extern "C" void app_main(void)
         messaging,
         display_lifecycle,
         signal_sound,
+        settings,
         "DRUGI M5");
     nikos::radiolab::RadioLabApp radiolab(board, radio);
     nikos::power_diag::PowerDiagSession power_diag_session;

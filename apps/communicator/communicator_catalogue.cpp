@@ -50,6 +50,18 @@ const char* response_text(ResponseId id)
     }
 }
 
+const char* response_text_for(
+    PresetId preset,
+    ResponseId response)
+{
+    if (preset == PresetId::CanTalk
+        && response == ResponseId::YesComing) {
+        return "TAK";
+    }
+
+    return response_text(response);
+}
+
 bool preset_from_wire(std::uint16_t raw, PresetId& id)
 {
     switch (static_cast<PresetId>(raw)) {

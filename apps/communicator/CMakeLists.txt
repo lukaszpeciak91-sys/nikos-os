@@ -8,5 +8,6 @@ idf_component_register(
         esp_timer
         messaging
         power
+        settings
         signal_sound
 )

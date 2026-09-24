@@ -1,6 +1,7 @@
 #include "communicator/communicator_app.hpp"
 
 #include <cstddef>
+#include <cstdio>
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -14,6 +15,20 @@ constexpr float kNotificationToneHz = 2600.0F;
 constexpr std::uint32_t kSignalAnimationMs = 120;
 constexpr std::uint8_t kSignalPlaybackCount = 10;
 constexpr std::uint32_t kDeliveryResultVisibleMs = 2500;
+
+constexpr std::uint8_t kMainPresetCount =
+    static_cast<std::uint8_t>(
+        nikos::communicator::catalogue::kPresetOrder.size());
+constexpr std::uint8_t kMainSignalIndex = kMainPresetCount;
+constexpr std::uint8_t kMainOptionsIndex =
+    static_cast<std::uint8_t>(kMainSignalIndex + 1U);
+constexpr std::uint8_t kMainReturnIndex =
+    static_cast<std::uint8_t>(kMainOptionsIndex + 1U);
+constexpr std::uint8_t kMainChoiceCount =
+    static_cast<std::uint8_t>(kMainReturnIndex + 1U);
+constexpr std::uint8_t kMainSendActionCount =
+    static_cast<std::uint8_t>(kMainSignalIndex + 1U);
+constexpr std::uint8_t kNoMainActionIndex = 0xFFU;
 
 constexpr std::int16_t kScreenWidth = 240;
 constexpr std::int16_t kScreenHeight = 135;
@@ -57,26 +72,6 @@ void draw_selection_marker(
         color);
 }
 
-const char* choice_counter(std::uint8_t index, std::uint8_t count)
-{
-    if (count <= 1U) {
-        return "1 / 1";
-    }
-    if (count == 2U) {
-        return index == 0U ? "1 / 2" : "2 / 2";
-    }
-
-    switch (index) {
-        case 1U:
-            return "2 / 3";
-        case 2U:
-            return "3 / 3";
-        case 0U:
-        default:
-            return "1 / 3";
-    }
-}
-
 std::uint32_t now_ms()
 {
     return static_cast<std::uint32_t>(esp_timer_get_time() / 1000U);
@@ -91,11 +86,13 @@ CommunicatorApp::CommunicatorApp(
     messaging::Service& messaging,
     power::DisplayLifecycle& display_lifecycle,
     signal_sound::Player& signal_sound,
+    settings::State& settings,
     const char* peer_label)
     : board_(board),
       messaging_(messaging),
       display_lifecycle_(display_lifecycle),
       signal_sound_(signal_sound),
+      settings_(settings),
       peer_label_(peer_label)
 {
 }
@@ -158,6 +155,7 @@ void CommunicatorApp::reset_session()
 
     latest_outgoing_message_id_ = 0;
     latest_delivery_feedback_ = DeliveryFeedback::None;
+    latest_delivery_main_action_index_ = kNoMainActionIndex;
     delivery_result_started_ms_ = 0;
 
     signal_unavailable_feedback_ = false;
@@ -191,6 +189,7 @@ bool CommunicatorApp::service_delivery()
             >= kDeliveryResultVisibleMs) {
         latest_delivery_feedback_ = DeliveryFeedback::None;
         latest_outgoing_message_id_ = 0;
+        latest_delivery_main_action_index_ = kNoMainActionIndex;
         delivery_result_started_ms_ = 0;
         changed = true;
     }
@@ -324,9 +323,12 @@ bool CommunicatorApp::accept_incoming(
     catalogue::ResponseId response;
     (void)catalogue::response_from_wire(message.response_id, response);
     incoming_response_ = response;
-    state_ = catalogue::needs_wait_decision(response)
-        ? State::WaitDecision
-        : State::IncomingResponse;
+    if (catalogue::needs_wait_decision(response)) {
+        selected_response_index_ = 0;
+        state_ = State::WaitDecision;
+    } else {
+        state_ = State::IncomingResponse;
+    }
     notify_incoming();
     return true;
 }
@@ -439,14 +441,6 @@ void CommunicatorApp::handle_input(const board::InputState& input)
 void CommunicatorApp::handle_main_input(const board::InputState& input)
 {
     const bool peer_known = messaging_.peer_known();
-    const std::uint8_t signal_index =
-        static_cast<std::uint8_t>(catalogue::kPresetOrder.size());
-    const std::uint8_t options_index =
-        static_cast<std::uint8_t>(signal_index + 1U);
-    const std::uint8_t return_index =
-        static_cast<std::uint8_t>(options_index + 1U);
-    const std::uint8_t choice_count =
-        static_cast<std::uint8_t>(return_index + 1U);
 
     if (signal_unavailable_feedback_) {
         if (input.primary_short || input.secondary_short) {
@@ -458,7 +452,7 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
 
     if (input.secondary_short) {
         selected_main_index_ = static_cast<std::uint8_t>(
-            (selected_main_index_ + 1U) % choice_count);
+            (selected_main_index_ + 1U) % kMainChoiceCount);
         render_main();
         return;
     }
@@ -467,7 +461,7 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         return;
     }
 
-    if (selected_main_index_ == options_index) {
+    if (selected_main_index_ == kMainOptionsIndex) {
         options_active_ = true;
         selected_options_index_ = 0;
         radio_mode_change_failed_ = false;
@@ -475,12 +469,12 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         return;
     }
 
-    if (selected_main_index_ == return_index) {
+    if (selected_main_index_ == kMainReturnIndex) {
         foreground_exit_requested_ = true;
         return;
     }
 
-    if (selected_main_index_ == signal_index) {
+    if (selected_main_index_ == kMainSignalIndex) {
         if (peer_known) {
             (void)send_signal();
         } else {
@@ -502,7 +496,7 @@ void CommunicatorApp::handle_options_input(
 {
     if (input.secondary_short) {
         selected_options_index_ =
-            static_cast<std::uint8_t>((selected_options_index_ + 1U) % 2U);
+            static_cast<std::uint8_t>((selected_options_index_ + 1U) % 3U);
         radio_mode_change_failed_ = false;
         render_options();
         return;
@@ -512,10 +506,20 @@ void CommunicatorApp::handle_options_input(
         return;
     }
 
-    if (selected_options_index_ == 1U) {
+    if (selected_options_index_ == 2U) {
         options_active_ = false;
         radio_mode_change_failed_ = false;
         render_main();
+        return;
+    }
+
+    if (selected_options_index_ == 0U) {
+        settings_.communicator_view =
+            settings_.communicator_view == settings::CommunicatorView::List
+            ? settings::CommunicatorView::Single
+            : settings::CommunicatorView::List;
+        radio_mode_change_failed_ = false;
+        render_options();
         return;
     }
 
@@ -577,15 +581,24 @@ void CommunicatorApp::handle_incoming_response_input(
 void CommunicatorApp::handle_wait_decision_input(
     const board::InputState& input)
 {
-    if (input.primary_short) {
+    if (input.secondary_short) {
+        selected_response_index_ =
+            static_cast<std::uint8_t>((selected_response_index_ + 1U) % 2U);
+        render_wait_decision();
+        return;
+    }
+
+    if (!input.primary_short) {
+        return;
+    }
+
+    if (selected_response_index_ == 0U) {
         (void)send_wait_followup();
         return;
     }
 
-    if (input.secondary_short) {
-        state_ = State::Main;
-        render_main();
-    }
+    state_ = State::Main;
+    render_main();
 }
 
 bool CommunicatorApp::send_selected_preset()
@@ -603,7 +616,7 @@ bool CommunicatorApp::send_selected_preset()
         return false;
     }
 
-    track_latest_send();
+    track_latest_send(selected_main_index_);
     state_ = State::Main;
     render_main();
     return true;
@@ -615,7 +628,8 @@ bool CommunicatorApp::send_signal()
         return false;
     }
 
-    track_latest_send();
+    track_latest_send(kMainSignalIndex);
+    render_main();
     return true;
 }
 
@@ -655,11 +669,16 @@ bool CommunicatorApp::send_wait_followup()
     return true;
 }
 
-void CommunicatorApp::track_latest_send()
+void CommunicatorApp::track_latest_send(
+    std::uint8_t main_action_index)
 {
     latest_outgoing_message_id_ =
         messaging_.outgoing_logical_message_id();
     latest_delivery_feedback_ = DeliveryFeedback::Sending;
+    latest_delivery_main_action_index_ =
+        main_action_index < kMainSendActionCount
+        ? main_action_index
+        : kNoMainActionIndex;
     delivery_result_started_ms_ = 0;
 }
 
@@ -789,6 +808,289 @@ void CommunicatorApp::render_current()
 }
 
 void CommunicatorApp::render_main()
+{
+    if (settings_.communicator_view == settings::CommunicatorView::List) {
+        render_main_list();
+    } else {
+        render_main_single();
+    }
+}
+
+void CommunicatorApp::render_main_list()
+{
+    signal_unavailable_feedback_ = false;
+    clear_screen();
+    draw_header("KOMUNIKATOR");
+
+    const bool peer_known = messaging_.peer_known();
+    const bool recently_seen = messaging_.peer_reachable();
+    const std::uint8_t bars = signal_bars();
+
+    board_.draw_text_region(
+        10,
+        22,
+        82,
+        11,
+        peer_label_,
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        94,
+        22,
+        96,
+        11,
+        !peer_known
+            ? "SZUKAM..."
+            : (recently_seen ? "DOSTEPNY" : "GOTOWY"),
+        1,
+        recently_seen
+            ? board::DisplayColor::StatusActive
+            : board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    draw_signal_bars(bars, recently_seen);
+    board_.draw_line(
+        8,
+        34,
+        231,
+        34,
+        board::DisplayColor::SecondaryText);
+
+    std::uint8_t first_visible = 0;
+    if (selected_main_index_ < kMainSendActionCount) {
+        if (selected_main_index_ >= 3U) {
+            first_visible =
+                static_cast<std::uint8_t>(selected_main_index_ - 2U);
+        }
+    } else {
+        first_visible =
+            static_cast<std::uint8_t>(kMainSendActionCount - 3U);
+    }
+
+    for (std::uint8_t slot = 0; slot < 3U; ++slot) {
+        const std::uint8_t action_index =
+            static_cast<std::uint8_t>(first_visible + slot);
+        const bool selected = selected_main_index_ == action_index;
+        const bool signal = action_index == kMainSignalIndex;
+        const bool feedback_origin =
+            latest_delivery_feedback_ != DeliveryFeedback::None
+            && latest_delivery_main_action_index_ == action_index;
+        const std::int16_t y =
+            static_cast<std::int16_t>(36 + slot * 20);
+
+        const board::DisplayColor text_color =
+            !peer_known
+                ? board::DisplayColor::SecondaryText
+                : (signal
+                    ? board::DisplayColor::Attention
+                    : board::DisplayColor::PrimaryText);
+        const board::DisplayColor background =
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background;
+
+        board_.draw_text_region(
+            8,
+            y,
+            224,
+            19,
+            "",
+            1,
+            text_color,
+            background);
+
+        if (signal) {
+            draw_bell_glyph(
+                18,
+                static_cast<std::int16_t>(y + 9),
+                1,
+                text_color);
+            board_.draw_text_region(
+                28,
+                static_cast<std::int16_t>(y + 2),
+                198,
+                16,
+                "SYGNAL",
+                2,
+                text_color,
+                background);
+        } else {
+            board_.draw_text_region(
+                14,
+                static_cast<std::int16_t>(y + 2),
+                216,
+                16,
+                catalogue::preset_text(
+                    catalogue::kPresetOrder[action_index]),
+                2,
+                text_color,
+                background);
+        }
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                8,
+                y,
+                19,
+                signal && peer_known
+                    ? board::DisplayColor::Attention
+                    : (peer_known
+                        ? board::DisplayColor::Accent
+                        : board::DisplayColor::SecondaryText));
+        }
+
+        if (feedback_origin) {
+            board::DisplayColor feedback_color =
+                board::DisplayColor::Accent;
+            if (latest_delivery_feedback_ == DeliveryFeedback::Delivered) {
+                feedback_color = board::DisplayColor::StatusActive;
+            } else if (latest_delivery_feedback_ == DeliveryFeedback::Failed) {
+                feedback_color = board::DisplayColor::Danger;
+            }
+
+            board_.draw_line(
+                230,
+                static_cast<std::int16_t>(y + 2),
+                230,
+                static_cast<std::int16_t>(y + 16),
+                feedback_color);
+            board_.draw_line(
+                231,
+                static_cast<std::int16_t>(y + 2),
+                231,
+                static_cast<std::int16_t>(y + 16),
+                feedback_color);
+        }
+    }
+
+    const bool options_selected =
+        selected_main_index_ == kMainOptionsIndex;
+    const bool return_selected =
+        selected_main_index_ == kMainReturnIndex;
+
+    board_.draw_text_region(
+        8,
+        98,
+        108,
+        22,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        options_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    board_.draw_text_region(
+        20,
+        101,
+        90,
+        17,
+        "OPCJE",
+        2,
+        options_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        options_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    if (options_selected) {
+        draw_selection_marker(board_, 8, 99, 19);
+    }
+
+    board_.draw_text_region(
+        124,
+        98,
+        108,
+        22,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        return_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    board_.draw_text_region(
+        136,
+        101,
+        90,
+        17,
+        "POWROT",
+        2,
+        return_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        return_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    if (return_selected) {
+        draw_selection_marker(board_, 124, 99, 19);
+    }
+
+    char footer[64]{};
+    const char* feedback_text = nullptr;
+    board::DisplayColor footer_color =
+        board::DisplayColor::SecondaryText;
+
+    if (latest_delivery_feedback_ == DeliveryFeedback::Sending) {
+        feedback_text = "WYSYLAM...";
+        footer_color = board::DisplayColor::Accent;
+    } else if (latest_delivery_feedback_ == DeliveryFeedback::Delivered) {
+        feedback_text = "DOSTARCZONO";
+        footer_color = board::DisplayColor::StatusActive;
+    } else if (latest_delivery_feedback_ == DeliveryFeedback::Failed) {
+        feedback_text = "NIE DOSTARCZONO";
+        footer_color = board::DisplayColor::Danger;
+    }
+
+    if (feedback_text != nullptr) {
+        if (latest_delivery_main_action_index_ < kMainPresetCount) {
+            std::snprintf(
+                footer,
+                sizeof(footer),
+                "%s - %s",
+                catalogue::preset_text(
+                    catalogue::kPresetOrder[
+                        latest_delivery_main_action_index_]),
+                feedback_text);
+        } else if (latest_delivery_main_action_index_
+            == kMainSignalIndex) {
+            std::snprintf(
+                footer,
+                sizeof(footer),
+                "SYGNAL - %s",
+                feedback_text);
+        } else {
+            std::snprintf(
+                footer,
+                sizeof(footer),
+                "%s",
+                feedback_text);
+        }
+    } else {
+        std::snprintf(
+            footer,
+            sizeof(footer),
+            "M5 WYBIERZ  BOCZNY DALEJ");
+    }
+
+    board_.draw_text_region(
+        10,
+        123,
+        222,
+        10,
+        footer,
+        1,
+        footer_color,
+        board::DisplayColor::Background);
+
+    rendered_peer_state_valid_ = true;
+    rendered_peer_known_ = peer_known;
+    rendered_peer_reachable_ = recently_seen;
+    rendered_signal_bars_ = bars;
+}
+
+void CommunicatorApp::render_main_single()
 {
     signal_unavailable_feedback_ = false;
     clear_screen();
@@ -1002,59 +1304,98 @@ void CommunicatorApp::render_options()
     clear_screen();
     draw_header("OPCJE");
 
-    const bool mode_selected = selected_options_index_ == 0U;
-    const bool return_selected = selected_options_index_ == 1U;
+    const bool view_selected = selected_options_index_ == 0U;
+    const bool mode_selected = selected_options_index_ == 1U;
+    const bool return_selected = selected_options_index_ == 2U;
+
+    const char* view_text =
+        settings_.communicator_view == settings::CommunicatorView::List
+            ? "LISTA"
+            : "POJEDYNCZO";
     const char* mode_text =
         messaging_.radio_mode() == radio::Mode::Lr
             ? "LR"
             : "STANDARD";
 
+    const board::DisplayColor view_background =
+        view_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background;
+    board_.draw_text_region(
+        8,
+        23,
+        224,
+        32,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        view_background);
+    board_.draw_text_region(
+        16,
+        24,
+        208,
+        11,
+        "WIDOK WIADOMOSCI",
+        1,
+        view_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        view_background);
+    board_.draw_text_region(
+        16,
+        36,
+        208,
+        18,
+        view_text,
+        2,
+        board::DisplayColor::PrimaryText,
+        view_background);
+    if (view_selected) {
+        draw_selection_marker(board_, 8, 24, 30);
+    }
+
     const board::DisplayColor mode_background =
         mode_selected
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background;
-
     board_.draw_text_region(
         8,
-        29,
+        58,
         224,
-        44,
+        32,
         "",
         1,
         board::DisplayColor::PrimaryText,
         mode_background);
-
     board_.draw_text_region(
         16,
-        30,
+        59,
         208,
-        21,
+        11,
         "TRYB RADIO",
-        2,
+        1,
         mode_selected
             ? board::DisplayColor::PrimaryText
             : board::DisplayColor::SecondaryText,
         mode_background);
-
     board_.draw_text_region(
         16,
-        51,
+        71,
         208,
-        21,
+        18,
         mode_text,
         2,
         board::DisplayColor::PrimaryText,
         mode_background);
-
     if (mode_selected) {
-        draw_selection_marker(board_, 8, 30, 40);
+        draw_selection_marker(board_, 8, 59, 30);
     }
 
     board_.draw_text_region(
-        12,
-        78,
-        216,
-        22,
+        8,
+        94,
+        224,
+        20,
         "POWROT",
         2,
         return_selected
@@ -1063,33 +1404,22 @@ void CommunicatorApp::render_options()
         return_selected
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background);
-
     if (return_selected) {
-        draw_selection_marker(board_, 8, 79, 18);
+        draw_selection_marker(board_, 8, 95, 18);
     }
 
     board_.draw_text_region(
-        18,
-        102,
-        204,
+        14,
+        118,
+        212,
         13,
         radio_mode_change_failed_
             ? "NIE UDALO SIE"
-            : "USTAW TAK SAMO NA OBU",
+            : "M5 ZMIEN | BOCZNY DALEJ",
         1,
         radio_mode_change_failed_
             ? board::DisplayColor::Danger
             : board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(
-        8,
-        120,
-        224,
-        13,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 
     render_delivery_feedback();
@@ -1171,54 +1501,65 @@ void CommunicatorApp::render_response_choices()
 
     board_.draw_text_region(
         12,
-        8,
+        6,
         216,
         20,
         catalogue::preset_text(incoming_preset_),
         context_text_scale(incoming_preset_),
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
-
-    const catalogue::ResponseId response =
-        response_set_.ids[selected_response_index_];
-    board_.draw_text_region(
+    board_.draw_line(
         8,
-        34,
-        224,
-        60,
-        "",
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_text_region(
-        14,
-        50,
-        212,
-        32,
-        catalogue::response_text(response),
-        response_text_scale(response),
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    draw_selection_marker(
-        board_,
-        8,
-        34,
-        60);
+        29,
+        231,
+        29,
+        board::DisplayColor::SecondaryText);
+
+    for (std::uint8_t index = 0; index < response_set_.count; ++index) {
+        const bool selected = index == selected_response_index_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(34 + index * 24);
+        const board::DisplayColor background =
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background;
+
+        board_.draw_text_region(
+            8,
+            y,
+            224,
+            21,
+            "",
+            1,
+            board::DisplayColor::PrimaryText,
+            background);
+        board_.draw_text_region(
+            16,
+            static_cast<std::int16_t>(y + 2),
+            210,
+            18,
+            catalogue::response_text_for(
+                incoming_preset_,
+                response_set_.ids[index]),
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            background);
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                8,
+                y,
+                21);
+        }
+    }
 
     board_.draw_text_region(
-        102,
-        97,
-        46,
-        10,
-        choice_counter(selected_response_index_, response_set_.count),
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(
-        27,
-        118,
-        202,
+        22,
+        116,
+        208,
         14,
         "M5 WYBIERZ  BOCZNY DALEJ",
         1,
@@ -1254,7 +1595,7 @@ void CommunicatorApp::render_incoming_response()
         50,
         212,
         34,
-        catalogue::response_text(incoming_response_),
+        catalogue::response_text_for(incoming_preset_, incoming_response_),
         response_text_scale(incoming_response_),
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
@@ -1282,54 +1623,81 @@ void CommunicatorApp::render_wait_decision()
 
     board_.draw_text_region(
         12,
-        7,
+        5,
         216,
-        20,
+        18,
         catalogue::preset_text(incoming_preset_),
-        context_text_scale(incoming_preset_),
+        1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
-
     board_.draw_text_region(
-        8,
-        31,
-        224,
-        50,
-        "",
-        1,
+        12,
+        23,
+        216,
+        18,
+        catalogue::response_text_for(
+            incoming_preset_,
+            incoming_response_),
+        2,
         board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_text_region(
-        14,
-        42,
-        212,
-        30,
-        catalogue::response_text(incoming_response_),
-        response_text_scale(incoming_response_),
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
+        board::DisplayColor::Background);
     board_.draw_line(
         8,
-        31,
-        8,
-        80,
-        board::DisplayColor::Accent);
+        44,
+        231,
+        44,
+        board::DisplayColor::SecondaryText);
+
+    constexpr const char* kDecisionItems[2] = {
+        "CZEKAC?",
+        "ZAMKNIJ",
+    };
+
+    for (std::uint8_t index = 0; index < 2U; ++index) {
+        const bool selected = index == selected_response_index_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(50 + index * 28);
+        const board::DisplayColor background =
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background;
+
+        board_.draw_text_region(
+            8,
+            y,
+            224,
+            24,
+            "",
+            1,
+            board::DisplayColor::PrimaryText,
+            background);
+        board_.draw_text_region(
+            16,
+            static_cast<std::int16_t>(y + 3),
+            210,
+            19,
+            kDecisionItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            background);
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                8,
+                y,
+                24);
+        }
+    }
 
     board_.draw_text_region(
-        28,
-        87,
-        195,
-        20,
-        "M5 CZEKAC?",
-        2,
-        board::DisplayColor::Accent,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        28,
-        113,
-        195,
-        16,
-        "BOCZNY ZAMKNIJ",
+        22,
+        116,
+        208,
+        14,
+        "M5 WYBIERZ  BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
