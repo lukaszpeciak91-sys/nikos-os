@@ -599,11 +599,7 @@ extern "C" void app_main(void)
 
             if (state == RuntimeState::Launcher
                 || state == RuntimeState::PowerDiag) {
-                if (!communicator.begin()) {
-                    ESP_LOGW(
-                        kTag,
-                        "Communicator foreground RX profile could not be applied");
-                }
+                communicator.begin();
                 state = RuntimeState::Communicator;
             }
 
@@ -686,11 +682,7 @@ extern "C" void app_main(void)
 
             if (state == RuntimeState::Launcher
                 || state == RuntimeState::PowerDiag) {
-                if (!communicator.begin()) {
-                    ESP_LOGW(
-                        kTag,
-                        "Communicator foreground RX profile could not be applied");
-                }
+                communicator.begin();
                 state = RuntimeState::Communicator;
             }
 
@@ -786,11 +778,7 @@ extern "C" void app_main(void)
 
                 if (state == RuntimeState::Launcher
                     || state == RuntimeState::PowerDiag) {
-                    if (!communicator.begin()) {
-                        ESP_LOGW(
-                            kTag,
-                            "Communicator foreground RX profile could not be applied");
-                    }
+                    communicator.begin();
                     state = RuntimeState::Communicator;
                 }
             }
@@ -839,11 +827,7 @@ extern "C" void app_main(void)
                 launcher_visible);
             if (communicator_enabled
                 && communicator.process_incoming()) {
-                if (!communicator.begin()) {
-                    ESP_LOGW(
-                        kTag,
-                        "Communicator foreground RX profile could not be applied");
-                }
+                communicator.begin();
                 state = RuntimeState::Communicator;
             } else if (launcher_visible) {
                 if (delivery_feedback_changed) {
@@ -861,11 +845,7 @@ extern "C" void app_main(void)
                         communicator_enabled = true;
                         display_lifecycle.note_visible_activity();
 
-                        if (!communicator.begin()) {
-                            ESP_LOGW(
-                                kTag,
-                                "Communicator foreground RX profile could not be applied");
-                        }
+                        communicator.begin();
                         state = RuntimeState::Communicator;
                     } else {
                         ESP_LOGW(
@@ -877,11 +857,7 @@ extern "C" void app_main(void)
                 } else if (
                     action == nikos::launcher::Action::OpenCommunicator) {
                     display_lifecycle.note_visible_activity();
-                    if (!communicator.begin()) {
-                        ESP_LOGW(
-                            kTag,
-                            "Communicator foreground RX profile could not be applied");
-                    }
+                    communicator.begin();
                     state = RuntimeState::Communicator;
                 } else if (
                     action == nikos::launcher::Action::StopCommunicator) {
@@ -961,11 +937,7 @@ extern "C" void app_main(void)
         } else if (state == RuntimeState::Communicator) {
             if (communicator.update(input)
                 == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested) {
-                if (!communicator.end()) {
-                    ESP_LOGW(
-                        kTag,
-                        "Communicator background RX profile could not be restored");
-                }
+                communicator.end();
 
                 display_lifecycle.note_visible_activity();
                 launcher.begin(
@@ -981,11 +953,7 @@ extern "C" void app_main(void)
         } else if (state == RuntimeState::PowerDiag) {
             if (communicator_enabled
                 && communicator.process_incoming()) {
-                if (!communicator.begin()) {
-                    ESP_LOGW(
-                        kTag,
-                        "Communicator foreground RX profile could not be applied");
-                }
+                communicator.begin();
                 state = RuntimeState::Communicator;
             } else if (
                 display_lifecycle.state()

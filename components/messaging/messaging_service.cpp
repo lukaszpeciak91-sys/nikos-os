@@ -261,6 +261,10 @@ bool Service::resume_transport()
         return true;
     }
 
+    if (!apply_desired_rx_profile()) {
+        return false;
+    }
+
     if (!start_transport()) {
         return false;
     }
@@ -285,26 +289,157 @@ bool Service::transport_active() const
     return transport_active_;
 }
 
-bool Service::set_rx_profile(RxProfile profile)
+RxProfile Service::desired_rx_profile() const
 {
-    if (!started_) {
+    return outgoing_.active || pending_outgoing_.valid
+        ? RxProfile::Foreground
+        : RxProfile::Background;
+}
+
+bool Service::apply_rx_profile(RxProfile profile)
+{
+    if (profile == rx_profile_) {
+        return true;
+    }
+
+    if (!started_ || !transport_active_) {
         rx_profile_ = profile;
         return true;
     }
 
-    if (!transport_active_) {
-        rx_profile_ = profile;
-        return true;
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+    if (test_fail_next_rx_profile_apply_) {
+        test_fail_next_rx_profile_apply_ = false;
+        return false;
     }
+#endif
 
-    const RxProfile previous = rx_profile_;
-    rx_profile_ = profile;
     if (!radio_.set_rx_power(rx_power_for(profile))) {
-        rx_profile_ = previous;
         return false;
     }
 
+    rx_profile_ = profile;
     return true;
+}
+
+bool Service::apply_desired_rx_profile()
+{
+    if (apply_rx_profile(desired_rx_profile())) {
+        return true;
+    }
+
+    if (!started_ || !transport_active_ || faulted_) {
+        return false;
+    }
+
+    ESP_LOGW(
+        kTag,
+        "RX profile transition failed; attempting bounded transport recovery");
+    return recover_rx_profile_transition();
+}
+
+bool Service::recover_rx_profile_transition()
+{
+    if (!started_ || !transport_active_ || faulted_) {
+        return false;
+    }
+
+    const std::uint32_t recovery_ms = now_ms();
+    const std::uint32_t saved_last_presence_tx_ms =
+        last_presence_tx_ms_;
+    const std::uint32_t saved_presence_delay_ms =
+        current_presence_delay_ms_;
+
+    // Any accepted unicast whose TxResult has not been resolved cannot keep
+    // its callback attribution across a transport reset. Account for it with
+    // the same conservative missing-TxResult semantics used elsewhere. This
+    // may finalize a completed delivery and activate a latest-wins
+    // replacement, so desired RX must be recomputed only after this cleanup.
+    if (unicast_in_flight_.active) {
+        handle_missing_tx_result(
+            recovery_ms,
+            false,
+            "rx_profile_recovery");
+    }
+
+    const bool stopped = radio_.stop();
+    transport_active_ = false;
+    if (!stopped) {
+        ESP_LOGW(
+            kTag,
+            "Radio cleanup reported errors during RX profile recovery");
+    }
+
+    // Transport is stopped, so stored profile state can be reconciled
+    // without another hardware call. Recompute from CURRENT logical state
+    // after in-flight cleanup/finalization.
+    rx_profile_ = desired_rx_profile();
+
+    bool restart_succeeded = false;
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+    if (test_fail_next_rx_recovery_restart_) {
+        test_fail_next_rx_recovery_restart_ = false;
+    } else {
+        restart_succeeded = start_transport();
+    }
+#else
+    restart_succeeded = start_transport();
+#endif
+
+    if (!restart_succeeded) {
+        fail_transport_closed(
+            recovery_ms,
+            "RX profile recovery restart failed");
+        return false;
+    }
+
+    last_presence_tx_ms_ = saved_last_presence_tx_ms;
+    current_presence_delay_ms_ = saved_presence_delay_ms;
+
+    ESP_LOGI(
+        kTag,
+        "RX profile recovery restored %s profile",
+        rx_profile_ == RxProfile::Foreground
+            ? "delivery-boost"
+            : "idle");
+    return true;
+}
+
+void Service::fail_transport_closed(
+    std::uint32_t failed_at_ms,
+    const char* reason)
+{
+    ESP_LOGE(
+        kTag,
+        "%s; messaging faulted",
+        reason != nullptr ? reason : "Transport recovery failed");
+
+    transport_active_ = false;
+    faulted_ = true;
+    unicast_in_flight_ = UnicastInFlight{};
+
+    pending_ack_references_ = {};
+    pending_ack_head_ = 0;
+    pending_ack_count_ = 0;
+    pending_presence_reply_ = false;
+
+    peer_known_ = false;
+    peer_mac_ = {};
+    last_peer_rx_ms_ = 0;
+    latest_peer_rssi_ = 0;
+    latest_peer_rssi_valid_ = false;
+
+    // No queued replacement may become active on a faulted transport.
+    pending_outgoing_ = PendingOutgoing{};
+
+    if (outgoing_.active) {
+        finish_outgoing(
+            DeliveryOutcome::Failed,
+            failed_at_ms);
+    } else if (outgoing_.completion_pending_transport) {
+        outgoing_.completion_pending_transport = false;
+        finalize_outgoing_metrics();
+    }
 }
 
 RxProfile Service::rx_profile() const
@@ -426,15 +561,13 @@ bool Service::peer_reachable() const
         return false;
     }
 
-    const RxSchedule& schedule =
-        rx_profile_ == RxProfile::Foreground
-            ? config_.foreground_rx
-            : config_.background_rx;
-
+    // The temporary delivery boost changes only the RX power schedule.
+    // Keep user-visible peer freshness on the normal communicator-enabled
+    // policy so a send cannot make an otherwise fresh peer look stale.
     return peer_known_
         && last_peer_rx_ms_ != 0
         && now_ms() - last_peer_rx_ms_
-            <= schedule.reachability_timeout_ms;
+            <= config_.background_rx.reachability_timeout_ms;
 }
 
 const radio::MacAddress& Service::self_mac() const
@@ -490,6 +623,18 @@ bool Service::poll_delivery(DeliveryReceipt& receipt)
     delivery_ready_ = false;
     return true;
 }
+
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+void Service::test_fail_next_rx_profile_apply()
+{
+    test_fail_next_rx_profile_apply_ = true;
+}
+
+void Service::test_fail_next_rx_recovery_restart()
+{
+    test_fail_next_rx_recovery_restart_ = true;
+}
+#endif
 
 bool Service::start_transport()
 {
@@ -815,8 +960,20 @@ bool Service::start_outgoing(
     pending_outgoing_.valid = true;
     pending_outgoing_.message = requested;
 
+    // User logical delivery owns the temporary fast RX schedule. Apply it
+    // before servicing the initial send so application ACK reception already
+    // uses the delivery-boost profile. Latest-wins replacement stays fast
+    // because pending_outgoing_ is already valid here.
+    if (!apply_desired_rx_profile()) {
+        pending_outgoing_ = PendingOutgoing{};
+        ESP_LOGW(
+            kTag,
+            "Failed to apply delivery RX boost; send not accepted");
+        return false;
+    }
+
     // A result that was waiting for UI polling belongs to an older operation
-    // once a newer send is accepted.
+    // once a newer send has actually been accepted.
     delivery_ready_ = false;
 
     const std::uint32_t now = now_ms();
@@ -968,7 +1125,8 @@ void Service::service_unicast(std::uint32_t now_ms)
 
 void Service::handle_missing_tx_result(
     std::uint32_t now_ms,
-    bool restart_transport)
+    bool restart_transport,
+    const char* reason)
 {
     if (!unicast_in_flight_.active) {
         return;
@@ -992,20 +1150,32 @@ void Service::handle_missing_tx_result(
             kTag,
             "Outgoing TxResult missing id=%lu reason=%s",
             static_cast<unsigned long>(missing.logical_message_id),
-            restart_transport ? "guard_timeout" : "transport_pause");
+            reason != nullptr
+                ? reason
+                : (restart_transport
+                    ? "guard_timeout"
+                    : "transport_pause"));
     } else if (missing.kind == UnicastKind::ApplicationAck) {
         ++traffic_.ack_tx_result_timeouts;
         ESP_LOGW(
             kTag,
             "Application ACK TxResult missing ref=%lu reason=%s",
             static_cast<unsigned long>(missing.logical_message_id),
-            restart_transport ? "guard_timeout" : "transport_pause");
+            reason != nullptr
+                ? reason
+                : (restart_transport
+                    ? "guard_timeout"
+                    : "transport_pause"));
     } else {
         ++traffic_.presence_reply_tx_result_timeouts;
         ESP_LOGW(
             kTag,
             "Discovery Presence reply TxResult missing reason=%s",
-            restart_transport ? "guard_timeout" : "transport_pause");
+            reason != nullptr
+                ? reason
+                : (restart_transport
+                    ? "guard_timeout"
+                    : "transport_pause"));
     }
 
     if (outgoing_.completion_pending_transport
@@ -1036,30 +1206,9 @@ void Service::handle_missing_tx_result(
     }
 
     if (!start_transport()) {
-        ESP_LOGE(
-            kTag,
-            "Radio restart failed during TxResult recovery; messaging faulted");
-
-        // Fail closed. This is an internal attribution-barrier recovery
-        // failure, not an intentional RadioLab pause. No work from the broken
-        // transport lifecycle may be emitted later.
-        transport_active_ = false;
-        faulted_ = true;
-        unicast_in_flight_ = UnicastInFlight{};
-        pending_ack_references_ = {};
-        pending_ack_head_ = 0;
-        pending_ack_count_ = 0;
-        pending_presence_reply_ = false;
-
-        peer_known_ = false;
-        peer_mac_ = {};
-        last_peer_rx_ms_ = 0;
-        latest_peer_rssi_ = 0;
-        latest_peer_rssi_valid_ = false;
-
-        if (outgoing_.active) {
-            finish_outgoing(DeliveryOutcome::Failed, now_ms);
-        }
+        fail_transport_closed(
+            now_ms,
+            "Radio restart failed during TxResult recovery");
         return;
     }
 
@@ -1174,6 +1323,12 @@ void Service::finish_outgoing(
         && unicast_in_flight_.kind == UnicastKind::OutgoingPayload
         && unicast_in_flight_.logical_message_id
             == outgoing_.message.message_id;
+
+    if (!faulted_ && !apply_desired_rx_profile()) {
+        ESP_LOGW(
+            kTag,
+            "Failed to reconcile desired RX profile after delivery completion");
+    }
 
     if (!outgoing_.completion_pending_transport) {
         finalize_outgoing_metrics();
