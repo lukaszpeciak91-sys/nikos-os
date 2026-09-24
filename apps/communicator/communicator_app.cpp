@@ -72,26 +72,6 @@ void draw_selection_marker(
         color);
 }
 
-const char* choice_counter(std::uint8_t index, std::uint8_t count)
-{
-    if (count <= 1U) {
-        return "1 / 1";
-    }
-    if (count == 2U) {
-        return index == 0U ? "1 / 2" : "2 / 2";
-    }
-
-    switch (index) {
-        case 1U:
-            return "2 / 3";
-        case 2U:
-            return "3 / 3";
-        case 0U:
-        default:
-            return "1 / 3";
-    }
-}
-
 std::uint32_t now_ms()
 {
     return static_cast<std::uint32_t>(esp_timer_get_time() / 1000U);
@@ -1520,54 +1500,65 @@ void CommunicatorApp::render_response_choices()
 
     board_.draw_text_region(
         12,
-        8,
+        6,
         216,
         20,
         catalogue::preset_text(incoming_preset_),
         context_text_scale(incoming_preset_),
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
-
-    const catalogue::ResponseId response =
-        response_set_.ids[selected_response_index_];
-    board_.draw_text_region(
+    board_.draw_line(
         8,
-        34,
-        224,
-        60,
-        "",
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_text_region(
-        14,
-        50,
-        212,
-        32,
-        catalogue::response_text(response),
-        response_text_scale(response),
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    draw_selection_marker(
-        board_,
-        8,
-        34,
-        60);
+        29,
+        231,
+        29,
+        board::DisplayColor::SecondaryText);
+
+    for (std::uint8_t index = 0; index < response_set_.count; ++index) {
+        const bool selected = index == selected_response_index_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(34 + index * 24);
+        const board::DisplayColor background =
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background;
+
+        board_.draw_text_region(
+            8,
+            y,
+            224,
+            21,
+            "",
+            1,
+            board::DisplayColor::PrimaryText,
+            background);
+        board_.draw_text_region(
+            16,
+            static_cast<std::int16_t>(y + 2),
+            210,
+            18,
+            catalogue::response_text_for(
+                incoming_preset_,
+                response_set_.ids[index]),
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            background);
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                8,
+                y,
+                21);
+        }
+    }
 
     board_.draw_text_region(
-        102,
-        97,
-        46,
-        10,
-        choice_counter(selected_response_index_, response_set_.count),
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(
-        27,
-        118,
-        202,
+        22,
+        116,
+        208,
         14,
         "M5 WYBIERZ  BOCZNY DALEJ",
         1,
@@ -1603,7 +1594,7 @@ void CommunicatorApp::render_incoming_response()
         50,
         212,
         34,
-        catalogue::response_text(incoming_response_),
+        catalogue::response_text_for(incoming_preset_, incoming_response_),
         response_text_scale(incoming_response_),
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Surface);
@@ -1631,54 +1622,81 @@ void CommunicatorApp::render_wait_decision()
 
     board_.draw_text_region(
         12,
-        7,
+        5,
         216,
-        20,
+        18,
         catalogue::preset_text(incoming_preset_),
-        context_text_scale(incoming_preset_),
+        1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
-
     board_.draw_text_region(
-        8,
-        31,
-        224,
-        50,
-        "",
-        1,
+        12,
+        23,
+        216,
+        18,
+        catalogue::response_text_for(
+            incoming_preset_,
+            incoming_response_),
+        2,
         board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    board_.draw_text_region(
-        14,
-        42,
-        212,
-        30,
-        catalogue::response_text(incoming_response_),
-        response_text_scale(incoming_response_),
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
+        board::DisplayColor::Background);
     board_.draw_line(
         8,
-        31,
-        8,
-        80,
-        board::DisplayColor::Accent);
+        44,
+        231,
+        44,
+        board::DisplayColor::SecondaryText);
+
+    constexpr const char* kDecisionItems[2] = {
+        "CZEKAC?",
+        "ZAMKNIJ",
+    };
+
+    for (std::uint8_t index = 0; index < 2U; ++index) {
+        const bool selected = index == selected_response_index_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(50 + index * 28);
+        const board::DisplayColor background =
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background;
+
+        board_.draw_text_region(
+            8,
+            y,
+            224,
+            24,
+            "",
+            1,
+            board::DisplayColor::PrimaryText,
+            background);
+        board_.draw_text_region(
+            16,
+            static_cast<std::int16_t>(y + 3),
+            210,
+            19,
+            kDecisionItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            background);
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                8,
+                y,
+                24);
+        }
+    }
 
     board_.draw_text_region(
-        28,
-        87,
-        195,
-        20,
-        "M5 CZEKAC?",
-        2,
-        board::DisplayColor::Accent,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        28,
-        113,
-        195,
-        16,
-        "BOCZNY ZAMKNIJ",
+        22,
+        116,
+        208,
+        14,
+        "M5 WYBIERZ  BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
