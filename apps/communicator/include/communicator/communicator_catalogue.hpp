@@ -43,6 +43,9 @@ constexpr std::array<PresetId, 5> kPresetOrder = {
 
 const char* preset_text(PresetId id);
 const char* response_text(ResponseId id);
+const char* response_text_for(
+    PresetId preset,
+    ResponseId response);
 
 bool preset_from_wire(std::uint16_t raw, PresetId& id);
 bool response_from_wire(std::uint16_t raw, ResponseId& id);
