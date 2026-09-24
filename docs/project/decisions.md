@@ -579,3 +579,24 @@ PowerDiag remains observation-only and reports the actual effective profile/sche
 An effective RX-profile transition failure is not accepted as steady state. While messaging transport is active, one failed direct profile application triggers one bounded attribution-safe transport recovery. Any accepted unicast still awaiting TxResult is first accounted for using the existing missing-TxResult semantics, which also finalizes any delivery that had already completed at application-ACK level. The desired profile is then recomputed from the resulting current logical state, the radio transport is restarted once using that profile, and normal operation resumes only if restart succeeds. If restart fails, messaging enters the existing fail-closed/faulted state and clears unsafe transport-owned pending work. There is no periodic reconciliation loop.
 
 **Rationale:** Faster RX is needed to improve application-ACK delivery behavior, not to reward screen visibility with higher radio duty cycle. Event-driven ownership in messaging avoids continuous profile reconfiguration from the main loop and reduces enabled-idle power cost without changing delivery authority, retry, TxResult, dedupe, Presence, or radio-ownership semantics.
+
+## D-038 — Communicator defaults to LISTA and unifies outgoing decision selectors
+
+**Status:** Accepted for hardware validation
+
+Communicator adds one boot-scoped preference to the existing `settings::State`:
+
+- `List` / LISTA — default;
+- `Single` / POJEDYNCZO — the retained existing single-card main presentation.
+
+Both main modes use the same selection index, peer state, send dispatch, delivery tracking, options and return behavior. LISTA renders approximately three large send actions at once and scrolls to keep the focused action visible. Existing preset IDs and order are unchanged; the existing RING/SYGNAL action is appended after them as a visually distinct Attention-colored send action. OPCJE and POWROT remain separate fixed controls after the send-action sequence.
+
+Delivery feedback remains driven by the same latest logical MessageId and application-ACK outcome. The UI retains only the originating main-action index so LISTA can identify the action associated with WYSYLAM / DOSTARCZONO / NIE DOSTARCZONO even if the focus later changes.
+
+Outgoing response/decision screens use a common selectable-row grammar. WaitDecision becomes a two-choice `CZEKAC? / ZAMKNIJ` selector using the existing Wait PresetMessage path and the existing local-close behavior. No new response type or wire semantic is introduced.
+
+`ResponseId::YesComing` and all protocol numeric values remain unchanged. A context-aware display helper renders YesComing as `TAK` only for `MASZ CZAS?`; WALK and any other preset using the same ResponseId retain the existing wording.
+
+No NVS/persistence, messaging/protocol/radio change, duplicate Communicator state machine, generic menu framework or widget system is introduced.
+
+**Rationale:** Real-device feedback favors a glanceable list for normal sends while preserving the proven single-card option and the established two-button interaction model.
