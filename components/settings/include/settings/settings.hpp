@@ -24,8 +24,8 @@ enum class Brightness : std::uint8_t {
 };
 
 struct BrightnessProfile {
-    std::uint8_t active = 96;
-    std::uint8_t dimmed = 24;
+    std::uint8_t active;
+    std::uint8_t dimmed;
 };
 
 BrightnessProfile brightness_profile(Brightness brightness);
