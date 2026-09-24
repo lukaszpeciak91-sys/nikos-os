@@ -1,6 +1,7 @@
 #include "communicator/communicator_app.hpp"
 
 #include <cstddef>
+#include <cstdio>
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -14,6 +15,20 @@ constexpr float kNotificationToneHz = 2600.0F;
 constexpr std::uint32_t kSignalAnimationMs = 120;
 constexpr std::uint8_t kSignalPlaybackCount = 10;
 constexpr std::uint32_t kDeliveryResultVisibleMs = 2500;
+
+constexpr std::uint8_t kMainPresetCount =
+    static_cast<std::uint8_t>(
+        nikos::communicator::catalogue::kPresetOrder.size());
+constexpr std::uint8_t kMainSignalIndex = kMainPresetCount;
+constexpr std::uint8_t kMainOptionsIndex =
+    static_cast<std::uint8_t>(kMainSignalIndex + 1U);
+constexpr std::uint8_t kMainReturnIndex =
+    static_cast<std::uint8_t>(kMainOptionsIndex + 1U);
+constexpr std::uint8_t kMainChoiceCount =
+    static_cast<std::uint8_t>(kMainReturnIndex + 1U);
+constexpr std::uint8_t kMainSendActionCount =
+    static_cast<std::uint8_t>(kMainSignalIndex + 1U);
+constexpr std::uint8_t kNoMainActionIndex = 0xFFU;
 
 constexpr std::int16_t kScreenWidth = 240;
 constexpr std::int16_t kScreenHeight = 135;
@@ -91,11 +106,13 @@ CommunicatorApp::CommunicatorApp(
     messaging::Service& messaging,
     power::DisplayLifecycle& display_lifecycle,
     signal_sound::Player& signal_sound,
+    settings::State& settings,
     const char* peer_label)
     : board_(board),
       messaging_(messaging),
       display_lifecycle_(display_lifecycle),
       signal_sound_(signal_sound),
+      settings_(settings),
       peer_label_(peer_label)
 {
 }
@@ -158,6 +175,7 @@ void CommunicatorApp::reset_session()
 
     latest_outgoing_message_id_ = 0;
     latest_delivery_feedback_ = DeliveryFeedback::None;
+    latest_delivery_main_action_index_ = kNoMainActionIndex;
     delivery_result_started_ms_ = 0;
 
     signal_unavailable_feedback_ = false;
@@ -191,6 +209,7 @@ bool CommunicatorApp::service_delivery()
             >= kDeliveryResultVisibleMs) {
         latest_delivery_feedback_ = DeliveryFeedback::None;
         latest_outgoing_message_id_ = 0;
+        latest_delivery_main_action_index_ = kNoMainActionIndex;
         delivery_result_started_ms_ = 0;
         changed = true;
     }
@@ -324,9 +343,12 @@ bool CommunicatorApp::accept_incoming(
     catalogue::ResponseId response;
     (void)catalogue::response_from_wire(message.response_id, response);
     incoming_response_ = response;
-    state_ = catalogue::needs_wait_decision(response)
-        ? State::WaitDecision
-        : State::IncomingResponse;
+    if (catalogue::needs_wait_decision(response)) {
+        selected_response_index_ = 0;
+        state_ = State::WaitDecision;
+    } else {
+        state_ = State::IncomingResponse;
+    }
     notify_incoming();
     return true;
 }
