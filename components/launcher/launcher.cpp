@@ -59,6 +59,43 @@ nikos::settings::SignalSound signal_sound_from_index(std::uint8_t index)
     }
 }
 
+std::uint8_t brightness_index(nikos::settings::Brightness brightness)
+{
+    switch (brightness) {
+        case nikos::settings::Brightness::Low:
+            return 0;
+        case nikos::settings::Brightness::High:
+            return 2;
+        case nikos::settings::Brightness::Medium:
+        default:
+            return 1;
+    }
+}
+
+nikos::settings::Brightness brightness_from_index(std::uint8_t index)
+{
+    switch (index) {
+        case 0:
+            return nikos::settings::Brightness::Low;
+        case 2:
+            return nikos::settings::Brightness::High;
+        case 1:
+        default:
+            return nikos::settings::Brightness::Medium;
+    }
+}
+
+void apply_brightness_profile(
+    nikos::board::Board& board,
+    nikos::settings::Brightness brightness)
+{
+    const nikos::settings::BrightnessProfile profile =
+        nikos::settings::brightness_profile(brightness);
+    board.set_display_brightness_profile(
+        profile.active,
+        profile.dimmed);
+}
+
 void format_mmss(
     std::uint32_t total_seconds,
     char* output,
@@ -256,6 +293,7 @@ Launcher::Launcher(
       settings_(settings),
       signal_sound_(signal_sound)
 {
+    apply_brightness_profile(board_, settings_.brightness);
 }
 
 void Launcher::show_splash()
@@ -302,6 +340,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     reset_stopwatch_session();
     settings_selection_ = 0;
     signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
+    brightness_selection_ = brightness_index(settings_.brightness);
     theme_selection_ = theme_index(settings_.theme);
     orientation_selection_ = orientation_index(settings_.orientation);
     active_communicator_selection_ = 0;
