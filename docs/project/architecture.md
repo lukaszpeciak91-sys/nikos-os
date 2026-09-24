@@ -155,9 +155,10 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 
 ### settings
 
-`settings::State` owns the current boot-scoped user preference state. It now contains four real runtime preferences:
+`settings::State` owns the current boot-scoped user preference state. It now contains five real runtime preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
+- Communicator main-message view: List / `LISTA` (default) or Single / `POJEDYNCZO`;
 - display brightness: Low / `NISKA` = 72/18, Medium / `SREDNIA` = 96/24 (default), or High / `WYSOKA` = 128/32 for Active/Dimmed;
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
 - display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
@@ -233,7 +234,11 @@ Communicator is a foreground UI over the session-scoped `messaging::Service`. En
 
 Communicator v0.1 uses a latest-wins, non-blocking pager model. Sending a preset, response, Wait follow-up, or SYGNAŁ does not create a modal delivery/conversation state. Human responses are optional independent messages. The UX retains only the newest valid received PresetMessage/PresetResponse; a newer one replaces an unanswered older one. The messaging queue remains only a small transport buffer, not an inbox/history. RING/SYGNAL is a separate attention overlay and does not erase the retained current user-message context.
 
-The physical 240×135 UI presents one primary message/choice at a time. Main navigation remains five presets, SYGNAŁ, OPCJE, POWRÓT with secondary short = next and primary short = select. Every received preset can be skipped with secondary short; response selection cycles with secondary short and sends with primary short.
+The physical 240×135 main send UI has two boot-scoped presentation modes over one shared selection/send state. `LISTA` is the default and shows a scrolling window of approximately three large send actions at once; the existing single-card presentation remains available as `POJEDYNCZO`. Main navigation remains five presets, the existing RING/SYGNAL send action, OPCJE, POWROT with secondary short = next and primary short = select. LISTA places SYGNAL after the presets in the same send-action list while OPCJE and POWROT remain fixed bottom controls.
+
+Delivery feedback still follows the latest logical MessageId/application-ACK state, but the Communicator UI also retains the originating main-action index so LISTA can associate WYSYLAM / DOSTARCZONO / NIE DOSTARCZONO with the action that was actually sent even if focus moves later.
+
+Every received preset can still be skipped locally. Once the user enters an outgoing response/decision flow, response choices use one selectable-row grammar: the incoming preset stays visible as context, secondary short moves the selection, and primary short confirms it. The special WaitDecision path is presented as `CZEKAC? / ZAMKNIJ` using the same grammar. Response display text may be context-aware without changing stable IDs; `MASZ CZAS?` renders YesComing as `TAK`, while other presets using the same ResponseId retain their existing wording.
 
 Application ACK is technical device-delivery acknowledgement only. It never means the human read or answered a message. PresetResponse carries its own PresetId + ResponseId context, so it can be accepted independently of any local waiting state. The contextual `ZACZEKAĆ?` action remains; sending Wait is simply another non-blocking PresetMessage and its later response is an ordinary self-contained PresetResponse.
 
@@ -284,7 +289,7 @@ PowerDiag is an ordinary foreground runtime for display purposes. DisplayOff sup
 - Human response state is independent from device-delivery state; there is no WaitingForResponse or suspended-conversation restoration model.
 - Application ACK is the technical delivery acknowledgement; normal human conversation does not require a separate mandatory OK message.
 - The contextual `ZACZEKAĆ?` follow-up remains because it carries conversational meaning rather than transport confirmation; its local-close path transmits nothing.
-- Communicator physical UI shows one primary message/choice at a time and preserves secondary-short NEXT -> primary-short SELECT interaction on the two-button device.
+- Communicator main send UI may use the default scrolling LISTA or retained POJEDYNCZO presentation, but both share one selection/send state and preserve secondary-short NEXT -> primary-short SELECT interaction; outgoing response/decision screens use the same selectable-row grammar.
 - `SYGNAŁ` remains outside preset conversation semantics; it is a bounded transient attention overlay using existing RING delivery semantics.
 - The launcher must not call ESP-NOW or `esp_wifi` APIs directly.
 - The base launcher hierarchy is explicitly `Komunikator / Narzędzia / Rozrywka / Zegar / Ustawienia / Wyłącz`; category navigation stays shallow and fixed rather than becoming a generic menu framework.
