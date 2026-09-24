@@ -1323,59 +1323,98 @@ void CommunicatorApp::render_options()
     clear_screen();
     draw_header("OPCJE");
 
-    const bool mode_selected = selected_options_index_ == 0U;
-    const bool return_selected = selected_options_index_ == 1U;
+    const bool view_selected = selected_options_index_ == 0U;
+    const bool mode_selected = selected_options_index_ == 1U;
+    const bool return_selected = selected_options_index_ == 2U;
+
+    const char* view_text =
+        settings_.communicator_view == settings::CommunicatorView::List
+            ? "LISTA"
+            : "POJEDYNCZO";
     const char* mode_text =
         messaging_.radio_mode() == radio::Mode::Lr
             ? "LR"
             : "STANDARD";
 
+    const board::DisplayColor view_background =
+        view_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background;
+    board_.draw_text_region(
+        8,
+        24,
+        224,
+        27,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        view_background);
+    board_.draw_text_region(
+        16,
+        26,
+        112,
+        12,
+        "WIDOK WIADOMOSCI",
+        1,
+        view_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        view_background);
+    board_.draw_text_region(
+        130,
+        29,
+        96,
+        18,
+        view_text,
+        2,
+        board::DisplayColor::PrimaryText,
+        view_background);
+    if (view_selected) {
+        draw_selection_marker(board_, 8, 25, 25);
+    }
+
     const board::DisplayColor mode_background =
         mode_selected
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background;
-
     board_.draw_text_region(
         8,
-        29,
+        54,
         224,
-        44,
+        27,
         "",
         1,
         board::DisplayColor::PrimaryText,
         mode_background);
-
     board_.draw_text_region(
         16,
-        30,
-        208,
-        21,
+        56,
+        112,
+        12,
         "TRYB RADIO",
-        2,
+        1,
         mode_selected
             ? board::DisplayColor::PrimaryText
             : board::DisplayColor::SecondaryText,
         mode_background);
-
     board_.draw_text_region(
-        16,
-        51,
-        208,
-        21,
+        130,
+        59,
+        96,
+        18,
         mode_text,
         2,
         board::DisplayColor::PrimaryText,
         mode_background);
-
     if (mode_selected) {
-        draw_selection_marker(board_, 8, 30, 40);
+        draw_selection_marker(board_, 8, 55, 25);
     }
 
     board_.draw_text_region(
-        12,
-        78,
-        216,
-        22,
+        8,
+        84,
+        224,
+        24,
         "POWROT",
         2,
         return_selected
@@ -1384,33 +1423,22 @@ void CommunicatorApp::render_options()
         return_selected
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background);
-
     if (return_selected) {
-        draw_selection_marker(board_, 8, 79, 18);
+        draw_selection_marker(board_, 8, 86, 19);
     }
 
     board_.draw_text_region(
-        18,
-        102,
-        204,
-        13,
+        14,
+        110,
+        212,
+        11,
         radio_mode_change_failed_
             ? "NIE UDALO SIE"
-            : "USTAW TAK SAMO NA OBU",
+            : "M5 ZMIEN | BOCZNY DALEJ",
         1,
         radio_mode_change_failed_
             ? board::DisplayColor::Danger
             : board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(
-        8,
-        120,
-        224,
-        13,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 
     render_delivery_feedback();
