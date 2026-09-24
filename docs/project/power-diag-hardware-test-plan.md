@@ -72,3 +72,13 @@ Target: M5Stack M5StickC Plus SE, two-device firmware where communication cases 
 - Verify accepted Communicator presentation has normal priority over PowerDiag.
 - Exit Communicator normally; returning to Launcher is acceptable.
 - Re-enter PowerDiag and verify the diagnostic session continued throughout.
+
+## K — Battery current diagnostics
+
+- Plug USB in and photograph Page 2 after the next BatteryGuard sample; expect the diagnostic current to normally be positive while charging.
+- Unplug USB and photograph Page 2 after the next sample; expect the diagnostic current to normally be negative while discharging.
+- Treat `0mA` as a neutral diagnostic reading only. Do not infer FULL or an invalid PMU read from zero current.
+- Compare Page 2 before and after DisplayOff.
+- Compare Active brightness 72 / 96 / 128 where available in the hardware test setup.
+- Compare Communicator OFF against Communicator ON in the background RX profile.
+- Confirm observations update only at the existing BatteryGuard sampling cadence; PowerDiag must not introduce a faster PMU current poll.
