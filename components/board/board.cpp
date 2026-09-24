@@ -286,8 +286,8 @@ void Board::draw_text_region(
     DisplayColor background)
 {
     auto& display = M5.Display;
-    const std::uint32_t foreground_color = resolve_display_color(foreground);
-    const std::uint32_t background_color = resolve_display_color(background);
+    const std::uint16_t foreground_color = resolve_display_color(foreground);
+    const std::uint16_t background_color = resolve_display_color(background);
 
     display.fillRect(x, y, width, height, background_color);
     // Normal product UI uses the native/default M5GFX font deterministically.
@@ -317,8 +317,8 @@ void Board::draw_polish_ui_text_region(
     const std::int32_t previous_cursor_x = display.getCursorX();
     const std::int32_t previous_cursor_y = display.getCursorY();
 
-    const std::uint32_t foreground_color = resolve_display_color(foreground);
-    const std::uint32_t background_color = resolve_display_color(background);
+    const std::uint16_t foreground_color = resolve_display_color(foreground);
+    const std::uint16_t background_color = resolve_display_color(background);
 
     display.fillRect(x, y, width, height, background_color);
     display.setFont(&detail::kPolishUiFont);
@@ -349,9 +349,9 @@ void Board::draw_polish_ui_font_sanity_demo()
 void Board::draw_screen(const char* title, const char* body)
 {
     auto& display = M5.Display;
-    const std::uint32_t background =
+    const std::uint16_t background =
         resolve_display_color(DisplayColor::Background);
-    const std::uint32_t foreground =
+    const std::uint16_t foreground =
         resolve_display_color(DisplayColor::PrimaryText);
 
     display.fillScreen(background);
@@ -366,7 +366,7 @@ void Board::draw_screen(const char* title, const char* body)
     display.print(body);
 }
 
-std::uint32_t Board::resolve_display_color(DisplayColor color) const
+std::uint16_t Board::resolve_display_color(DisplayColor color) const
 {
     const ui_theme::Palette& palette = ui_theme::palette(theme_);
     const bool noir = theme_ == ui_theme::Theme::Noir;
