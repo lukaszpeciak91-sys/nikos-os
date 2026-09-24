@@ -1323,18 +1323,18 @@ void CommunicatorApp::render_options()
             : board::DisplayColor::Background;
     board_.draw_text_region(
         8,
-        24,
+        23,
         224,
-        27,
+        32,
         "",
         1,
         board::DisplayColor::PrimaryText,
         view_background);
     board_.draw_text_region(
         16,
-        26,
-        112,
-        12,
+        24,
+        208,
+        11,
         "WIDOK WIADOMOSCI",
         1,
         view_selected
@@ -1342,16 +1342,16 @@ void CommunicatorApp::render_options()
             : board::DisplayColor::SecondaryText,
         view_background);
     board_.draw_text_region(
-        130,
-        29,
-        96,
+        16,
+        36,
+        208,
         18,
         view_text,
         2,
         board::DisplayColor::PrimaryText,
         view_background);
     if (view_selected) {
-        draw_selection_marker(board_, 8, 25, 25);
+        draw_selection_marker(board_, 8, 24, 30);
     }
 
     const board::DisplayColor mode_background =
@@ -1360,18 +1360,18 @@ void CommunicatorApp::render_options()
             : board::DisplayColor::Background;
     board_.draw_text_region(
         8,
-        54,
+        58,
         224,
-        27,
+        32,
         "",
         1,
         board::DisplayColor::PrimaryText,
         mode_background);
     board_.draw_text_region(
         16,
-        56,
-        112,
-        12,
+        59,
+        208,
+        11,
         "TRYB RADIO",
         1,
         mode_selected
@@ -1379,23 +1379,23 @@ void CommunicatorApp::render_options()
             : board::DisplayColor::SecondaryText,
         mode_background);
     board_.draw_text_region(
-        130,
-        59,
-        96,
+        16,
+        71,
+        208,
         18,
         mode_text,
         2,
         board::DisplayColor::PrimaryText,
         mode_background);
     if (mode_selected) {
-        draw_selection_marker(board_, 8, 55, 25);
+        draw_selection_marker(board_, 8, 59, 30);
     }
 
     board_.draw_text_region(
         8,
-        84,
+        94,
         224,
-        24,
+        20,
         "POWROT",
         2,
         return_selected
@@ -1405,14 +1405,14 @@ void CommunicatorApp::render_options()
             ? board::DisplayColor::Surface
             : board::DisplayColor::Background);
     if (return_selected) {
-        draw_selection_marker(board_, 8, 86, 19);
+        draw_selection_marker(board_, 8, 95, 18);
     }
 
     board_.draw_text_region(
         14,
-        110,
+        118,
         212,
-        11,
+        13,
         radio_mode_change_failed_
             ? "NIE UDALO SIE"
             : "M5 ZMIEN | BOCZNY DALEJ",
