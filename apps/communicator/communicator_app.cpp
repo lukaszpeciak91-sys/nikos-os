@@ -629,6 +629,7 @@ bool CommunicatorApp::send_signal()
     }
 
     track_latest_send(kMainSignalIndex);
+    render_main();
     return true;
 }
 
