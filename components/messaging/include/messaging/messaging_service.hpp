@@ -108,6 +108,11 @@ public:
     bool consume_incoming(std::uint32_t logical_message_id);
     bool poll_delivery(DeliveryReceipt& receipt);
 
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+    void test_fail_next_rx_profile_apply();
+    void test_fail_next_rx_recovery_restart();
+#endif
+
 private:
     static constexpr std::size_t kDedupeDepth = 8;
     static constexpr std::size_t kIncomingQueueDepth = 4;
@@ -258,6 +263,11 @@ private:
 
     DeliveryReceipt delivery_receipt_{};
     bool delivery_ready_ = false;
+
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+    bool test_fail_next_rx_profile_apply_ = false;
+    bool test_fail_next_rx_recovery_restart_ = false;
+#endif
 };
 
 }  // namespace nikos::messaging
