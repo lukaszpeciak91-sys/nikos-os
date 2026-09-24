@@ -749,20 +749,24 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             settings_selection_ =
-                static_cast<std::uint8_t>((settings_selection_ + 1U) % 4U);
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 5U);
             render();
             return Action::None;
         }
 
         if (input.primary_short) {
-            if (settings_selection_ == 0) {
+            if (settings_selection_ == 0U) {
                 signal_sound_selection_ =
                     signal_sound_index(settings_.signal_sound);
                 screen_ = Screen::SignalSound;
-            } else if (settings_selection_ == 1) {
+            } else if (settings_selection_ == 1U) {
+                brightness_selection_ =
+                    brightness_index(settings_.brightness);
+                screen_ = Screen::Brightness;
+            } else if (settings_selection_ == 2U) {
                 theme_selection_ = theme_index(settings_.theme);
                 screen_ = Screen::Theme;
-            } else if (settings_selection_ == 2) {
+            } else if (settings_selection_ == 3U) {
                 orientation_selection_ =
                     orientation_index(settings_.orientation);
                 screen_ = Screen::Orientation;
@@ -813,8 +817,43 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
+    if (screen_ == Screen::Brightness) {
+        if (input.secondary_long) {
+            settings_selection_ = 1U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            brightness_selection_ =
+                static_cast<std::uint8_t>(
+                    (brightness_selection_ + 1U) % 4U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (brightness_selection_ == 3U) {
+            settings_selection_ = 1U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        settings_.brightness =
+            brightness_from_index(brightness_selection_);
+        apply_brightness_profile(board_, settings_.brightness);
+        render();
+        return Action::None;
+    }
+
     if (screen_ == Screen::Theme) {
         if (input.secondary_long) {
+            settings_selection_ = 2U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -832,7 +871,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (theme_selection_ == 5U) {
-            settings_selection_ = 1;
+            settings_selection_ = 2U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -846,6 +885,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::Orientation) {
         if (input.secondary_long) {
+            settings_selection_ = 3U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -863,7 +903,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (orientation_selection_ == 2U) {
-            settings_selection_ = 2;
+            settings_selection_ = 3U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
