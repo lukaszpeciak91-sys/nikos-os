@@ -32,6 +32,8 @@ enum class DisplayColor : std::uint8_t {
 struct PowerStatus {
     std::int16_t voltage_mv = -1;
     std::int32_t level_percent = -1;
+    std::int32_t current_ma = 0;
+    bool current_supported = false;
     ChargeState charge_state = ChargeState::Unknown;
 };
 
