@@ -100,19 +100,16 @@ CommunicatorApp::CommunicatorApp(
 {
 }
 
-bool CommunicatorApp::begin()
+void CommunicatorApp::begin()
 {
     active_ = true;
     foreground_exit_requested_ = false;
-    const bool profile_ok =
-        messaging_.set_rx_profile(messaging::RxProfile::Foreground);
     if (!signal_alert_active_) {
         render_current();
     }
-    return profile_ok;
 }
 
-bool CommunicatorApp::end()
+void CommunicatorApp::end()
 {
     if (signal_alert_active_) {
         signal_sound_.stop();
@@ -123,7 +120,6 @@ bool CommunicatorApp::end()
     signal_playback_cycles_started_ = 0;
 
     active_ = false;
-    return messaging_.set_rx_profile(messaging::RxProfile::Background);
 }
 
 void CommunicatorApp::redraw()
