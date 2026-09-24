@@ -59,6 +59,43 @@ nikos::settings::SignalSound signal_sound_from_index(std::uint8_t index)
     }
 }
 
+std::uint8_t brightness_index(nikos::settings::Brightness brightness)
+{
+    switch (brightness) {
+        case nikos::settings::Brightness::Low:
+            return 0;
+        case nikos::settings::Brightness::High:
+            return 2;
+        case nikos::settings::Brightness::Medium:
+        default:
+            return 1;
+    }
+}
+
+nikos::settings::Brightness brightness_from_index(std::uint8_t index)
+{
+    switch (index) {
+        case 0:
+            return nikos::settings::Brightness::Low;
+        case 2:
+            return nikos::settings::Brightness::High;
+        case 1:
+        default:
+            return nikos::settings::Brightness::Medium;
+    }
+}
+
+void apply_brightness_profile(
+    nikos::board::Board& board,
+    nikos::settings::Brightness brightness)
+{
+    const nikos::settings::BrightnessProfile profile =
+        nikos::settings::brightness_profile(brightness);
+    board.set_display_brightness_profile(
+        profile.active,
+        profile.dimmed);
+}
+
 void format_mmss(
     std::uint32_t total_seconds,
     char* output,
@@ -256,6 +293,7 @@ Launcher::Launcher(
       settings_(settings),
       signal_sound_(signal_sound)
 {
+    apply_brightness_profile(board_, settings_.brightness);
 }
 
 void Launcher::show_splash()
@@ -302,6 +340,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     reset_stopwatch_session();
     settings_selection_ = 0;
     signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
+    brightness_selection_ = brightness_index(settings_.brightness);
     theme_selection_ = theme_index(settings_.theme);
     orientation_selection_ = orientation_index(settings_.orientation);
     active_communicator_selection_ = 0;
@@ -710,20 +749,24 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             settings_selection_ =
-                static_cast<std::uint8_t>((settings_selection_ + 1U) % 4U);
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 5U);
             render();
             return Action::None;
         }
 
         if (input.primary_short) {
-            if (settings_selection_ == 0) {
+            if (settings_selection_ == 0U) {
                 signal_sound_selection_ =
                     signal_sound_index(settings_.signal_sound);
                 screen_ = Screen::SignalSound;
-            } else if (settings_selection_ == 1) {
+            } else if (settings_selection_ == 1U) {
+                brightness_selection_ =
+                    brightness_index(settings_.brightness);
+                screen_ = Screen::Brightness;
+            } else if (settings_selection_ == 2U) {
                 theme_selection_ = theme_index(settings_.theme);
                 screen_ = Screen::Theme;
-            } else if (settings_selection_ == 2) {
+            } else if (settings_selection_ == 3U) {
                 orientation_selection_ =
                     orientation_index(settings_.orientation);
                 screen_ = Screen::Orientation;
@@ -774,8 +817,43 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
+    if (screen_ == Screen::Brightness) {
+        if (input.secondary_long) {
+            settings_selection_ = 1U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            brightness_selection_ =
+                static_cast<std::uint8_t>(
+                    (brightness_selection_ + 1U) % 4U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (brightness_selection_ == 3U) {
+            settings_selection_ = 1U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        settings_.brightness =
+            brightness_from_index(brightness_selection_);
+        apply_brightness_profile(board_, settings_.brightness);
+        render();
+        return Action::None;
+    }
+
     if (screen_ == Screen::Theme) {
         if (input.secondary_long) {
+            settings_selection_ = 2U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -793,7 +871,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (theme_selection_ == 5U) {
-            settings_selection_ = 1;
+            settings_selection_ = 2U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -807,6 +885,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::Orientation) {
         if (input.secondary_long) {
+            settings_selection_ = 3U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -824,7 +903,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (orientation_selection_ == 2U) {
-            settings_selection_ = 2;
+            settings_selection_ = 3U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -1026,6 +1105,9 @@ void Launcher::render()
             break;
         case Screen::SignalSound:
             render_signal_sound();
+            break;
+        case Screen::Brightness:
+            render_brightness();
             break;
         case Screen::Theme:
             render_theme();
@@ -1866,17 +1948,26 @@ void Launcher::render_settings()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[4] = {
+    constexpr const char* kItems[5] = {
         "Dzwiek",
+        "Jasnosc",
         "Motyw",
         "Orientacja",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 4; ++index) {
+    std::uint8_t first_visible = 0;
+    if (settings_selection_ >= 4U) {
+        first_visible =
+            static_cast<std::uint8_t>(settings_selection_ - 3U);
+    }
+
+    for (std::uint8_t slot = 0; slot < 4; ++slot) {
+        const std::uint8_t index =
+            static_cast<std::uint8_t>(first_visible + slot);
         const bool selected = index == settings_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(35 + index * 19);
+            static_cast<std::int16_t>(35 + slot * 19);
 
         board_.draw_text_region(
             22,
@@ -1982,6 +2073,77 @@ void Launcher::render_signal_sound()
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 }
+void Launcher::render_brightness()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        12,
+        212,
+        18,
+        "JASNOSC",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    constexpr const char* kItems[4] = {
+        "Niska",
+        "Srednia",
+        "Wysoka",
+        "Powrot",
+    };
+
+    for (std::uint8_t index = 0; index < 4; ++index) {
+        const bool selected = index == brightness_selection_;
+        const bool active =
+            index < 3U
+            && brightness_index(settings_.brightness) == index;
+        const std::int16_t y =
+            static_cast<std::int16_t>(36 + index * 19);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            18,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                14,
+                y,
+                16);
+        }
+
+        if (active) {
+            board_.fill_circle(
+                211,
+                static_cast<std::int16_t>(y + 7),
+                3,
+                board::DisplayColor::Accent);
+        }
+    }
+
+    board_.draw_text_region(
+        14,
+        116,
+        212,
+        14,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
 void Launcher::render_theme()
 {
     clear_shell(board_);

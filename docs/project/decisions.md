@@ -536,3 +536,23 @@ Messaging exposes only one new observation accessor, `current_rx_schedule()`, re
 No NVS, flash logging, FreeRTOS task, event bus, scheduler, generic telemetry/logging framework, battery history, or user-message counters are introduced in v0.1.
 
 **Rationale:** The first hardware power comparisons need enough retained context to explain battery/runtime differences without changing the behavior being measured.
+
+## D-036 — Display brightness is a boot-scoped three-level setting
+
+**Status:** Accepted for hardware validation
+
+Settings adds one semantic display-brightness preference:
+
+- `Low` / NISKA: Active 72, Dimmed 18;
+- `Medium` / SREDNIA: Active 96, Dimmed 24;
+- `High` / WYSOKA: Active 128, Dimmed 32.
+
+Medium 96/24 is the new boot default. The exact three profile mappings are centralized behind `settings::brightness_profile()`. `settings::State` stores only the semantic selection; Board stores the currently applied Active/Dimmed numeric levels and uses them for immediate Active preview, normal dimming, and wake. DisplayOff behavior is unchanged.
+
+`power::DisplayLifecycle` remains the sole semantic lifecycle owner for Active / Dimmed / DisplayOff and contains no brightness-level policy or numeric brightness constants. Clock Glance inherits the normal Board Active brightness through the existing wake path.
+
+The brightness preference is volatile and returns to Medium after reboot. No NVS, Preferences, flash persistence, slider, brightness service, or raw 0..255 user control is introduced.
+
+Hardware validation will compare PowerDiag battery current and LCD ON time at Active brightness 72, 96, and 128 under otherwise similar runtime/radio conditions.
+
+**Rationale:** Three fixed semantic levels are sufficient for physical readability/power testing while preserving the existing display-lifecycle and Board ownership boundaries.

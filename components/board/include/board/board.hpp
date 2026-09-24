@@ -75,6 +75,9 @@ public:
 
     void set_theme(ui_theme::Theme theme);
     void set_display_orientation(DisplayOrientation orientation);
+    void set_display_brightness_profile(
+        std::uint8_t active,
+        std::uint8_t dimmed);
 
     void clear_screen();
     void fill_circle(
@@ -115,6 +118,8 @@ private:
     std::uint32_t resolve_display_color(DisplayColor color) const;
 
     ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
+    std::uint8_t active_brightness_ = 96;
+    std::uint8_t dimmed_brightness_ = 24;
     bool rtc_available_ = false;
 };
 

@@ -9,8 +9,6 @@ namespace {
 
 constexpr char kTag[] = "board";
 constexpr std::uint32_t kHoldThresholdMs = 600;
-constexpr std::uint8_t kDisplayActiveBrightness = 128;
-constexpr std::uint8_t kDisplayDimBrightness = 32;
 
 // Theme-varying colors come from ui_theme::Palette. Product-semantic colors
 // remain fixed for chromatic themes; Noir deliberately remaps them to
@@ -51,7 +49,7 @@ bool Board::begin()
     M5.begin(config);
 
     set_display_orientation(DisplayOrientation::Right);
-    M5.Display.setBrightness(kDisplayActiveBrightness);
+    M5.Display.setBrightness(active_brightness_);
     M5.Display.setTextWrap(false);
 
     M5.BtnA.setHoldThresh(kHoldThresholdMs);
@@ -212,14 +210,15 @@ void Board::stop_tone()
 void Board::wake_display()
 {
     // M5GFX wakeup() restores its remembered brightness. Always override it
-    // with the product ACTIVE level so a prior dim state cannot survive wake.
+    // with the currently selected ACTIVE level so a prior dim state cannot
+    // survive wake.
     M5.Display.wakeup();
-    M5.Display.setBrightness(kDisplayActiveBrightness);
+    M5.Display.setBrightness(active_brightness_);
 }
 
 void Board::dim_display()
 {
-    M5.Display.setBrightness(kDisplayDimBrightness);
+    M5.Display.setBrightness(dimmed_brightness_);
 }
 
 void Board::sleep_display()
@@ -241,6 +240,15 @@ void Board::set_display_orientation(DisplayOrientation orientation)
 {
     M5.Display.setRotation(
         orientation == DisplayOrientation::Left ? 3 : 1);
+}
+
+void Board::set_display_brightness_profile(
+    std::uint8_t active,
+    std::uint8_t dimmed)
+{
+    active_brightness_ = active;
+    dimmed_brightness_ = dimmed;
+    M5.Display.setBrightness(active_brightness_);
 }
 
 void Board::clear_screen()
