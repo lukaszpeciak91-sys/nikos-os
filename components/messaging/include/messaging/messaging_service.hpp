@@ -10,6 +10,8 @@
 namespace nikos::messaging {
 
 enum class RxProfile : std::uint8_t {
+    // Legacy profile names retained for diagnostics/config compatibility:
+    // Foreground is now the temporary logical-delivery boost, not UI state.
     Foreground,
     Background,
 };
