@@ -38,7 +38,7 @@ void BatteryGuard::sample(
     last_sample_ms_ = now_ms;
     result.sampled = true;
 
-    const board::PowerStatus status = board_.power_status();
+    const board::PowerStatus status = board_.power_status(true);
     result.power_status = status;
 
     if (status.voltage_mv <= 0) {

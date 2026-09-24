@@ -32,6 +32,8 @@ enum class DisplayColor : std::uint8_t {
 struct PowerStatus {
     std::int16_t voltage_mv = -1;
     std::int32_t level_percent = -1;
+    std::int32_t current_ma = 0;
+    bool current_supported = false;
     ChargeState charge_state = ChargeState::Unknown;
 };
 
@@ -62,7 +64,8 @@ public:
     bool read_rtc_time(RtcTime& time) const;
     bool write_rtc_time(const RtcTime& time);
 
-    PowerStatus power_status() const;
+    PowerStatus power_status(
+        bool include_battery_current = false) const;
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
     void wake_display();

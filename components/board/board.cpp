@@ -156,9 +156,11 @@ bool Board::write_rtc_time(const RtcTime& time)
     return true;
 }
 
-PowerStatus Board::power_status() const
+PowerStatus Board::power_status(
+    bool include_battery_current) const
 {
     PowerStatus status;
+    status.current_supported = true;
 
     const std::int16_t voltage_mv = M5.Power.getBatteryVoltage();
     if (voltage_mv <= 0) {
@@ -171,6 +173,13 @@ PowerStatus Board::power_status() const
     status.voltage_mv = voltage_mv;
     status.level_percent =
         battery_level_from_voltage_mv(voltage_mv);
+    if (include_battery_current) {
+        // AXP192 battery current is diagnostic only. Preserve M5Unified's
+        // signed mA value exactly: positive=charging, negative=discharging,
+        // zero neutral. Zero is not an error because it is physically valid
+        // near charge termination.
+        status.current_ma = M5.Power.getBatteryCurrent();
+    }
 
     switch (M5.Power.isCharging()) {
         case m5::Power_Class::is_charging:

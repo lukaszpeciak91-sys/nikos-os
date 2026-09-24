@@ -52,6 +52,8 @@ void PowerDiagSession::record_battery_sample(
 
     cached_battery_valid_ = true;
     cached_battery_ = status;
+    battery_current_supported_ = status.current_supported;
+    battery_current_ma_ = status.current_ma;
 
     if (state_ != SessionState::Running) {
         return;
@@ -106,6 +108,8 @@ Snapshot PowerDiagSession::snapshot() const
             ? static_cast<std::int32_t>(current_voltage_mv_)
                 - static_cast<std::int32_t>(start_voltage_mv_)
             : 0;
+    result.battery_current_ma = battery_current_ma_;
+    result.battery_current_supported = battery_current_supported_;
     result.charge_state = charge_state_;
 
     result.observation = last_observation_;
@@ -149,6 +153,8 @@ void PowerDiagSession::reset_session_battery_from_cached_sample()
     current_voltage_mv_ = -1;
     current_percent_ = -1;
     minimum_voltage_mv_ = -1;
+    battery_current_ma_ = 0;
+    battery_current_supported_ = false;
 
     if (!cached_battery_valid_) {
         return;
@@ -159,6 +165,8 @@ void PowerDiagSession::reset_session_battery_from_cached_sample()
     current_voltage_mv_ = cached_battery_.voltage_mv;
     current_percent_ = cached_battery_.level_percent;
     minimum_voltage_mv_ = cached_battery_.voltage_mv;
+    battery_current_ma_ = cached_battery_.current_ma;
+    battery_current_supported_ = cached_battery_.current_supported;
 }
 
 }  // namespace nikos::power_diag
