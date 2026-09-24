@@ -1106,6 +1106,9 @@ void Launcher::render()
         case Screen::SignalSound:
             render_signal_sound();
             break;
+        case Screen::Brightness:
+            render_brightness();
+            break;
         case Screen::Theme:
             render_theme();
             break;
@@ -1945,17 +1948,26 @@ void Launcher::render_settings()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[4] = {
+    constexpr const char* kItems[5] = {
         "Dzwiek",
+        "Jasnosc",
         "Motyw",
         "Orientacja",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 4; ++index) {
+    std::uint8_t first_visible = 0;
+    if (settings_selection_ >= 4U) {
+        first_visible =
+            static_cast<std::uint8_t>(settings_selection_ - 3U);
+    }
+
+    for (std::uint8_t slot = 0; slot < 4; ++slot) {
+        const std::uint8_t index =
+            static_cast<std::uint8_t>(first_visible + slot);
         const bool selected = index == settings_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(35 + index * 19);
+            static_cast<std::int16_t>(35 + slot * 19);
 
         board_.draw_text_region(
             22,
@@ -2061,6 +2073,77 @@ void Launcher::render_signal_sound()
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 }
+void Launcher::render_brightness()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        12,
+        212,
+        18,
+        "JASNOSC",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    constexpr const char* kItems[4] = {
+        "Niska",
+        "Srednia",
+        "Wysoka",
+        "Powrot",
+    };
+
+    for (std::uint8_t index = 0; index < 4; ++index) {
+        const bool selected = index == brightness_selection_;
+        const bool active =
+            index < 3U
+            && brightness_index(settings_.brightness) == index;
+        const std::int16_t y =
+            static_cast<std::int16_t>(36 + index * 19);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            18,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                14,
+                y,
+                16);
+        }
+
+        if (active) {
+            board_.fill_circle(
+                211,
+                static_cast<std::int16_t>(y + 7),
+                3,
+                board::DisplayColor::Accent);
+        }
+    }
+
+    board_.draw_text_region(
+        14,
+        116,
+        212,
+        14,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
 void Launcher::render_theme()
 {
     clear_shell(board_);
