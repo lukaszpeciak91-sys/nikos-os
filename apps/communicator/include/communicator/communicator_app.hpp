@@ -31,8 +31,8 @@ public:
         signal_sound::Player& signal_sound,
         const char* peer_label);
 
-    bool begin();
-    bool end();
+    void begin();
+    void end();
     void redraw();
     void reset_session();
     UpdateResult update(const board::InputState& input);
