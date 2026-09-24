@@ -176,6 +176,10 @@ private:
     RxProfile desired_rx_profile() const;
     bool apply_rx_profile(RxProfile profile);
     bool apply_desired_rx_profile();
+    bool recover_rx_profile_transition();
+    void fail_transport_closed(
+        std::uint32_t failed_at_ms,
+        const char* reason);
     radio::RxPowerConfig rx_power_for(RxProfile profile) const;
     const RxSchedule& rx_schedule_for(RxProfile profile) const;
 
@@ -199,7 +203,8 @@ private:
     void service_unicast(std::uint32_t now_ms);
     void handle_missing_tx_result(
         std::uint32_t now_ms,
-        bool restart_transport);
+        bool restart_transport,
+        const char* reason = nullptr);
     void resolve_in_flight(
         bool success,
         std::uint32_t resolved_ms);
