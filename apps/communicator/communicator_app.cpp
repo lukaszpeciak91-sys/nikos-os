@@ -828,6 +828,289 @@ void CommunicatorApp::render_current()
 
 void CommunicatorApp::render_main()
 {
+    if (settings_.communicator_view == settings::CommunicatorView::List) {
+        render_main_list();
+    } else {
+        render_main_single();
+    }
+}
+
+void CommunicatorApp::render_main_list()
+{
+    signal_unavailable_feedback_ = false;
+    clear_screen();
+    draw_header("KOMUNIKATOR");
+
+    const bool peer_known = messaging_.peer_known();
+    const bool recently_seen = messaging_.peer_reachable();
+    const std::uint8_t bars = signal_bars();
+
+    board_.draw_text_region(
+        10,
+        22,
+        82,
+        11,
+        peer_label_,
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    board_.draw_text_region(
+        94,
+        22,
+        96,
+        11,
+        !peer_known
+            ? "SZUKAM..."
+            : (recently_seen ? "DOSTEPNY" : "GOTOWY"),
+        1,
+        recently_seen
+            ? board::DisplayColor::StatusActive
+            : board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    draw_signal_bars(bars, recently_seen);
+    board_.draw_line(
+        8,
+        34,
+        231,
+        34,
+        board::DisplayColor::SecondaryText);
+
+    std::uint8_t first_visible = 0;
+    if (selected_main_index_ < kMainSendActionCount) {
+        if (selected_main_index_ >= 3U) {
+            first_visible =
+                static_cast<std::uint8_t>(selected_main_index_ - 2U);
+        }
+    } else {
+        first_visible =
+            static_cast<std::uint8_t>(kMainSendActionCount - 3U);
+    }
+
+    for (std::uint8_t slot = 0; slot < 3U; ++slot) {
+        const std::uint8_t action_index =
+            static_cast<std::uint8_t>(first_visible + slot);
+        const bool selected = selected_main_index_ == action_index;
+        const bool signal = action_index == kMainSignalIndex;
+        const bool feedback_origin =
+            latest_delivery_feedback_ != DeliveryFeedback::None
+            && latest_delivery_main_action_index_ == action_index;
+        const std::int16_t y =
+            static_cast<std::int16_t>(36 + slot * 20);
+
+        const board::DisplayColor text_color =
+            !peer_known
+                ? board::DisplayColor::SecondaryText
+                : (signal
+                    ? board::DisplayColor::Attention
+                    : board::DisplayColor::PrimaryText);
+        const board::DisplayColor background =
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background;
+
+        board_.draw_text_region(
+            8,
+            y,
+            224,
+            19,
+            "",
+            1,
+            text_color,
+            background);
+
+        if (signal) {
+            draw_bell_glyph(
+                18,
+                static_cast<std::int16_t>(y + 9),
+                1,
+                text_color);
+            board_.draw_text_region(
+                28,
+                static_cast<std::int16_t>(y + 2),
+                198,
+                16,
+                "SYGNAL",
+                2,
+                text_color,
+                background);
+        } else {
+            board_.draw_text_region(
+                14,
+                static_cast<std::int16_t>(y + 2),
+                216,
+                16,
+                catalogue::preset_text(
+                    catalogue::kPresetOrder[action_index]),
+                2,
+                text_color,
+                background);
+        }
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                8,
+                y,
+                19,
+                signal && peer_known
+                    ? board::DisplayColor::Attention
+                    : (peer_known
+                        ? board::DisplayColor::Accent
+                        : board::DisplayColor::SecondaryText));
+        }
+
+        if (feedback_origin) {
+            board::DisplayColor feedback_color =
+                board::DisplayColor::Accent;
+            if (latest_delivery_feedback_ == DeliveryFeedback::Delivered) {
+                feedback_color = board::DisplayColor::StatusActive;
+            } else if (latest_delivery_feedback_ == DeliveryFeedback::Failed) {
+                feedback_color = board::DisplayColor::Danger;
+            }
+
+            board_.draw_line(
+                230,
+                static_cast<std::int16_t>(y + 2),
+                230,
+                static_cast<std::int16_t>(y + 16),
+                feedback_color);
+            board_.draw_line(
+                231,
+                static_cast<std::int16_t>(y + 2),
+                231,
+                static_cast<std::int16_t>(y + 16),
+                feedback_color);
+        }
+    }
+
+    const bool options_selected =
+        selected_main_index_ == kMainOptionsIndex;
+    const bool return_selected =
+        selected_main_index_ == kMainReturnIndex;
+
+    board_.draw_text_region(
+        8,
+        98,
+        108,
+        22,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        options_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    board_.draw_text_region(
+        20,
+        101,
+        90,
+        17,
+        "OPCJE",
+        2,
+        options_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        options_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    if (options_selected) {
+        draw_selection_marker(board_, 8, 99, 19);
+    }
+
+    board_.draw_text_region(
+        124,
+        98,
+        108,
+        22,
+        "",
+        1,
+        board::DisplayColor::PrimaryText,
+        return_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    board_.draw_text_region(
+        136,
+        101,
+        90,
+        17,
+        "POWROT",
+        2,
+        return_selected
+            ? board::DisplayColor::PrimaryText
+            : board::DisplayColor::SecondaryText,
+        return_selected
+            ? board::DisplayColor::Surface
+            : board::DisplayColor::Background);
+    if (return_selected) {
+        draw_selection_marker(board_, 124, 99, 19);
+    }
+
+    char footer[64]{};
+    const char* feedback_text = nullptr;
+    board::DisplayColor footer_color =
+        board::DisplayColor::SecondaryText;
+
+    if (latest_delivery_feedback_ == DeliveryFeedback::Sending) {
+        feedback_text = "WYSYLAM...";
+        footer_color = board::DisplayColor::Accent;
+    } else if (latest_delivery_feedback_ == DeliveryFeedback::Delivered) {
+        feedback_text = "DOSTARCZONO";
+        footer_color = board::DisplayColor::StatusActive;
+    } else if (latest_delivery_feedback_ == DeliveryFeedback::Failed) {
+        feedback_text = "NIE DOSTARCZONO";
+        footer_color = board::DisplayColor::Danger;
+    }
+
+    if (feedback_text != nullptr) {
+        if (latest_delivery_main_action_index_ < kMainPresetCount) {
+            std::snprintf(
+                footer,
+                sizeof(footer),
+                "%s - %s",
+                catalogue::preset_text(
+                    catalogue::kPresetOrder[
+                        latest_delivery_main_action_index_]),
+                feedback_text);
+        } else if (latest_delivery_main_action_index_
+            == kMainSignalIndex) {
+            std::snprintf(
+                footer,
+                sizeof(footer),
+                "SYGNAL - %s",
+                feedback_text);
+        } else {
+            std::snprintf(
+                footer,
+                sizeof(footer),
+                "%s",
+                feedback_text);
+        }
+    } else {
+        std::snprintf(
+            footer,
+            sizeof(footer),
+            "M5 WYBIERZ  BOCZNY DALEJ");
+    }
+
+    board_.draw_text_region(
+        10,
+        123,
+        222,
+        10,
+        footer,
+        1,
+        footer_color,
+        board::DisplayColor::Background);
+
+    rendered_peer_state_valid_ = true;
+    rendered_peer_known_ = peer_known;
+    rendered_peer_reachable_ = recently_seen;
+    rendered_signal_bars_ = bars;
+}
+
+void CommunicatorApp::render_main_single()
+{
     signal_unavailable_feedback_ = false;
     clear_screen();
     draw_header("KOMUNIKATOR");
