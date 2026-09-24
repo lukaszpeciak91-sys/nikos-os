@@ -261,6 +261,10 @@ bool Service::resume_transport()
         return true;
     }
 
+    if (!apply_desired_rx_profile()) {
+        return false;
+    }
+
     if (!start_transport()) {
         return false;
     }
@@ -285,26 +289,35 @@ bool Service::transport_active() const
     return transport_active_;
 }
 
-bool Service::set_rx_profile(RxProfile profile)
+RxProfile Service::desired_rx_profile() const
 {
-    if (!started_) {
+    return outgoing_.active || pending_outgoing_.valid
+        ? RxProfile::Foreground
+        : RxProfile::Background;
+}
+
+bool Service::apply_rx_profile(RxProfile profile)
+{
+    if (profile == rx_profile_) {
+        return true;
+    }
+
+    if (!started_ || !transport_active_) {
         rx_profile_ = profile;
         return true;
     }
 
-    if (!transport_active_) {
-        rx_profile_ = profile;
-        return true;
-    }
-
-    const RxProfile previous = rx_profile_;
-    rx_profile_ = profile;
     if (!radio_.set_rx_power(rx_power_for(profile))) {
-        rx_profile_ = previous;
         return false;
     }
 
+    rx_profile_ = profile;
     return true;
+}
+
+bool Service::apply_desired_rx_profile()
+{
+    return apply_rx_profile(desired_rx_profile());
 }
 
 RxProfile Service::rx_profile() const
@@ -426,15 +439,13 @@ bool Service::peer_reachable() const
         return false;
     }
 
-    const RxSchedule& schedule =
-        rx_profile_ == RxProfile::Foreground
-            ? config_.foreground_rx
-            : config_.background_rx;
-
+    // The temporary delivery boost changes only the RX power schedule.
+    // Keep user-visible peer freshness on the normal communicator-enabled
+    // policy so a send cannot make an otherwise fresh peer look stale.
     return peer_known_
         && last_peer_rx_ms_ != 0
         && now_ms() - last_peer_rx_ms_
-            <= schedule.reachability_timeout_ms;
+            <= config_.background_rx.reachability_timeout_ms;
 }
 
 const radio::MacAddress& Service::self_mac() const
@@ -819,6 +830,18 @@ bool Service::start_outgoing(
     // once a newer send is accepted.
     delivery_ready_ = false;
 
+    // User logical delivery owns the temporary fast RX schedule. Apply it
+    // before servicing the initial send so application ACK reception already
+    // uses the delivery-boost profile. Latest-wins replacement stays fast
+    // because pending_outgoing_ is already valid here.
+    if (!apply_desired_rx_profile()) {
+        pending_outgoing_ = PendingOutgoing{};
+        ESP_LOGW(
+            kTag,
+            "Failed to apply delivery RX boost; send not accepted");
+        return false;
+    }
+
     const std::uint32_t now = now_ms();
     if (outgoing_.message.message_id == 0) {
         (void)activate_pending_outgoing(now);
@@ -1174,6 +1197,12 @@ void Service::finish_outgoing(
         && unicast_in_flight_.kind == UnicastKind::OutgoingPayload
         && unicast_in_flight_.logical_message_id
             == outgoing_.message.message_id;
+
+    if (!apply_desired_rx_profile()) {
+        ESP_LOGW(
+            kTag,
+            "Failed to restore desired RX profile after delivery completion");
+    }
 
     if (!outgoing_.completion_pending_transport) {
         finalize_outgoing_metrics();
