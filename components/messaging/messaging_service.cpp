@@ -307,6 +307,13 @@ bool Service::apply_rx_profile(RxProfile profile)
         return true;
     }
 
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+    if (test_fail_next_rx_profile_apply_) {
+        test_fail_next_rx_profile_apply_ = false;
+        return false;
+    }
+#endif
+
     if (!radio_.set_rx_power(rx_power_for(profile))) {
         return false;
     }
@@ -368,7 +375,18 @@ bool Service::recover_rx_profile_transition()
     // after in-flight cleanup/finalization.
     rx_profile_ = desired_rx_profile();
 
-    if (!start_transport()) {
+    bool restart_succeeded = false;
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+    if (test_fail_next_rx_recovery_restart_) {
+        test_fail_next_rx_recovery_restart_ = false;
+    } else {
+        restart_succeeded = start_transport();
+    }
+#else
+    restart_succeeded = start_transport();
+#endif
+
+    if (!restart_succeeded) {
         fail_transport_closed(
             recovery_ms,
             "RX profile recovery restart failed");
@@ -605,6 +623,18 @@ bool Service::poll_delivery(DeliveryReceipt& receipt)
     delivery_ready_ = false;
     return true;
 }
+
+#if defined(NIKOS_MESSAGING_TEST_HOOKS)
+void Service::test_fail_next_rx_profile_apply()
+{
+    test_fail_next_rx_profile_apply_ = true;
+}
+
+void Service::test_fail_next_rx_recovery_restart()
+{
+    test_fail_next_rx_recovery_restart_ = true;
+}
+#endif
 
 bool Service::start_transport()
 {
