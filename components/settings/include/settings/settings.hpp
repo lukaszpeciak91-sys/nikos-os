@@ -17,9 +17,23 @@ enum class SignalSound : std::uint8_t {
     Pager,
 };
 
+enum class Brightness : std::uint8_t {
+    Low,
+    Medium,
+    High,
+};
+
+struct BrightnessProfile {
+    std::uint8_t active = 96;
+    std::uint8_t dimmed = 24;
+};
+
+BrightnessProfile brightness_profile(Brightness brightness);
+
 struct State {
     Orientation orientation = Orientation::Right;
     SignalSound signal_sound = SignalSound::Gentle;
+    Brightness brightness = Brightness::Medium;
     ui_theme::Theme theme = ui_theme::Theme::Nikos;
 };
 
