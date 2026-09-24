@@ -55,6 +55,33 @@ const char* charge_text(nikos::board::ChargeState state)
     }
 }
 
+void format_battery_current(
+    bool supported,
+    std::int32_t current_ma,
+    char* output,
+    std::size_t output_size)
+{
+    if (!supported) {
+        std::snprintf(output, output_size, "--");
+        return;
+    }
+
+    if (current_ma > 0) {
+        std::snprintf(
+            output,
+            output_size,
+            "+%ldmA",
+            static_cast<long>(current_ma));
+        return;
+    }
+
+    std::snprintf(
+        output,
+        output_size,
+        "%ldmA",
+        static_cast<long>(current_ma));
+}
+
 const char* rx_profile_text(nikos::power_diag::RxProfile profile)
 {
     using nikos::power_diag::RxProfile;
@@ -395,7 +422,7 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
         radiolab,
         sizeof(radiolab));
 
-    char line[40]{};
+    char line[64]{};
     std::snprintf(
         line,
         sizeof(line),
@@ -467,11 +494,19 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
         peer_text = "ZNANY";
     }
 
+    char current_text[20]{};
+    format_battery_current(
+        snapshot.battery_current_supported,
+        snapshot.battery_current_ma,
+        current_text,
+        sizeof(current_text));
+
     std::snprintf(
         line,
         sizeof(line),
-        "CHG %s  PEER %s",
+        "CHG %s  I %s  PEER %s",
         charge_text(snapshot.charge_state),
+        current_text,
         peer_text);
     board_.draw_text_region(
         10, 108, 220, 12, line, 1,
