@@ -63,6 +63,8 @@ struct Snapshot {
     std::int32_t current_percent = -1;
     std::int16_t minimum_voltage_mv = -1;
     std::int32_t delta_voltage_mv = 0;
+    std::int32_t battery_current_ma = 0;
+    bool battery_current_supported = false;
     board::ChargeState charge_state = board::ChargeState::Unknown;
 
     Observation observation{};
@@ -105,6 +107,8 @@ private:
     std::int16_t current_voltage_mv_ = -1;
     std::int32_t current_percent_ = -1;
     std::int16_t minimum_voltage_mv_ = -1;
+    std::int32_t battery_current_ma_ = 0;
+    bool battery_current_supported_ = false;
     board::ChargeState charge_state_ = board::ChargeState::Unknown;
 };
 
