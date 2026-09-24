@@ -556,3 +556,24 @@ The brightness preference is volatile and returns to Medium after reboot. No NVS
 Hardware validation will compare PowerDiag battery current and LCD ON time at Active brightness 72, 96, and 128 under otherwise similar runtime/radio conditions.
 
 **Rationale:** Three fixed semantic levels are sufficient for physical readability/power testing while preserving the existing display-lifecycle and Board ownership boundaries.
+
+## D-037 — Communicator RX boost follows logical delivery, not UI visibility
+
+**Status:** Accepted for hardware validation
+
+Communicator-enabled idle RX uses the existing background schedule at all normal UI/display states:
+
+- idle / normal enabled: 3000 ms interval / 500 ms wake window;
+- temporary logical-delivery boost: 1000 ms interval / 500 ms wake window.
+
+The temporary boost is owned internally by `messaging::Service`. It begins when a user logical send (PresetMessage, PresetResponse, or Ring/SYGNAL) is accepted and remains active through initial send, TxResult pacing, application-ACK wait, retry delays/retries, bounded deadline, and any latest-wins pending replacement. It ends when the final active/pending logical delivery resolves Delivered or Failed.
+
+Communicator foreground visibility, DisplayLifecycle state, incoming-message presentation, received SYGNAL playback, Presence traffic, and automatic application-ACK transmission do not request the boost. `CommunicatorApp::begin()/end()` therefore no longer own RX profile selection.
+
+The existing config values remain unchanged: the fast profile retains its configured 7000 ms reachability field and the idle profile retains 20000 ms. However, user-visible `peer_reachable()` freshness stays on the stable 20000 ms enabled-session timeout so a temporary delivery boost cannot make an otherwise fresh peer appear stale.
+
+RadioLab still pauses messaging transport and freezes logical delivery clocks. If a logical delivery remains active/pending, messaging retains the desired boosted state while paused and resumes transport directly at 1000/500. No temporary 3000/500 gap is introduced by latest-wins replacement or RadioLab resume.
+
+PowerDiag remains observation-only and reports the actual effective profile/schedule: BG 3000/500 while idle (including open Communicator UI), FG 1000/500 while logical delivery is active/pending, then BG after Delivered/Failed.
+
+**Rationale:** Faster RX is needed to improve application-ACK delivery behavior, not to reward screen visibility with higher radio duty cycle. Event-driven ownership in messaging avoids continuous profile reconfiguration from the main loop and reduces enabled-idle power cost without changing delivery authority, retry, TxResult, dedupe, Presence, or radio-ownership semantics.
