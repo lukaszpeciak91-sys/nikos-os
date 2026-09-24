@@ -80,7 +80,6 @@ public:
     bool resume_transport();
     bool transport_active() const;
 
-    bool set_rx_profile(RxProfile profile);
     RxProfile rx_profile() const;
     RxSchedule current_rx_schedule() const;
 
@@ -172,6 +171,9 @@ private:
     };
 
     bool start_transport();
+    RxProfile desired_rx_profile() const;
+    bool apply_rx_profile(RxProfile profile);
+    bool apply_desired_rx_profile();
     radio::RxPowerConfig rx_power_for(RxProfile profile) const;
     const RxSchedule& rx_schedule_for(RxProfile profile) const;
 
