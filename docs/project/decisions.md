@@ -108,7 +108,7 @@ Long-lived messaging normally owns the active radio transport. Entering RadioLab
 
 ## D-012 — Messaging RX duty profiles are experimental configuration
 
-**Status:** Accepted
+**Status:** Partially superseded by D-037
 
 The first messaging foundation provides configurable foreground/background ESP-NOW RX schedules with profile-aware reachability timeouts.
 
@@ -116,7 +116,7 @@ Current experimental starting values are:
 - foreground: approximately 1000/500 ms RX schedule with approximately 7000 ms reachability timeout;
 - background: approximately 3000/500 ms RX schedule with approximately 20000 ms reachability timeout.
 
-These values are not permanent product or platform policy.
+These values are not permanent product or platform policy. D-037 keeps the same numeric schedules but supersedes UI-driven selection and profile-dependent peer-freshness semantics: 3000/500 is the normal enabled-idle schedule and 1000/500 is now a temporary logical-delivery boost.
 
 **Rationale:** Connectionless RX interval/window behavior must be validated on hardware before final background power policy is chosen.
 
