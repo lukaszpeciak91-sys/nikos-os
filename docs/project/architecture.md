@@ -155,9 +155,10 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 
 ### settings
 
-`settings::State` owns the current boot-scoped user preference state. It now contains three real runtime preferences:
+`settings::State` owns the current boot-scoped user preference state. It now contains four real runtime preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
+- display brightness: Low / `NISKA` = 72/18, Medium / `SREDNIA` = 96/24 (default), or High / `WYSOKA` = 128/32 for Active/Dimmed;
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
 - display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
 
@@ -204,7 +205,7 @@ Owns the first small product-level display lifecycle policy only:
 - full wake-gesture consumption after `DisplayOff`;
 - a one-shot `WakeReason::UserButton` result when a physical user button wakes `DisplayOff`, exposed with the centrally filtered input for `app_main`.
 
-`board` remains the hardware owner for normal brightness, dim brightness, LCD sleep, wake, and RTC hardware access. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton` and take priority over Clock Glance. A physical `DisplayOff` user wake now enters the top-level Clock Glance transient UI in `app_main`; no second application action leaks from either the first wake gesture or the second glance-dismiss gesture.
+`board` remains the hardware owner for the currently applied Active/Dimmed numeric backlight levels, LCD sleep, wake, and RTC hardware access. The authoritative Low/Medium/High mapping is centralized in `settings`; Board stores the selected numeric profile and applies it immediately when changed. `power::DisplayLifecycle` remains semantic-only and knows only Active, Dimmed, and DisplayOff, never brightness numbers. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton` and take priority over Clock Glance. A physical `DisplayOff` user wake now enters the top-level Clock Glance transient UI in `app_main`; no second application action leaks from either the first wake gesture or the second glance-dismiss gesture.
 
 `DisplayOff` is LCD/backlight state only. It does not stop `app_main`, messaging, Communicator background reception, or the configured ESP-NOW RX schedule, and it never performs whole-device shutdown.
 
