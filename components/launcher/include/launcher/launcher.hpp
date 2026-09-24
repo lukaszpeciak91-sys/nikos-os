@@ -75,6 +75,7 @@ private:
         ClockSetFailed,
         Settings,
         SignalSound,
+        Brightness,
         Theme,
         Orientation,
         EnableCommunicator,
@@ -106,6 +107,7 @@ private:
     void render_stopwatch_time_if_changed();
     void render_settings();
     void render_signal_sound();
+    void render_brightness();
     void render_theme();
     void render_orientation();
     void render_enable_communicator();
@@ -138,6 +140,7 @@ private:
     std::uint8_t edit_minute_ = 0;
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
+    std::uint8_t brightness_selection_ = 0;
     std::uint8_t theme_selection_ = 0;
     std::uint8_t orientation_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
