@@ -461,14 +461,6 @@ void CommunicatorApp::handle_input(const board::InputState& input)
 void CommunicatorApp::handle_main_input(const board::InputState& input)
 {
     const bool peer_known = messaging_.peer_known();
-    const std::uint8_t signal_index =
-        static_cast<std::uint8_t>(catalogue::kPresetOrder.size());
-    const std::uint8_t options_index =
-        static_cast<std::uint8_t>(signal_index + 1U);
-    const std::uint8_t return_index =
-        static_cast<std::uint8_t>(options_index + 1U);
-    const std::uint8_t choice_count =
-        static_cast<std::uint8_t>(return_index + 1U);
 
     if (signal_unavailable_feedback_) {
         if (input.primary_short || input.secondary_short) {
@@ -480,7 +472,7 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
 
     if (input.secondary_short) {
         selected_main_index_ = static_cast<std::uint8_t>(
-            (selected_main_index_ + 1U) % choice_count);
+            (selected_main_index_ + 1U) % kMainChoiceCount);
         render_main();
         return;
     }
@@ -489,7 +481,7 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         return;
     }
 
-    if (selected_main_index_ == options_index) {
+    if (selected_main_index_ == kMainOptionsIndex) {
         options_active_ = true;
         selected_options_index_ = 0;
         radio_mode_change_failed_ = false;
@@ -497,12 +489,12 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         return;
     }
 
-    if (selected_main_index_ == return_index) {
+    if (selected_main_index_ == kMainReturnIndex) {
         foreground_exit_requested_ = true;
         return;
     }
 
-    if (selected_main_index_ == signal_index) {
+    if (selected_main_index_ == kMainSignalIndex) {
         if (peer_known) {
             (void)send_signal();
         } else {
@@ -524,7 +516,7 @@ void CommunicatorApp::handle_options_input(
 {
     if (input.secondary_short) {
         selected_options_index_ =
-            static_cast<std::uint8_t>((selected_options_index_ + 1U) % 2U);
+            static_cast<std::uint8_t>((selected_options_index_ + 1U) % 3U);
         radio_mode_change_failed_ = false;
         render_options();
         return;
@@ -534,10 +526,20 @@ void CommunicatorApp::handle_options_input(
         return;
     }
 
-    if (selected_options_index_ == 1U) {
+    if (selected_options_index_ == 2U) {
         options_active_ = false;
         radio_mode_change_failed_ = false;
         render_main();
+        return;
+    }
+
+    if (selected_options_index_ == 0U) {
+        settings_.communicator_view =
+            settings_.communicator_view == settings::CommunicatorView::List
+            ? settings::CommunicatorView::Single
+            : settings::CommunicatorView::List;
+        radio_mode_change_failed_ = false;
+        render_options();
         return;
     }
 
@@ -599,15 +601,24 @@ void CommunicatorApp::handle_incoming_response_input(
 void CommunicatorApp::handle_wait_decision_input(
     const board::InputState& input)
 {
-    if (input.primary_short) {
+    if (input.secondary_short) {
+        selected_response_index_ =
+            static_cast<std::uint8_t>((selected_response_index_ + 1U) % 2U);
+        render_wait_decision();
+        return;
+    }
+
+    if (!input.primary_short) {
+        return;
+    }
+
+    if (selected_response_index_ == 0U) {
         (void)send_wait_followup();
         return;
     }
 
-    if (input.secondary_short) {
-        state_ = State::Main;
-        render_main();
-    }
+    state_ = State::Main;
+    render_main();
 }
 
 bool CommunicatorApp::send_selected_preset()
@@ -625,7 +636,7 @@ bool CommunicatorApp::send_selected_preset()
         return false;
     }
 
-    track_latest_send();
+    track_latest_send(selected_main_index_);
     state_ = State::Main;
     render_main();
     return true;
@@ -637,7 +648,7 @@ bool CommunicatorApp::send_signal()
         return false;
     }
 
-    track_latest_send();
+    track_latest_send(kMainSignalIndex);
     return true;
 }
 
@@ -677,11 +688,16 @@ bool CommunicatorApp::send_wait_followup()
     return true;
 }
 
-void CommunicatorApp::track_latest_send()
+void CommunicatorApp::track_latest_send(
+    std::uint8_t main_action_index)
 {
     latest_outgoing_message_id_ =
         messaging_.outgoing_logical_message_id();
     latest_delivery_feedback_ = DeliveryFeedback::Sending;
+    latest_delivery_main_action_index_ =
+        main_action_index < kMainSendActionCount
+        ? main_action_index
+        : kNoMainActionIndex;
     delivery_result_started_ms_ = 0;
 }
 
