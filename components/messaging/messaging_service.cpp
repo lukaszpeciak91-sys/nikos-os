@@ -826,10 +826,6 @@ bool Service::start_outgoing(
     pending_outgoing_.valid = true;
     pending_outgoing_.message = requested;
 
-    // A result that was waiting for UI polling belongs to an older operation
-    // once a newer send is accepted.
-    delivery_ready_ = false;
-
     // User logical delivery owns the temporary fast RX schedule. Apply it
     // before servicing the initial send so application ACK reception already
     // uses the delivery-boost profile. Latest-wins replacement stays fast
@@ -841,6 +837,10 @@ bool Service::start_outgoing(
             "Failed to apply delivery RX boost; send not accepted");
         return false;
     }
+
+    // A result that was waiting for UI polling belongs to an older operation
+    // once a newer send has actually been accepted.
+    delivery_ready_ = false;
 
     const std::uint32_t now = now_ms();
     if (outgoing_.message.message_id == 0) {
