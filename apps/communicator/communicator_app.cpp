@@ -299,7 +299,8 @@ bool CommunicatorApp::valid_user_message(
 }
 
 bool CommunicatorApp::accept_incoming(
-    const messaging::IncomingMessage& message)
+    const messaging::IncomingMessage& message,
+    bool notify)
 {
     if (!valid_user_message(message)) {
         return false;
@@ -316,7 +317,10 @@ bool CommunicatorApp::accept_incoming(
         response_set_ = catalogue::responses_for(preset);
         selected_response_index_ = 0;
         state_ = State::IncomingPreset;
-        notify_incoming();
+
+        if (notify) {
+            notify_incoming();
+        }
         return true;
     }
 
@@ -329,15 +333,16 @@ bool CommunicatorApp::accept_incoming(
     } else {
         state_ = State::IncomingResponse;
     }
-    notify_incoming();
+
+    if (notify) {
+        notify_incoming();
+    }
     return true;
 }
 
-bool CommunicatorApp::process_incoming()
+CommunicatorApp::IncomingDrainResult CommunicatorApp::drain_incoming()
 {
-    messaging::IncomingMessage latest_user_message{};
-    bool latest_user_message_valid = false;
-    bool ring_received = false;
+    IncomingDrainResult result;
 
     messaging::IncomingMessage incoming;
     while (messaging_.peek_incoming(incoming)) {
@@ -346,13 +351,13 @@ bool CommunicatorApp::process_incoming()
         }
 
         if (incoming.kind == messaging::IncomingKind::Ring) {
-            ring_received = true;
+            result.ring_received = true;
             continue;
         }
 
         if (valid_user_message(incoming)) {
-            latest_user_message = incoming;
-            latest_user_message_valid = true;
+            result.latest_user_message = incoming;
+            result.latest_user_message_valid = true;
         } else {
             ESP_LOGW(
                 kTag,
@@ -363,14 +368,22 @@ bool CommunicatorApp::process_incoming()
         }
     }
 
+    return result;
+}
+
+bool CommunicatorApp::process_incoming()
+{
+    const IncomingDrainResult incoming = drain_incoming();
+
     bool accepted = false;
     bool user_message_accepted = false;
-    if (latest_user_message_valid) {
-        user_message_accepted = accept_incoming(latest_user_message);
+    if (incoming.latest_user_message_valid) {
+        user_message_accepted =
+            accept_incoming(incoming.latest_user_message, true);
         accepted = user_message_accepted;
     }
 
-    if (ring_received && !signal_alert_active_) {
+    if (incoming.ring_received && !signal_alert_active_) {
         start_signal_alert();
 
         // A background RING by itself still returns to Launcher after
@@ -384,6 +397,21 @@ bool CommunicatorApp::process_incoming()
     }
 
     return accepted;
+}
+
+void CommunicatorApp::process_incoming_silent()
+{
+    const IncomingDrainResult incoming = drain_incoming();
+
+    if (incoming.latest_user_message_valid) {
+        (void)accept_incoming(
+            incoming.latest_user_message,
+            false);
+    }
+
+    // RING/SYGNAL is intentionally transient. Charging Mode drains it from
+    // the transport handoff queue but does not retain, notify, render, wake,
+    // or defer it for later presentation.
 }
 
 void CommunicatorApp::handle_delivery_receipt(
