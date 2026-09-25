@@ -827,7 +827,9 @@ extern "C" void app_main(void)
                 nikos::battery_guard::AdvisoryLevel::None;
 
             // Return immediately to the existing runtime without rebooting or
-            // resetting application state.
+            // resetting application state. Keep any M5/BOCZNY gesture that
+            // began under Charging Mode from completing in the restored UI.
+            display_lifecycle.suppress_user_gesture_until_release();
             display_lifecycle.note_visible_activity();
             redraw_runtime_ui(
                 state,
