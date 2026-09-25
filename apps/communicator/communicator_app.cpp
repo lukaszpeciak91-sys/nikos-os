@@ -108,6 +108,8 @@ void CommunicatorApp::begin()
 
 void CommunicatorApp::end()
 {
+    charging_incoming_mode_ = false;
+
     if (signal_alert_active_) {
         signal_sound_.stop();
         signal_alert_active_ = false;
