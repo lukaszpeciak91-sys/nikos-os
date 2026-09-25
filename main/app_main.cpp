@@ -933,6 +933,11 @@ extern "C" void app_main(void)
         signal_sound.update();
 
         const std::uint32_t loop_now_ms = now_ms();
+        const bool charging_communication_was_active =
+            charging_mode.communication_active;
+        const bool owner_override_was_active =
+            charging_mode.owner_override_active;
+
         const ChargingCableEvent charging_cable_event =
             poll_charging_cable(
                 board,
@@ -946,11 +951,18 @@ extern "C" void app_main(void)
             battery_advisory_level =
                 nikos::battery_guard::AdvisoryLevel::None;
 
-            show_charging_presentation(
-                board,
-                display_lifecycle,
-                charging_mode,
-                loop_now_ms);
+            // If an incoming Communicator interaction already owns the
+            // foreground when VBUS appears, preserve it as the higher-priority
+            // charging-time communication. Otherwise hide Communicator Main
+            // immediately so normal local use is locked.
+            if (state == RuntimeState::Communicator
+                && communicator.timer_preemption_active()) {
+                charging_mode.communication_active = true;
+                charging_mode.presentation_visible = false;
+                communicator.begin_charging_incoming();
+            } else if (state == RuntimeState::Communicator) {
+                communicator.end();
+            }
         } else if (
             charging_cable_event == ChargingCableEvent::Disconnected) {
             clock_glance_active = false;
@@ -959,9 +971,23 @@ extern "C" void app_main(void)
             battery_advisory_level =
                 nikos::battery_guard::AdvisoryLevel::None;
 
-            // Return immediately to the existing runtime without rebooting or
-            // resetting application state. Keep any M5/BOCZNY gesture that
-            // began under Charging Mode from completing in the restored UI.
+            if (charging_communication_was_active) {
+                // Unplug removes Charging Lock, not the communication that was
+                // already in progress. Continue it as an ordinary foreground
+                // Communicator interaction.
+                communicator.end_charging_incoming(true);
+                state = RuntimeState::Communicator;
+            } else if (
+                state == RuntimeState::Communicator
+                && !owner_override_was_active) {
+                // Charging Lock may have hidden an already-open Communicator
+                // Main screen. Restore it now that VBUS ownership is gone.
+                communicator.begin();
+            }
+
+            // reset_charging_session() ran inside cable polling. This clears
+            // Owner Override, secret progress, deferred Full presentation,
+            // and all charging-only presentation state without rebooting.
             display_lifecycle.suppress_user_gesture_until_release();
             display_lifecycle.note_visible_activity();
             redraw_runtime_ui(
@@ -1001,12 +1027,11 @@ extern "C" void app_main(void)
         if (update_charging_full_confirmation(
                 charging_mode,
                 battery_update)) {
-            board.tone(kChargingFullToneHz, kChargingFullToneMs);
-            show_charging_presentation(
-                board,
-                display_lifecycle,
-                charging_mode,
-                loop_now_ms);
+            // Full becomes authoritative immediately, but its one-shot beep
+            // and OK presentation belong to Charging Lock. Incoming
+            // communication and Owner Override keep their current foreground
+            // until Charging Lock regains control.
+            charging_mode.full_presentation_pending = true;
         }
 
         if (battery_update.charging_detected
@@ -1026,21 +1051,172 @@ extern "C" void app_main(void)
             }
         }
 
-        if (charging_mode.active) {
-            // Charging Mode suppresses presentation, not application
-            // consumption. Keep the bounded messaging->Communicator handoff
-            // queue draining so newer valid messages can still be retained
-            // and application-ACKed by messaging. Communicator owns parsing,
-            // validation, latest-wins retention, and silent RING suppression.
-            if (communicator_enabled) {
-                communicator.process_incoming_silent();
+        const nikos::board::InputState raw_input =
+            board.poll_input();
+
+        bool owner_relocked_now = false;
+        if (charging_mode.active
+            && charging_mode.owner_override_active) {
+            if (any_local_button_activity(raw_input)) {
+                charging_mode.owner_override_last_activity_ms =
+                    loop_now_ms;
             }
 
-            const nikos::board::InputState charging_input =
-                board.poll_input();
+            if (loop_now_ms
+                    - charging_mode.owner_override_last_activity_ms
+                >= kChargingOwnerOverrideIdleMs) {
+                charging_mode.owner_override_active = false;
+                charging_mode.presentation_visible = false;
+                reset_charging_owner_sequence(charging_mode);
+                owner_relocked_now = true;
 
-            if (charging_wake_requested(charging_input)) {
-                show_charging_presentation(
+                clock_glance_active = false;
+                battery_advisory_visible = false;
+                if (timer_alert_visible) {
+                    timer_alert_visible = false;
+                    signal_sound.stop();
+                }
+
+                // If the ordinary unlocked runtime is currently handling an
+                // incoming communication, convert it to the restricted
+                // charging-time preemption instead of stealing the screen.
+                if (state == RuntimeState::Communicator
+                    && communicator.timer_preemption_active()) {
+                    charging_mode.communication_active = true;
+                    communicator.begin_charging_incoming();
+                } else if (state == RuntimeState::Communicator) {
+                    communicator.end();
+                }
+            }
+        }
+
+        if (charging_mode.active
+            && !charging_mode.owner_override_active) {
+            if (charging_mode.communication_active) {
+                if (communicator_enabled) {
+                    (void)communicator.process_incoming_for_charging();
+                }
+
+                const nikos::power::FilteredInput communication_input =
+                    display_lifecycle.filter_input(raw_input);
+
+                if (communication_input.wake_reason
+                    == nikos::power::WakeReason::UserButton) {
+                    communicator.redraw();
+                }
+
+                display_lifecycle.update();
+
+                const nikos::communicator::CommunicatorApp::UpdateResult
+                    communication_result =
+                        communicator.update(communication_input.input);
+
+                const bool communication_finished =
+                    communication_result
+                        == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested
+                    || !communicator.timer_preemption_active();
+
+                if (communication_finished) {
+                    communicator.end_charging_incoming();
+                    charging_mode.communication_active = false;
+                    charging_mode.presentation_visible = false;
+
+                    if (any_local_button_activity(raw_input)) {
+                        display_lifecycle.suppress_user_gesture_until_release();
+                    }
+
+                    show_charging_lock(
+                        board,
+                        display_lifecycle,
+                        charging_mode,
+                        loop_now_ms);
+                }
+
+                if (power_diag_session.running()) {
+                    power_diag_session.observe(
+                        monotonic_now_us(),
+                        make_power_diag_observation(
+                            state,
+                            display_lifecycle,
+                            communicator_enabled,
+                            messaging));
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                continue;
+            }
+
+            // RadioLab retains exclusive radio ownership. Charging Lock must
+            // not resume or steal messaging while that application owns the
+            // transport. Otherwise incoming communication preempts the lock
+            // using the normal Communicator notification/UI semantics.
+            if (state != RuntimeState::RadioLab
+                && communicator_enabled
+                && communicator.process_incoming_for_charging()) {
+                charging_mode.communication_active = true;
+                charging_mode.presentation_visible = false;
+                communicator.begin_charging_incoming();
+
+                if (any_local_button_activity(raw_input)) {
+                    display_lifecycle.suppress_user_gesture_until_release();
+                }
+
+                if (power_diag_session.running()) {
+                    power_diag_session.observe(
+                        monotonic_now_us(),
+                        make_power_diag_observation(
+                            state,
+                            display_lifecycle,
+                            communicator_enabled,
+                            messaging));
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                continue;
+            }
+
+            if (charging_mode.full_presentation_pending
+                || charging_cable_event
+                    == ChargingCableEvent::Connected
+                || owner_relocked_now) {
+                show_charging_lock(
+                    board,
+                    display_lifecycle,
+                    charging_mode,
+                    loop_now_ms);
+            }
+
+            const bool owner_override_started =
+                update_charging_owner_sequence(
+                    charging_mode,
+                    raw_input,
+                    loop_now_ms);
+
+            if (owner_override_started) {
+                charging_mode.presentation_visible = false;
+
+                // The final secret-sequence press belongs entirely to
+                // Charging Lock and must never execute in the restored UI.
+                display_lifecycle.suppress_user_gesture_until_release();
+                display_lifecycle.note_visible_activity();
+
+                if (state == RuntimeState::Communicator) {
+                    communicator.begin();
+                }
+                redraw_runtime_ui(
+                    state,
+                    launcher,
+                    communicator,
+                    power_diag,
+                    power_diag_session,
+                    radiolab);
+
+                vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                continue;
+            }
+
+            if (charging_wake_requested(raw_input)) {
+                show_charging_lock(
                     board,
                     display_lifecycle,
                     charging_mode,
@@ -1074,7 +1250,7 @@ extern "C" void app_main(void)
         }
 
         const nikos::power::FilteredInput display_input =
-            display_lifecycle.filter_input(board.poll_input());
+            display_lifecycle.filter_input(raw_input);
         const nikos::board::InputState& input = display_input.input;
 
         if (display_input.power_display_off) {
