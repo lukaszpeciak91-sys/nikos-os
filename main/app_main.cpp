@@ -37,6 +37,8 @@ constexpr std::uint32_t kChargingPresentationMs = 5000;
 constexpr std::uint32_t kChargingAnimationStepMs = 400;
 constexpr float kChargingFullToneHz = 3200.0F;
 constexpr std::uint32_t kChargingFullToneMs = 90;
+constexpr std::uint32_t kChargingOwnerSequenceWindowMs = 4000;
+constexpr std::uint32_t kChargingOwnerOverrideIdleMs = 120000;
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
@@ -51,11 +53,31 @@ enum class ChargingCableEvent : std::uint8_t {
     Disconnected,
 };
 
+enum class ChargingOwnerButton : std::uint8_t {
+    Primary,
+    Secondary,
+};
+
+constexpr ChargingOwnerButton kChargingOwnerSequence[] = {
+    ChargingOwnerButton::Primary,
+    ChargingOwnerButton::Secondary,
+    ChargingOwnerButton::Primary,
+    ChargingOwnerButton::Primary,
+    ChargingOwnerButton::Secondary,
+};
+
 struct ChargingModeState {
     bool active = false;
     bool full_latched = false;
+    bool full_presentation_pending = false;
     bool charging_observed = false;
     std::uint8_t full_confirm_count = 0;
+
+    bool communication_active = false;
+    bool owner_override_active = false;
+    std::uint32_t owner_override_last_activity_ms = 0;
+    std::uint8_t owner_sequence_index = 0;
+    std::uint32_t owner_sequence_started_ms = 0;
 
     bool presentation_visible = false;
     std::uint8_t animation_step = 0;
@@ -87,6 +109,84 @@ bool any_user_button_activity(const nikos::board::InputState& input)
         || input.secondary_long;
 }
 
+bool any_local_button_activity(const nikos::board::InputState& input)
+{
+    return any_user_button_activity(input)
+        || input.power_short;
+}
+
+void reset_charging_owner_sequence(ChargingModeState& state)
+{
+    state.owner_sequence_index = 0;
+    state.owner_sequence_started_ms = 0;
+}
+
+bool update_charging_owner_sequence(
+    ChargingModeState& state,
+    const nikos::board::InputState& input,
+    std::uint32_t now)
+{
+    if (state.owner_sequence_index > 0
+        && now - state.owner_sequence_started_ms
+            > kChargingOwnerSequenceWindowMs) {
+        reset_charging_owner_sequence(state);
+    }
+
+    if (input.power_short
+        || input.primary_long
+        || input.secondary_long) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    const bool primary = input.primary_short;
+    const bool secondary = input.secondary_short;
+    if (!primary && !secondary) {
+        return false;
+    }
+
+    if (primary && secondary) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    const ChargingOwnerButton received =
+        primary
+            ? ChargingOwnerButton::Primary
+            : ChargingOwnerButton::Secondary;
+
+    if (state.owner_sequence_index
+            >= sizeof(kChargingOwnerSequence)
+                / sizeof(kChargingOwnerSequence[0])
+        || received
+            != kChargingOwnerSequence[state.owner_sequence_index]) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    if (state.owner_sequence_index == 0) {
+        state.owner_sequence_started_ms = now;
+    }
+
+    ++state.owner_sequence_index;
+    if (state.owner_sequence_index
+        < sizeof(kChargingOwnerSequence)
+            / sizeof(kChargingOwnerSequence[0])) {
+        return false;
+    }
+
+    if (now - state.owner_sequence_started_ms
+        > kChargingOwnerSequenceWindowMs) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    reset_charging_owner_sequence(state);
+    state.owner_override_active = true;
+    state.owner_override_last_activity_ms = now;
+    return true;
+}
+
 bool charging_wake_requested(const nikos::board::InputState& input)
 {
     return input.primary_short
@@ -98,8 +198,15 @@ void reset_charging_session(ChargingModeState& state)
 {
     state.active = false;
     state.full_latched = false;
+    state.full_presentation_pending = false;
     state.charging_observed = false;
     state.full_confirm_count = 0;
+
+    state.communication_active = false;
+    state.owner_override_active = false;
+    state.owner_override_last_activity_ms = 0;
+    reset_charging_owner_sequence(state);
+
     state.presentation_visible = false;
     state.animation_step = 0;
     state.presentation_started_ms = 0;
@@ -126,8 +233,13 @@ ChargingCableEvent poll_charging_cable(
     if (vbus_present && !state.active) {
         state.active = true;
         state.full_latched = false;
+        state.full_presentation_pending = false;
         state.charging_observed = false;
         state.full_confirm_count = 0;
+        state.communication_active = false;
+        state.owner_override_active = false;
+        state.owner_override_last_activity_ms = 0;
+        reset_charging_owner_sequence(state);
         state.presentation_visible = false;
         state.animation_step = 0;
         return ChargingCableEvent::Connected;
@@ -341,6 +453,24 @@ bool update_charging_full_confirmation(
     state.full_latched = true;
     state.full_confirm_count = 0;
     return true;
+}
+
+void show_charging_lock(
+    nikos::board::Board& board,
+    nikos::power::DisplayLifecycle& display_lifecycle,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    if (state.full_presentation_pending) {
+        state.full_presentation_pending = false;
+        board.tone(kChargingFullToneHz, kChargingFullToneMs);
+    }
+
+    show_charging_presentation(
+        board,
+        display_lifecycle,
+        state,
+        now);
 }
 
 void render_clock_glance(
