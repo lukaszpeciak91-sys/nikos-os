@@ -3,7 +3,7 @@ idf_component_register(
     INCLUDE_DIRS "include"
     REQUIRES
         board
-        esp_system
+        esp_hw_support
         esp_timer
         power
 )
