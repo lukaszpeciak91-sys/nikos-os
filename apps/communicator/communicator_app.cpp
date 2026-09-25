@@ -161,6 +161,7 @@ void CommunicatorApp::reset_session()
     signal_unavailable_feedback_ = false;
     signal_alert_active_ = false;
     signal_return_to_launcher_ = false;
+    charging_incoming_mode_ = false;
     signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
     signal_playback_cycles_started_ = 0;
@@ -399,19 +400,58 @@ bool CommunicatorApp::process_incoming()
     return accepted;
 }
 
-void CommunicatorApp::process_incoming_silent()
+bool CommunicatorApp::process_incoming_for_charging()
 {
-    const IncomingDrainResult incoming = drain_incoming();
-
-    if (incoming.latest_user_message_valid) {
-        (void)accept_incoming(
-            incoming.latest_user_message,
-            false);
+    if (!signal_alert_active_) {
+        return process_incoming();
     }
 
-    // RING/SYGNAL is intentionally transient. Charging Mode drains it from
-    // the transport handoff queue but does not retain, notify, render, wake,
-    // or defer it for later presentation.
+    // Normal Communicator intentionally lets an active RING own presentation.
+    // Charging Lock still needs the bounded incoming handoff to keep draining
+    // during that transient alert. Retain only the newest valid user message
+    // underneath the signal; repeated RING frames coalesce into the alert
+    // already being presented.
+    const IncomingDrainResult incoming = drain_incoming();
+
+    bool accepted = false;
+    if (incoming.latest_user_message_valid) {
+        accepted = accept_incoming(
+            incoming.latest_user_message,
+            false);
+
+        if (accepted) {
+            // Dismissing the current RING must reveal the newly retained user
+            // message instead of ending the charging-time communication.
+            signal_return_to_launcher_ = false;
+        }
+    }
+
+    return accepted || incoming.ring_received;
+}
+
+void CommunicatorApp::begin_charging_incoming()
+{
+    charging_incoming_mode_ = true;
+    active_ = true;
+    foreground_exit_requested_ = false;
+
+    if (signal_alert_active_) {
+        render_signal_alert(signal_animation_wide_);
+    } else {
+        render_current();
+    }
+}
+
+void CommunicatorApp::end_charging_incoming(bool keep_foreground)
+{
+    charging_incoming_mode_ = false;
+
+    if (keep_foreground) {
+        active_ = true;
+        return;
+    }
+
+    end();
 }
 
 void CommunicatorApp::handle_delivery_receipt(
@@ -578,7 +618,9 @@ void CommunicatorApp::handle_incoming_preset_input(
 
     if (input.secondary_short) {
         state_ = State::Main;
-        render_main();
+        if (!charging_incoming_mode_) {
+            render_main();
+        }
     }
 }
 
@@ -602,7 +644,9 @@ void CommunicatorApp::handle_incoming_response_input(
 {
     if (input.primary_short || input.secondary_short) {
         state_ = State::Main;
-        render_main();
+        if (!charging_incoming_mode_) {
+            render_main();
+        }
     }
 }
 
@@ -626,7 +670,9 @@ void CommunicatorApp::handle_wait_decision_input(
     }
 
     state_ = State::Main;
-    render_main();
+    if (!charging_incoming_mode_) {
+        render_main();
+    }
 }
 
 bool CommunicatorApp::send_selected_preset()
@@ -679,7 +725,9 @@ bool CommunicatorApp::send_selected_response()
 
     track_latest_send();
     state_ = State::Main;
-    render_main();
+    if (!charging_incoming_mode_) {
+        render_main();
+    }
     return true;
 }
 
@@ -693,7 +741,9 @@ bool CommunicatorApp::send_wait_followup()
 
     track_latest_send();
     state_ = State::Main;
-    render_main();
+    if (!charging_incoming_mode_) {
+        render_main();
+    }
     return true;
 }
 
@@ -776,7 +826,8 @@ void CommunicatorApp::dismiss_signal_alert()
     const bool return_to_launcher = signal_return_to_launcher_;
     signal_return_to_launcher_ = false;
 
-    if (!return_to_launcher) {
+    if (!return_to_launcher
+        && (!charging_incoming_mode_ || state_ != State::Main)) {
         render_current();
     }
 }
