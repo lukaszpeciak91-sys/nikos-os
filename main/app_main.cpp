@@ -782,6 +782,7 @@ nikos::power_diag::DisplayState power_diag_display_state(
 
 nikos::power_diag::Observation make_power_diag_observation(
     RuntimeState runtime_state,
+    const ChargingModeState& charging_mode,
     const nikos::power::DisplayLifecycle& display_lifecycle,
     bool communicator_enabled,
     const nikos::messaging::Service& messaging)
@@ -790,10 +791,22 @@ nikos::power_diag::Observation make_power_diag_observation(
     observation.display_state =
         power_diag_display_state(display_lifecycle.state());
     observation.communicator_enabled = communicator_enabled;
-    observation.communicator_foreground =
-        runtime_state == RuntimeState::Communicator;
-    observation.radiolab_foreground =
-        runtime_state == RuntimeState::RadioLab;
+
+    // PowerDiag measures semantic visible foreground time, not the underlying
+    // RuntimeState owner. Charging Lock can cover RadioLab/Communicator, while
+    // a charging-time incoming interaction can visibly foreground
+    // Communicator above Launcher or PowerDiag.
+    if (charging_mode.active
+        && !charging_mode.owner_override_active) {
+        observation.communicator_foreground =
+            charging_mode.communication_active;
+        observation.radiolab_foreground = false;
+    } else {
+        observation.communicator_foreground =
+            runtime_state == RuntimeState::Communicator;
+        observation.radiolab_foreground =
+            runtime_state == RuntimeState::RadioLab;
+    }
     observation.radio_mode =
         messaging.radio_mode() == nikos::radio::Mode::Lr
             ? nikos::power_diag::RadioMode::Lr
@@ -1138,6 +1151,7 @@ extern "C" void app_main(void)
                         monotonic_now_us(),
                         make_power_diag_observation(
                             state,
+                            charging_mode,
                             display_lifecycle,
                             communicator_enabled,
                             messaging));
@@ -1168,6 +1182,7 @@ extern "C" void app_main(void)
                         monotonic_now_us(),
                         make_power_diag_observation(
                             state,
+                            charging_mode,
                             display_lifecycle,
                             communicator_enabled,
                             messaging));
@@ -1242,6 +1257,7 @@ extern "C" void app_main(void)
                     monotonic_now_us(),
                     make_power_diag_observation(
                         state,
+                        charging_mode,
                         display_lifecycle,
                         communicator_enabled,
                         messaging));
@@ -1287,6 +1303,7 @@ extern "C" void app_main(void)
                 monotonic_now_us(),
                 make_power_diag_observation(
                     state,
+                    charging_mode,
                     display_lifecycle,
                     communicator_enabled,
                     messaging));
@@ -1691,6 +1708,7 @@ extern "C" void app_main(void)
                         monotonic_now_us(),
                         make_power_diag_observation(
                             state,
+                            charging_mode,
                             display_lifecycle,
                             communicator_enabled,
                             messaging));
