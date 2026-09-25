@@ -1083,6 +1083,7 @@ extern "C" void app_main(void)
                 if (state == RuntimeState::Communicator
                     && communicator.timer_preemption_active()) {
                     charging_mode.communication_active = true;
+                    reset_charging_owner_sequence(charging_mode);
                     communicator.begin_charging_incoming();
                 } else if (state == RuntimeState::Communicator) {
                     communicator.end();
@@ -1155,6 +1156,7 @@ extern "C" void app_main(void)
                 && communicator.process_incoming_for_charging()) {
                 charging_mode.communication_active = true;
                 charging_mode.presentation_visible = false;
+                reset_charging_owner_sequence(charging_mode);
                 communicator.begin_charging_incoming();
 
                 if (any_local_button_activity(raw_input)) {
