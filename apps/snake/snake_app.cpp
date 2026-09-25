@@ -423,12 +423,12 @@ void SnakeApp::render_game_over()
         1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         18,
         120,
         210,
         14,
-        "BOCZNY = POWRÓT",
+        "BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -445,13 +445,13 @@ void SnakeApp::render_time_limit()
         "WYNIK: %u",
         static_cast<unsigned>(score_));
 
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         34,
         25,
         190,
         20,
-        "CZAS NA PRZERWĘ",
-        1,
+        "CZAS NA PRZERWE",
+        2,
         board::DisplayColor::Attention,
         board::DisplayColor::Background);
     board_.draw_text_region(
@@ -463,12 +463,12 @@ void SnakeApp::render_time_limit()
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
-    board_.draw_polish_ui_text_region(
+    board_.draw_text_region(
         31,
         105,
         195,
         14,
-        "M5 / BOCZNY = POWRÓT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
