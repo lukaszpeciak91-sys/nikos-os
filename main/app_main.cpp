@@ -29,12 +29,41 @@ constexpr std::uint32_t kLoopDelayMs = 20;
 constexpr std::uint32_t kRadioErrorDisplayMs = 1200;
 constexpr std::uint32_t kClockGlanceDurationMs = 4000;
 constexpr std::uint32_t kCriticalShutdownMessageMs = 1750;
+constexpr std::uint32_t kChargingVbusPollIntervalMs = 1000;
+constexpr std::int16_t kChargingVbusPresentMv = 4000;
+constexpr std::int16_t kChargingFullBatteryMv = 4100;
+constexpr std::uint8_t kChargingFullConfirmSamples = 3;
+constexpr std::uint32_t kChargingPresentationMs = 5000;
+constexpr std::uint32_t kChargingAnimationStepMs = 400;
+constexpr float kChargingFullToneHz = 3200.0F;
+constexpr std::uint32_t kChargingFullToneMs = 90;
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
     Communicator,
     PowerDiag,
     RadioLab,
+};
+
+enum class ChargingCableEvent : std::uint8_t {
+    None,
+    Connected,
+    Disconnected,
+};
+
+struct ChargingModeState {
+    bool active = false;
+    bool full_latched = false;
+    bool charging_observed = false;
+    std::uint8_t full_confirm_count = 0;
+
+    bool presentation_visible = false;
+    std::uint8_t animation_step = 0;
+    std::uint32_t presentation_started_ms = 0;
+    std::uint32_t last_animation_ms = 0;
+
+    bool vbus_sample_valid = false;
+    std::uint32_t last_vbus_sample_ms = 0;
 };
 
 std::uint64_t monotonic_now_us()
@@ -56,6 +85,262 @@ bool any_user_button_activity(const nikos::board::InputState& input)
         || input.primary_long
         || input.secondary_short
         || input.secondary_long;
+}
+
+bool charging_wake_requested(const nikos::board::InputState& input)
+{
+    return input.primary_short
+        || input.secondary_short
+        || input.power_short;
+}
+
+void reset_charging_session(ChargingModeState& state)
+{
+    state.active = false;
+    state.full_latched = false;
+    state.charging_observed = false;
+    state.full_confirm_count = 0;
+    state.presentation_visible = false;
+    state.animation_step = 0;
+    state.presentation_started_ms = 0;
+    state.last_animation_ms = 0;
+}
+
+ChargingCableEvent poll_charging_cable(
+    nikos::board::Board& board,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    if (state.vbus_sample_valid
+        && now - state.last_vbus_sample_ms
+            < kChargingVbusPollIntervalMs) {
+        return ChargingCableEvent::None;
+    }
+
+    state.vbus_sample_valid = true;
+    state.last_vbus_sample_ms = now;
+
+    const bool vbus_present =
+        board.vbus_voltage_mv() >= kChargingVbusPresentMv;
+
+    if (vbus_present && !state.active) {
+        state.active = true;
+        state.full_latched = false;
+        state.charging_observed = false;
+        state.full_confirm_count = 0;
+        state.presentation_visible = false;
+        state.animation_step = 0;
+        return ChargingCableEvent::Connected;
+    }
+
+    if (!vbus_present && state.active) {
+        reset_charging_session(state);
+        return ChargingCableEvent::Disconnected;
+    }
+
+    return ChargingCableEvent::None;
+}
+
+void draw_battery_outline(nikos::board::Board& board)
+{
+    constexpr std::int16_t x = 42;
+    constexpr std::int16_t y = 18;
+    constexpr std::int16_t width = 148;
+    constexpr std::int16_t height = 64;
+    constexpr std::int16_t right =
+        static_cast<std::int16_t>(x + width - 1);
+    constexpr std::int16_t bottom =
+        static_cast<std::int16_t>(y + height - 1);
+
+    for (std::int16_t offset = 0; offset < 2; ++offset) {
+        board.draw_line(
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(y + offset),
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(y + offset),
+            nikos::board::DisplayColor::PrimaryText);
+        board.draw_line(
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(bottom - offset),
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(bottom - offset),
+            nikos::board::DisplayColor::PrimaryText);
+        board.draw_line(
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(y + offset),
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(bottom - offset),
+            nikos::board::DisplayColor::PrimaryText);
+        board.draw_line(
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(y + offset),
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(bottom - offset),
+            nikos::board::DisplayColor::PrimaryText);
+    }
+
+    board.fill_rect(
+        190,
+        37,
+        9,
+        26,
+        nikos::board::DisplayColor::PrimaryText);
+}
+
+void render_charging_presentation(
+    nikos::board::Board& board,
+    std::uint8_t animation_step)
+{
+    constexpr std::int16_t fill_x = 48;
+    constexpr std::int16_t fill_y = 24;
+    constexpr std::int16_t fill_width = 136;
+    constexpr std::int16_t fill_height = 52;
+
+    board.clear_screen();
+    draw_battery_outline(board);
+
+    const std::uint8_t step =
+        static_cast<std::uint8_t>((animation_step % 4U) + 1U);
+    const std::int16_t current_fill_width =
+        static_cast<std::int16_t>(
+            (fill_width * static_cast<std::int16_t>(step)) / 4);
+
+    board.fill_rect(
+        fill_x,
+        fill_y,
+        current_fill_width,
+        fill_height,
+        nikos::board::DisplayColor::Accent);
+
+    board.draw_text_region(
+        39,
+        100,
+        190,
+        28,
+        "LADOWANIE",
+        3,
+        nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+}
+
+void render_charging_full(nikos::board::Board& board)
+{
+    board.clear_screen();
+    draw_battery_outline(board);
+    board.fill_rect(
+        48,
+        24,
+        136,
+        52,
+        nikos::board::DisplayColor::StatusActive);
+    board.draw_text_region(
+        90,
+        94,
+        80,
+        36,
+        "OK",
+        5,
+        nikos::board::DisplayColor::StatusActive,
+        nikos::board::DisplayColor::Background);
+}
+
+void show_charging_presentation(
+    nikos::board::Board& board,
+    nikos::power::DisplayLifecycle& display_lifecycle,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    display_lifecycle.note_visible_activity();
+    state.presentation_visible = true;
+    state.presentation_started_ms = now;
+    state.last_animation_ms = now;
+    state.animation_step = 0;
+
+    if (state.full_latched) {
+        render_charging_full(board);
+    } else {
+        render_charging_presentation(board, state.animation_step);
+    }
+}
+
+void update_charging_presentation(
+    nikos::board::Board& board,
+    nikos::power::DisplayLifecycle& display_lifecycle,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    if (!state.presentation_visible) {
+        return;
+    }
+
+    if (now - state.presentation_started_ms >= kChargingPresentationMs) {
+        state.presentation_visible = false;
+        display_lifecycle.display_off_now();
+        return;
+    }
+
+    if (state.full_latched
+        || now - state.last_animation_ms < kChargingAnimationStepMs) {
+        return;
+    }
+
+    state.last_animation_ms = now;
+    state.animation_step =
+        static_cast<std::uint8_t>((state.animation_step + 1U) % 4U);
+    render_charging_presentation(board, state.animation_step);
+}
+
+bool update_charging_full_confirmation(
+    ChargingModeState& state,
+    const nikos::battery_guard::UpdateResult& battery_update)
+{
+    if (!state.active
+        || state.full_latched
+        || !battery_update.sampled) {
+        return false;
+    }
+
+    const nikos::board::PowerStatus& status =
+        battery_update.power_status;
+
+    const bool valid_battery_sample =
+        status.voltage_mv > 0;
+    const bool vbus_present =
+        status.vbus_voltage_mv >= kChargingVbusPresentMv;
+
+    if (!valid_battery_sample || !vbus_present) {
+        state.full_confirm_count = 0;
+        return false;
+    }
+
+    if (status.charge_state == nikos::board::ChargeState::Charging) {
+        state.charging_observed = true;
+        state.full_confirm_count = 0;
+        return false;
+    }
+
+    const bool completion_candidate =
+        state.charging_observed
+        && status.voltage_mv >= kChargingFullBatteryMv
+        && status.charge_state
+            == nikos::board::ChargeState::Discharging;
+
+    if (!completion_candidate) {
+        state.full_confirm_count = 0;
+        return false;
+    }
+
+    if (state.full_confirm_count < kChargingFullConfirmSamples) {
+        ++state.full_confirm_count;
+    }
+
+    if (state.full_confirm_count < kChargingFullConfirmSamples) {
+        return false;
+    }
+
+    state.full_latched = true;
+    state.full_confirm_count = 0;
+    return true;
 }
 
 void render_clock_glance(
@@ -430,14 +715,25 @@ extern "C" void app_main(void)
     nikos::signal_sound::Player signal_sound(board, settings);
     nikos::countdown::Service countdown(esp_timer_get_time);
     nikos::battery_guard::BatteryGuard battery_guard(board);
+    ChargingModeState charging_mode;
+    (void)poll_charging_cable(board, charging_mode, now_ms());
+
     nikos::launcher::Launcher launcher(
         board,
         clock_service,
         countdown,
         settings,
         signal_sound);
-    launcher.show_splash();
-    vTaskDelay(pdMS_TO_TICKS(kSplashDurationMs));
+
+    if (charging_mode.active) {
+        // Keep ordinary boot UI hidden when VBUS is already present. Runtime
+        // state still initializes normally below and the charging screen is
+        // shown once composition is complete.
+        display_lifecycle.display_off_now();
+    } else {
+        launcher.show_splash();
+        vTaskDelay(pdMS_TO_TICKS(kSplashDurationMs));
+    }
 
     if (!initialize_nvs()) {
         board.draw_screen(
@@ -475,8 +771,18 @@ extern "C" void app_main(void)
     nikos::battery_guard::AdvisoryLevel battery_advisory_level =
         nikos::battery_guard::AdvisoryLevel::None;
 
-    display_lifecycle.note_visible_activity();
-    launcher.begin(communicator_status(communicator_enabled, messaging));
+    if (charging_mode.active) {
+        display_lifecycle.display_off_now();
+        launcher.begin(communicator_status(communicator_enabled, messaging));
+        show_charging_presentation(
+            board,
+            display_lifecycle,
+            charging_mode,
+            now_ms());
+    } else {
+        display_lifecycle.note_visible_activity();
+        launcher.begin(communicator_status(communicator_enabled, messaging));
+    }
 
     while (true) {
         // update() advances delivery only while messaging owns active
@@ -493,8 +799,47 @@ extern "C" void app_main(void)
         countdown.update();
         signal_sound.update();
 
+        const std::uint32_t loop_now_ms = now_ms();
+        const ChargingCableEvent charging_cable_event =
+            poll_charging_cable(
+                board,
+                charging_mode,
+                loop_now_ms);
+
+        if (charging_cable_event == ChargingCableEvent::Connected) {
+            clock_glance_active = false;
+            timer_alert_visible = false;
+            battery_advisory_visible = false;
+            battery_advisory_level =
+                nikos::battery_guard::AdvisoryLevel::None;
+
+            show_charging_presentation(
+                board,
+                display_lifecycle,
+                charging_mode,
+                loop_now_ms);
+        } else if (
+            charging_cable_event == ChargingCableEvent::Disconnected) {
+            clock_glance_active = false;
+            timer_alert_visible = false;
+            battery_advisory_visible = false;
+            battery_advisory_level =
+                nikos::battery_guard::AdvisoryLevel::None;
+
+            // Return immediately to the existing runtime without rebooting or
+            // resetting application state.
+            display_lifecycle.note_visible_activity();
+            redraw_runtime_ui(
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
+        }
+
         const nikos::battery_guard::UpdateResult battery_update =
-            battery_guard.update(now_ms());
+            battery_guard.update(loop_now_ms);
         if (battery_update.sampled) {
             power_diag_session.record_battery_sample(
                 battery_update.power_status);
@@ -518,18 +863,70 @@ extern "C" void app_main(void)
                 radio);
         }
 
+        if (update_charging_full_confirmation(
+                charging_mode,
+                battery_update)) {
+            board.tone(kChargingFullToneHz, kChargingFullToneMs);
+            show_charging_presentation(
+                board,
+                display_lifecycle,
+                charging_mode,
+                loop_now_ms);
+        }
+
         if (battery_update.charging_detected
             && battery_advisory_visible) {
             battery_advisory_visible = false;
             battery_advisory_level =
                 nikos::battery_guard::AdvisoryLevel::None;
-            redraw_runtime_ui(
-                state,
-                launcher,
-                communicator,
-                power_diag,
-                power_diag_session,
-                radiolab);
+
+            if (!charging_mode.active) {
+                redraw_runtime_ui(
+                    state,
+                    launcher,
+                    communicator,
+                    power_diag,
+                    power_diag_session,
+                    radiolab);
+            }
+        }
+
+        if (charging_mode.active) {
+            const nikos::board::InputState charging_input =
+                board.poll_input();
+
+            if (charging_wake_requested(charging_input)) {
+                show_charging_presentation(
+                    board,
+                    display_lifecycle,
+                    charging_mode,
+                    loop_now_ms);
+            }
+
+            update_charging_presentation(
+                board,
+                display_lifecycle,
+                charging_mode,
+                loop_now_ms);
+
+            if (state == RuntimeState::RadioLab) {
+                (void)radiolab.update(
+                    nikos::board::InputState{},
+                    false);
+            }
+
+            if (power_diag_session.running()) {
+                power_diag_session.observe(
+                    monotonic_now_us(),
+                    make_power_diag_observation(
+                        state,
+                        display_lifecycle,
+                        communicator_enabled,
+                        messaging));
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
         }
 
         const nikos::power::FilteredInput display_input =
