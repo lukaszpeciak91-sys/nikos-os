@@ -335,6 +335,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     communicator_status_ = communicator_status;
     selected_index_ = 0;
     tools_selection_ = 0;
+    entertainment_selection_ = 0;
     clock_selection_ = 0;
     timer_selection_ = 0;
     reset_stopwatch_session();
@@ -357,6 +358,21 @@ void Launcher::begin_tools(CommunicatorStatus communicator_status)
     communicator_status_ = communicator_status;
     selected_index_ = 1;
     tools_selection_ = 0;
+    reset_stopwatch_session();
+
+    const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
+    update_battery_sample(now);
+    render();
+}
+
+void Launcher::begin_entertainment(
+    CommunicatorStatus communicator_status)
+{
+    screen_ = Screen::Entertainment;
+    communicator_status_ = communicator_status;
+    selected_index_ = 2;
+    entertainment_selection_ = 0;
     reset_stopwatch_session();
 
     const std::uint32_t now = now_ms();
@@ -516,13 +532,26 @@ Action Launcher::update(const board::InputState& input)
     }
 
     if (screen_ == Screen::Entertainment) {
-        if (input.secondary_long || input.primary_short) {
+        if (input.secondary_long) {
             screen_ = Screen::Main;
             render();
             return Action::None;
         }
 
         if (input.secondary_short) {
+            entertainment_selection_ =
+                static_cast<std::uint8_t>(
+                    (entertainment_selection_ + 1U) % 2U);
+            render();
+            return Action::None;
+        }
+
+        if (input.primary_short) {
+            if (entertainment_selection_ == 0U) {
+                return Action::OpenSnake;
+            }
+
+            screen_ = Screen::Main;
             render();
         }
 
@@ -966,6 +995,7 @@ Action Launcher::update(const board::InputState& input)
             screen_ = Screen::Tools;
             break;
         case 2:
+            entertainment_selection_ = 0;
             screen_ = Screen::Entertainment;
             break;
         case 3:
@@ -1335,7 +1365,7 @@ void Launcher::render_entertainment()
 
     board_.draw_text_region(
         14,
-        18,
+        14,
         212,
         20,
         "ROZRYWKA",
@@ -1343,23 +1373,61 @@ void Launcher::render_entertainment()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_text_region(
-        22,
-        58,
-        196,
-        22,
-        "Powrot",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Surface);
-    draw_selection_marker(board_, 14, 58, 18);
+    constexpr const char* kItems[2] = {
+        "Snake",
+        "Powrót",
+    };
+
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = index == entertainment_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(48 + index * 25);
+
+        if (index == 0U) {
+            board_.draw_text_region(
+                22,
+                y,
+                196,
+                21,
+                kItems[index],
+                2,
+                selected
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText,
+                selected
+                    ? board::DisplayColor::Surface
+                    : board::DisplayColor::Background);
+        } else {
+            board_.draw_polish_ui_text_region(
+                22,
+                y,
+                196,
+                21,
+                kItems[index],
+                1,
+                selected
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText,
+                selected
+                    ? board::DisplayColor::Surface
+                    : board::DisplayColor::Background);
+        }
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                14,
+                y,
+                18);
+        }
+    }
 
     board_.draw_text_region(
         14,
-        112,
+        116,
         212,
         14,
-        "M5 POWROT",
+        "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
