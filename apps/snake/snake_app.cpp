@@ -81,6 +81,12 @@ SnakeApp::UpdateResult SnakeApp::update(
 
     const std::uint32_t now = now_ms();
 
+    if (now - session_started_ms_ >= kSessionLimitMs) {
+        state_ = State::TimeLimit;
+        render_time_limit();
+        return UpdateResult::Running;
+    }
+
     if (state_ == State::GameOver) {
         if (input.primary_short) {
             start_game(now);
@@ -89,12 +95,6 @@ SnakeApp::UpdateResult SnakeApp::update(
         } else if (input.secondary_short) {
             return UpdateResult::ExitRequested;
         }
-        return UpdateResult::Running;
-    }
-
-    if (now - session_started_ms_ >= kSessionLimitMs) {
-        state_ = State::TimeLimit;
-        render_time_limit();
         return UpdateResult::Running;
     }
 
