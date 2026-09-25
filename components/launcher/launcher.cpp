@@ -1375,7 +1375,7 @@ void Launcher::render_entertainment()
 
     constexpr const char* kItems[2] = {
         "Snake",
-        "Powrót",
+        "Powrot",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
@@ -1398,13 +1398,13 @@ void Launcher::render_entertainment()
                     ? board::DisplayColor::Surface
                     : board::DisplayColor::Background);
         } else {
-            board_.draw_polish_ui_text_region(
+            board_.draw_text_region(
                 22,
                 y,
                 196,
                 21,
                 kItems[index],
-                1,
+                2,
                 selected
                     ? board::DisplayColor::PrimaryText
                     : board::DisplayColor::SecondaryText,
