@@ -736,6 +736,9 @@ extern "C" void app_main(void)
     }
 
     if (!initialize_nvs()) {
+        // Charging Mode may already have put the LCD to sleep when VBUS was
+        // present at boot. Fatal boot diagnostics must always be visible.
+        display_lifecycle.note_visible_activity();
         board.draw_screen(
             "NIKOS OS",
             "NVS INIT FAILED\n"
@@ -894,6 +897,15 @@ extern "C" void app_main(void)
         }
 
         if (charging_mode.active) {
+            // Charging Mode suppresses presentation, not application
+            // consumption. Keep the bounded messaging->Communicator handoff
+            // queue draining so newer valid messages can still be retained
+            // and application-ACKed by messaging. Communicator owns parsing,
+            // validation, latest-wins retention, and silent RING suppression.
+            if (communicator_enabled) {
+                communicator.process_incoming_silent();
+            }
+
             const nikos::board::InputState charging_input =
                 board.poll_input();
 
