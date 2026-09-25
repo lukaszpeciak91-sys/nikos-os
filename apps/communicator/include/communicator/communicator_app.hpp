@@ -48,6 +48,12 @@ public:
     // Drain retained transport events. User-visible messages use latest-wins;
     // RING remains a separate attention event.
     bool process_incoming();
+
+    // Drain transport events without notification, rendering, display wake,
+    // or RING presentation. Latest valid user content is still retained in
+    // Communicator state using the same latest-wins semantics.
+    void process_incoming_silent();
+
     bool timer_preemption_active() const;
 
 private:
@@ -59,7 +65,16 @@ private:
         WaitDecision,
     };
 
-    bool accept_incoming(const messaging::IncomingMessage& message);
+    struct IncomingDrainResult {
+        messaging::IncomingMessage latest_user_message{};
+        bool latest_user_message_valid = false;
+        bool ring_received = false;
+    };
+
+    bool accept_incoming(
+        const messaging::IncomingMessage& message,
+        bool notify);
+    IncomingDrainResult drain_incoming();
     bool valid_user_message(const messaging::IncomingMessage& message) const;
     void handle_delivery_receipt(
         const messaging::DeliveryReceipt& receipt);
