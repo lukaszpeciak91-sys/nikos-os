@@ -17,6 +17,7 @@ enum class Action : std::uint8_t {
     StopCommunicator,
     OpenRadioLab,
     OpenPowerDiag,
+    OpenSnake,
     ShutdownRequested,
 };
 
@@ -46,6 +47,7 @@ public:
     void show_splash();
     void begin(CommunicatorStatus communicator_status);
     void begin_tools(CommunicatorStatus communicator_status);
+    void begin_entertainment(CommunicatorStatus communicator_status);
     void set_communicator_status(
         CommunicatorStatus communicator_status,
         bool render_if_changed = true);
@@ -128,6 +130,7 @@ private:
         CommunicatorDeliveryStatus::None;
     std::uint8_t selected_index_ = 0;
     std::uint8_t tools_selection_ = 0;
+    std::uint8_t entertainment_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
     std::uint8_t timer_selection_ = 0;
     StopwatchState stopwatch_state_ = StopwatchState::Idle;
