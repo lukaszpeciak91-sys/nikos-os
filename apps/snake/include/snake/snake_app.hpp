@@ -72,7 +72,10 @@ private:
     board::Board& board_;
     power::DisplayLifecycle& display_lifecycle_;
 
-    std::array<Cell, kGridCellCount> segments_{};
+    // The full 800-cell board is long-lived fixed storage, but must not
+    // consume the constrained ESP-IDF main-task stack just because SnakeApp
+    // itself is composed as an automatic app_main object.
+    static std::array<Cell, kGridCellCount> segments_;
     std::size_t length_ = 0;
     Cell food_{};
     Direction direction_ = Direction::Right;
