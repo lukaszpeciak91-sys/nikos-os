@@ -20,6 +20,9 @@ constexpr std::size_t kInitialSnakeLength = 4;
 
 namespace nikos::snake {
 
+std::array<SnakeApp::Cell, SnakeApp::kGridCellCount>
+    SnakeApp::segments_{};
+
 SnakeApp::SnakeApp(
     board::Board& board,
     power::DisplayLifecycle& display_lifecycle)
