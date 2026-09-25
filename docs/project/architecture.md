@@ -15,7 +15,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
 - `Narzędzia` contains `RadioLab`, `PowerDiag`, and visible `Powrót`; RadioLab and PowerDiag remain application siblings launched through the tools category.
-- `Rozrywka` remains a placeholder with visible `Powrót`. `Zegar` exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT`. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
+- `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT`. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -253,6 +253,18 @@ Communicator exposes one session-scoped radio-mode option through its messaging 
 The separate `SYGNAŁ` attention feature is a transient UI/audio overlay over the current foreground state. It reuses the existing RING delivery type but is not a preset message and does not enter the deterministic conversation state machine. Communicator starts the selected existing sound once, then restarts that complete playback until ten cycles have run; for the default Gentle pattern this is roughly 31 seconds total. Repetition and bell/arcs animation are advanced from the normal application update loop rather than a blocking delay, task, or separate audio/animation framework. User dismissal stops the shared player immediately and clears the Communicator repetition state.
 
 RadioLab has a minimal lifecycle and temporary exclusive radio ownership. Entering RadioLab pauses messaging transport and starts RadioLab's continuous-RX radio session. Exiting RadioLab clears transient RadioLab state, stops that radio session, and resumes long-lived messaging transport.
+
+### Snake
+
+Snake v0.1 is a dedicated `apps/snake` application and an ordinary foreground runtime. Launcher owns only the Entertainment menu entry/action; game state, movement, rendering, score, session record, food placement, and the bounded 10-minute play session belong to `SnakeApp`.
+
+The logical playfield is fixed to the existing OS landscape coordinate space: a 240×15 HUD above a 240×120 playfield divided into 40×20 cells of 6×6 pixels. Snake never changes display rotation. Board remains the only display boundary, so the global right/left-handed orientation continues to apply.
+
+Gameplay uses a fixed 800-cell segment array with no normal-play dynamic allocation. Movement is monotonic-time tick based, starts at approximately 220 ms per step, accelerates with score to a minimum of approximately 95 ms, wraps across all four edges, and ends only on self-collision or the session time limit. Food uses ESP-IDF randomness and is always selected from an unoccupied grid cell. The best score is RAM-only for the lifetime of the `SnakeApp` object and is not persisted.
+
+Active movement ticks call the existing `DisplayLifecycle::note_visible_activity()` boundary so gameplay keeps the display active without changing global dim/off policy or polling at the 20 ms main-loop cadence. Explicit DisplayOff and higher-priority system/communication overlays pause movement; the 10-minute session clock remains monotonic.
+
+Snake owns no radio or messaging behavior. If background Communicator messaging is enabled, accepted incoming PresetMessage/PresetResponse or RING may preempt Snake through existing app_main/Communicator orchestration. The current Snake state is retained and redrawn when the communication interaction finishes. Charging Lock may cover Snake without destroying it, and RadioLab ownership is unchanged.
 
 ### BatteryGuard
 
