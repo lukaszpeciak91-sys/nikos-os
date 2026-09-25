@@ -48,6 +48,19 @@ public:
     // Drain retained transport events. User-visible messages use latest-wins;
     // RING remains a separate attention event.
     bool process_incoming();
+
+    // Charging Lock uses the same normal incoming semantics, but may need to
+    // keep draining behind an already-active RING so the bounded transport
+    // handoff cannot starve. New user content retained behind that RING is
+    // shown when the transient signal is dismissed.
+    bool process_incoming_for_charging();
+
+    // Restrict a charging-time Communicator foreground to the incoming
+    // interaction only. Completion returns ownership to Charging Lock instead
+    // of exposing Communicator Main/Options.
+    void begin_charging_incoming();
+    void end_charging_incoming(bool keep_foreground = false);
+
     bool timer_preemption_active() const;
 
 private:
@@ -59,7 +72,16 @@ private:
         WaitDecision,
     };
 
-    bool accept_incoming(const messaging::IncomingMessage& message);
+    struct IncomingDrainResult {
+        messaging::IncomingMessage latest_user_message{};
+        bool latest_user_message_valid = false;
+        bool ring_received = false;
+    };
+
+    bool accept_incoming(
+        const messaging::IncomingMessage& message,
+        bool notify);
+    IncomingDrainResult drain_incoming();
     bool valid_user_message(const messaging::IncomingMessage& message) const;
     void handle_delivery_receipt(
         const messaging::DeliveryReceipt& receipt);
@@ -141,6 +163,7 @@ private:
     bool signal_unavailable_feedback_ = false;
     bool signal_alert_active_ = false;
     bool signal_return_to_launcher_ = false;
+    bool charging_incoming_mode_ = false;
     bool signal_audio_complete_rendered_ = false;
     bool signal_animation_wide_ = false;
     std::uint8_t signal_playback_cycles_started_ = 0;

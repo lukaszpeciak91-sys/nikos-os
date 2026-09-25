@@ -154,11 +154,19 @@ bool Board::write_rtc_time(const RtcTime& time)
     return true;
 }
 
+std::int16_t Board::vbus_voltage_mv() const
+{
+    // Expose the M5Unified/AXP192 hardware reading as-is. Product-level
+    // charging presence thresholds belong above Board.
+    return M5.Power.getVBUSVoltage();
+}
+
 PowerStatus Board::power_status(
     bool include_battery_current) const
 {
     PowerStatus status;
     status.current_supported = true;
+    status.vbus_voltage_mv = vbus_voltage_mv();
 
     const std::int16_t voltage_mv = M5.Power.getBatteryVoltage();
     if (voltage_mv <= 0) {
@@ -254,6 +262,16 @@ void Board::set_display_brightness_profile(
 void Board::clear_screen()
 {
     M5.Display.fillScreen(resolve_display_color(DisplayColor::Background));
+}
+
+void Board::fill_rect(
+    std::int16_t x,
+    std::int16_t y,
+    std::int16_t width,
+    std::int16_t height,
+    DisplayColor color)
+{
+    M5.Display.fillRect(x, y, width, height, resolve_display_color(color));
 }
 
 void Board::fill_circle(

@@ -29,12 +29,63 @@ constexpr std::uint32_t kLoopDelayMs = 20;
 constexpr std::uint32_t kRadioErrorDisplayMs = 1200;
 constexpr std::uint32_t kClockGlanceDurationMs = 4000;
 constexpr std::uint32_t kCriticalShutdownMessageMs = 1750;
+constexpr std::uint32_t kChargingVbusPollIntervalMs = 1000;
+constexpr std::int16_t kChargingVbusPresentMv = 4000;
+constexpr std::int16_t kChargingFullBatteryMv = 4100;
+constexpr std::uint8_t kChargingFullConfirmSamples = 3;
+constexpr std::uint32_t kChargingPresentationMs = 5000;
+constexpr std::uint32_t kChargingAnimationStepMs = 400;
+constexpr float kChargingFullToneHz = 3200.0F;
+constexpr std::uint32_t kChargingFullToneMs = 90;
+constexpr std::uint32_t kChargingOwnerSequenceWindowMs = 4000;
+constexpr std::uint32_t kChargingOwnerOverrideIdleMs = 120000;
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
     Communicator,
     PowerDiag,
     RadioLab,
+};
+
+enum class ChargingCableEvent : std::uint8_t {
+    None,
+    Connected,
+    Disconnected,
+};
+
+enum class ChargingOwnerButton : std::uint8_t {
+    Primary,
+    Secondary,
+};
+
+constexpr ChargingOwnerButton kChargingOwnerSequence[] = {
+    ChargingOwnerButton::Primary,
+    ChargingOwnerButton::Secondary,
+    ChargingOwnerButton::Primary,
+    ChargingOwnerButton::Primary,
+    ChargingOwnerButton::Secondary,
+};
+
+struct ChargingModeState {
+    bool active = false;
+    bool full_latched = false;
+    bool full_presentation_pending = false;
+    bool charging_observed = false;
+    std::uint8_t full_confirm_count = 0;
+
+    bool communication_active = false;
+    bool owner_override_active = false;
+    std::uint32_t owner_override_last_activity_ms = 0;
+    std::uint8_t owner_sequence_index = 0;
+    std::uint32_t owner_sequence_started_ms = 0;
+
+    bool presentation_visible = false;
+    std::uint8_t animation_step = 0;
+    std::uint32_t presentation_started_ms = 0;
+    std::uint32_t last_animation_ms = 0;
+
+    bool vbus_sample_valid = false;
+    std::uint32_t last_vbus_sample_ms = 0;
 };
 
 std::uint64_t monotonic_now_us()
@@ -56,6 +107,370 @@ bool any_user_button_activity(const nikos::board::InputState& input)
         || input.primary_long
         || input.secondary_short
         || input.secondary_long;
+}
+
+bool any_local_button_activity(const nikos::board::InputState& input)
+{
+    return any_user_button_activity(input)
+        || input.power_short;
+}
+
+void reset_charging_owner_sequence(ChargingModeState& state)
+{
+    state.owner_sequence_index = 0;
+    state.owner_sequence_started_ms = 0;
+}
+
+bool update_charging_owner_sequence(
+    ChargingModeState& state,
+    const nikos::board::InputState& input,
+    std::uint32_t now)
+{
+    if (state.owner_sequence_index > 0
+        && now - state.owner_sequence_started_ms
+            > kChargingOwnerSequenceWindowMs) {
+        reset_charging_owner_sequence(state);
+    }
+
+    if (input.power_short
+        || input.primary_long
+        || input.secondary_long) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    const bool primary = input.primary_short;
+    const bool secondary = input.secondary_short;
+    if (!primary && !secondary) {
+        return false;
+    }
+
+    if (primary && secondary) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    const ChargingOwnerButton received =
+        primary
+            ? ChargingOwnerButton::Primary
+            : ChargingOwnerButton::Secondary;
+
+    if (state.owner_sequence_index
+            >= sizeof(kChargingOwnerSequence)
+                / sizeof(kChargingOwnerSequence[0])
+        || received
+            != kChargingOwnerSequence[state.owner_sequence_index]) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    if (state.owner_sequence_index == 0) {
+        state.owner_sequence_started_ms = now;
+    }
+
+    ++state.owner_sequence_index;
+    if (state.owner_sequence_index
+        < sizeof(kChargingOwnerSequence)
+            / sizeof(kChargingOwnerSequence[0])) {
+        return false;
+    }
+
+    if (now - state.owner_sequence_started_ms
+        > kChargingOwnerSequenceWindowMs) {
+        reset_charging_owner_sequence(state);
+        return false;
+    }
+
+    reset_charging_owner_sequence(state);
+    state.owner_override_active = true;
+    state.owner_override_last_activity_ms = now;
+    return true;
+}
+
+bool charging_wake_requested(const nikos::board::InputState& input)
+{
+    return input.primary_short
+        || input.secondary_short
+        || input.power_short;
+}
+
+void reset_charging_session(ChargingModeState& state)
+{
+    state.active = false;
+    state.full_latched = false;
+    state.full_presentation_pending = false;
+    state.charging_observed = false;
+    state.full_confirm_count = 0;
+
+    state.communication_active = false;
+    state.owner_override_active = false;
+    state.owner_override_last_activity_ms = 0;
+    reset_charging_owner_sequence(state);
+
+    state.presentation_visible = false;
+    state.animation_step = 0;
+    state.presentation_started_ms = 0;
+    state.last_animation_ms = 0;
+}
+
+ChargingCableEvent poll_charging_cable(
+    nikos::board::Board& board,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    if (state.vbus_sample_valid
+        && now - state.last_vbus_sample_ms
+            < kChargingVbusPollIntervalMs) {
+        return ChargingCableEvent::None;
+    }
+
+    state.vbus_sample_valid = true;
+    state.last_vbus_sample_ms = now;
+
+    const bool vbus_present =
+        board.vbus_voltage_mv() >= kChargingVbusPresentMv;
+
+    if (vbus_present && !state.active) {
+        state.active = true;
+        state.full_latched = false;
+        state.full_presentation_pending = false;
+        state.charging_observed = false;
+        state.full_confirm_count = 0;
+        state.communication_active = false;
+        state.owner_override_active = false;
+        state.owner_override_last_activity_ms = 0;
+        reset_charging_owner_sequence(state);
+        state.presentation_visible = false;
+        state.animation_step = 0;
+        return ChargingCableEvent::Connected;
+    }
+
+    if (!vbus_present && state.active) {
+        reset_charging_session(state);
+        return ChargingCableEvent::Disconnected;
+    }
+
+    return ChargingCableEvent::None;
+}
+
+void draw_battery_outline(nikos::board::Board& board)
+{
+    constexpr std::int16_t x = 42;
+    constexpr std::int16_t y = 18;
+    constexpr std::int16_t width = 148;
+    constexpr std::int16_t height = 64;
+    constexpr std::int16_t right =
+        static_cast<std::int16_t>(x + width - 1);
+    constexpr std::int16_t bottom =
+        static_cast<std::int16_t>(y + height - 1);
+
+    for (std::int16_t offset = 0; offset < 2; ++offset) {
+        board.draw_line(
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(y + offset),
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(y + offset),
+            nikos::board::DisplayColor::PrimaryText);
+        board.draw_line(
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(bottom - offset),
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(bottom - offset),
+            nikos::board::DisplayColor::PrimaryText);
+        board.draw_line(
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(y + offset),
+            static_cast<std::int16_t>(x + offset),
+            static_cast<std::int16_t>(bottom - offset),
+            nikos::board::DisplayColor::PrimaryText);
+        board.draw_line(
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(y + offset),
+            static_cast<std::int16_t>(right - offset),
+            static_cast<std::int16_t>(bottom - offset),
+            nikos::board::DisplayColor::PrimaryText);
+    }
+
+    board.fill_rect(
+        190,
+        37,
+        9,
+        26,
+        nikos::board::DisplayColor::PrimaryText);
+}
+
+void render_charging_presentation(
+    nikos::board::Board& board,
+    std::uint8_t animation_step)
+{
+    constexpr std::int16_t fill_x = 48;
+    constexpr std::int16_t fill_y = 24;
+    constexpr std::int16_t fill_width = 136;
+    constexpr std::int16_t fill_height = 52;
+
+    board.clear_screen();
+    draw_battery_outline(board);
+
+    const std::uint8_t step =
+        static_cast<std::uint8_t>((animation_step % 4U) + 1U);
+    const std::int16_t current_fill_width =
+        static_cast<std::int16_t>(
+            (fill_width * static_cast<std::int16_t>(step)) / 4);
+
+    board.fill_rect(
+        fill_x,
+        fill_y,
+        current_fill_width,
+        fill_height,
+        nikos::board::DisplayColor::Accent);
+
+    board.draw_text_region(
+        39,
+        100,
+        190,
+        28,
+        "LADOWANIE",
+        3,
+        nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+}
+
+void render_charging_full(nikos::board::Board& board)
+{
+    board.clear_screen();
+    draw_battery_outline(board);
+    board.fill_rect(
+        48,
+        24,
+        136,
+        52,
+        nikos::board::DisplayColor::StatusActive);
+    board.draw_text_region(
+        90,
+        94,
+        80,
+        36,
+        "OK",
+        5,
+        nikos::board::DisplayColor::StatusActive,
+        nikos::board::DisplayColor::Background);
+}
+
+void show_charging_presentation(
+    nikos::board::Board& board,
+    nikos::power::DisplayLifecycle& display_lifecycle,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    display_lifecycle.note_visible_activity();
+    state.presentation_visible = true;
+    state.presentation_started_ms = now;
+    state.last_animation_ms = now;
+    state.animation_step = 0;
+
+    if (state.full_latched) {
+        render_charging_full(board);
+    } else {
+        render_charging_presentation(board, state.animation_step);
+    }
+}
+
+void update_charging_presentation(
+    nikos::board::Board& board,
+    nikos::power::DisplayLifecycle& display_lifecycle,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    if (!state.presentation_visible) {
+        return;
+    }
+
+    if (now - state.presentation_started_ms >= kChargingPresentationMs) {
+        state.presentation_visible = false;
+        display_lifecycle.display_off_now();
+        return;
+    }
+
+    if (state.full_latched
+        || now - state.last_animation_ms < kChargingAnimationStepMs) {
+        return;
+    }
+
+    state.last_animation_ms = now;
+    state.animation_step =
+        static_cast<std::uint8_t>((state.animation_step + 1U) % 4U);
+    render_charging_presentation(board, state.animation_step);
+}
+
+bool update_charging_full_confirmation(
+    ChargingModeState& state,
+    const nikos::battery_guard::UpdateResult& battery_update)
+{
+    if (!state.active
+        || state.full_latched
+        || !battery_update.sampled) {
+        return false;
+    }
+
+    const nikos::board::PowerStatus& status =
+        battery_update.power_status;
+
+    const bool valid_battery_sample =
+        status.voltage_mv > 0;
+    const bool vbus_present =
+        status.vbus_voltage_mv >= kChargingVbusPresentMv;
+
+    if (!valid_battery_sample || !vbus_present) {
+        state.full_confirm_count = 0;
+        return false;
+    }
+
+    if (status.charge_state == nikos::board::ChargeState::Charging) {
+        state.charging_observed = true;
+        state.full_confirm_count = 0;
+        return false;
+    }
+
+    const bool completion_candidate =
+        state.charging_observed
+        && status.voltage_mv >= kChargingFullBatteryMv
+        && status.charge_state
+            == nikos::board::ChargeState::Discharging;
+
+    if (!completion_candidate) {
+        state.full_confirm_count = 0;
+        return false;
+    }
+
+    if (state.full_confirm_count < kChargingFullConfirmSamples) {
+        ++state.full_confirm_count;
+    }
+
+    if (state.full_confirm_count < kChargingFullConfirmSamples) {
+        return false;
+    }
+
+    state.full_latched = true;
+    state.full_confirm_count = 0;
+    return true;
+}
+
+void show_charging_lock(
+    nikos::board::Board& board,
+    nikos::power::DisplayLifecycle& display_lifecycle,
+    ChargingModeState& state,
+    std::uint32_t now)
+{
+    if (state.full_presentation_pending) {
+        state.full_presentation_pending = false;
+        board.tone(kChargingFullToneHz, kChargingFullToneMs);
+    }
+
+    show_charging_presentation(
+        board,
+        display_lifecycle,
+        state,
+        now);
 }
 
 void render_clock_glance(
@@ -367,6 +782,7 @@ nikos::power_diag::DisplayState power_diag_display_state(
 
 nikos::power_diag::Observation make_power_diag_observation(
     RuntimeState runtime_state,
+    const ChargingModeState& charging_mode,
     const nikos::power::DisplayLifecycle& display_lifecycle,
     bool communicator_enabled,
     const nikos::messaging::Service& messaging)
@@ -375,10 +791,22 @@ nikos::power_diag::Observation make_power_diag_observation(
     observation.display_state =
         power_diag_display_state(display_lifecycle.state());
     observation.communicator_enabled = communicator_enabled;
-    observation.communicator_foreground =
-        runtime_state == RuntimeState::Communicator;
-    observation.radiolab_foreground =
-        runtime_state == RuntimeState::RadioLab;
+
+    // PowerDiag measures semantic visible foreground time, not the underlying
+    // RuntimeState owner. Charging Lock can cover RadioLab/Communicator, while
+    // a charging-time incoming interaction can visibly foreground
+    // Communicator above Launcher or PowerDiag.
+    if (charging_mode.active
+        && !charging_mode.owner_override_active) {
+        observation.communicator_foreground =
+            charging_mode.communication_active;
+        observation.radiolab_foreground = false;
+    } else {
+        observation.communicator_foreground =
+            runtime_state == RuntimeState::Communicator;
+        observation.radiolab_foreground =
+            runtime_state == RuntimeState::RadioLab;
+    }
     observation.radio_mode =
         messaging.radio_mode() == nikos::radio::Mode::Lr
             ? nikos::power_diag::RadioMode::Lr
@@ -430,16 +858,30 @@ extern "C" void app_main(void)
     nikos::signal_sound::Player signal_sound(board, settings);
     nikos::countdown::Service countdown(esp_timer_get_time);
     nikos::battery_guard::BatteryGuard battery_guard(board);
+    ChargingModeState charging_mode;
+    (void)poll_charging_cable(board, charging_mode, now_ms());
+
     nikos::launcher::Launcher launcher(
         board,
         clock_service,
         countdown,
         settings,
         signal_sound);
-    launcher.show_splash();
-    vTaskDelay(pdMS_TO_TICKS(kSplashDurationMs));
+
+    if (charging_mode.active) {
+        // Keep ordinary boot UI hidden when VBUS is already present. Runtime
+        // state still initializes normally below and the charging screen is
+        // shown once composition is complete.
+        display_lifecycle.display_off_now();
+    } else {
+        launcher.show_splash();
+        vTaskDelay(pdMS_TO_TICKS(kSplashDurationMs));
+    }
 
     if (!initialize_nvs()) {
+        // Charging Mode may already have put the LCD to sleep when VBUS was
+        // present at boot. Fatal boot diagnostics must always be visible.
+        display_lifecycle.note_visible_activity();
         board.draw_screen(
             "NIKOS OS",
             "NVS INIT FAILED\n"
@@ -475,8 +917,18 @@ extern "C" void app_main(void)
     nikos::battery_guard::AdvisoryLevel battery_advisory_level =
         nikos::battery_guard::AdvisoryLevel::None;
 
-    display_lifecycle.note_visible_activity();
-    launcher.begin(communicator_status(communicator_enabled, messaging));
+    if (charging_mode.active) {
+        display_lifecycle.display_off_now();
+        launcher.begin(communicator_status(communicator_enabled, messaging));
+        show_charging_presentation(
+            board,
+            display_lifecycle,
+            charging_mode,
+            now_ms());
+    } else {
+        display_lifecycle.note_visible_activity();
+        launcher.begin(communicator_status(communicator_enabled, messaging));
+    }
 
     while (true) {
         // update() advances delivery only while messaging owns active
@@ -493,8 +945,75 @@ extern "C" void app_main(void)
         countdown.update();
         signal_sound.update();
 
+        const std::uint32_t loop_now_ms = now_ms();
+        const bool charging_communication_was_active =
+            charging_mode.communication_active;
+        const bool owner_override_was_active =
+            charging_mode.owner_override_active;
+
+        const ChargingCableEvent charging_cable_event =
+            poll_charging_cable(
+                board,
+                charging_mode,
+                loop_now_ms);
+
+        if (charging_cable_event == ChargingCableEvent::Connected) {
+            clock_glance_active = false;
+            timer_alert_visible = false;
+            battery_advisory_visible = false;
+            battery_advisory_level =
+                nikos::battery_guard::AdvisoryLevel::None;
+
+            // If an incoming Communicator interaction already owns the
+            // foreground when VBUS appears, preserve it as the higher-priority
+            // charging-time communication. Otherwise hide Communicator Main
+            // immediately so normal local use is locked.
+            if (state == RuntimeState::Communicator
+                && communicator.timer_preemption_active()) {
+                charging_mode.communication_active = true;
+                charging_mode.presentation_visible = false;
+                communicator.begin_charging_incoming();
+            } else if (state == RuntimeState::Communicator) {
+                communicator.end();
+            }
+        } else if (
+            charging_cable_event == ChargingCableEvent::Disconnected) {
+            clock_glance_active = false;
+            timer_alert_visible = false;
+            battery_advisory_visible = false;
+            battery_advisory_level =
+                nikos::battery_guard::AdvisoryLevel::None;
+
+            if (charging_communication_was_active) {
+                // Unplug removes Charging Lock, not the communication that was
+                // already in progress. Continue it as an ordinary foreground
+                // Communicator interaction.
+                communicator.end_charging_incoming(true);
+                state = RuntimeState::Communicator;
+            } else if (
+                state == RuntimeState::Communicator
+                && !owner_override_was_active) {
+                // Charging Lock may have hidden an already-open Communicator
+                // Main screen. Restore it now that VBUS ownership is gone.
+                communicator.begin();
+            }
+
+            // reset_charging_session() ran inside cable polling. This clears
+            // Owner Override, secret progress, deferred Full presentation,
+            // and all charging-only presentation state without rebooting.
+            display_lifecycle.suppress_user_gesture_until_release();
+            display_lifecycle.note_visible_activity();
+            redraw_runtime_ui(
+                state,
+                launcher,
+                communicator,
+                power_diag,
+                power_diag_session,
+                radiolab);
+        }
+
         const nikos::battery_guard::UpdateResult battery_update =
-            battery_guard.update(now_ms());
+            battery_guard.update(loop_now_ms);
         if (battery_update.sampled) {
             power_diag_session.record_battery_sample(
                 battery_update.power_status);
@@ -518,22 +1037,238 @@ extern "C" void app_main(void)
                 radio);
         }
 
+        if (update_charging_full_confirmation(
+                charging_mode,
+                battery_update)) {
+            // Full becomes authoritative immediately, but its one-shot beep
+            // and OK presentation belong to Charging Lock. Incoming
+            // communication and Owner Override keep their current foreground
+            // until Charging Lock regains control.
+            charging_mode.full_presentation_pending = true;
+        }
+
         if (battery_update.charging_detected
             && battery_advisory_visible) {
             battery_advisory_visible = false;
             battery_advisory_level =
                 nikos::battery_guard::AdvisoryLevel::None;
-            redraw_runtime_ui(
-                state,
-                launcher,
-                communicator,
-                power_diag,
-                power_diag_session,
-                radiolab);
+
+            if (!charging_mode.active) {
+                redraw_runtime_ui(
+                    state,
+                    launcher,
+                    communicator,
+                    power_diag,
+                    power_diag_session,
+                    radiolab);
+            }
+        }
+
+        const nikos::board::InputState raw_input =
+            board.poll_input();
+
+        bool owner_relocked_now = false;
+        if (charging_mode.active
+            && charging_mode.owner_override_active) {
+            if (any_local_button_activity(raw_input)) {
+                charging_mode.owner_override_last_activity_ms =
+                    loop_now_ms;
+            }
+
+            if (loop_now_ms
+                    - charging_mode.owner_override_last_activity_ms
+                >= kChargingOwnerOverrideIdleMs) {
+                charging_mode.owner_override_active = false;
+                charging_mode.presentation_visible = false;
+                reset_charging_owner_sequence(charging_mode);
+                owner_relocked_now = true;
+
+                clock_glance_active = false;
+                battery_advisory_visible = false;
+                if (timer_alert_visible) {
+                    timer_alert_visible = false;
+                    signal_sound.stop();
+                }
+
+                // If the ordinary unlocked runtime is currently handling an
+                // incoming communication, convert it to the restricted
+                // charging-time preemption instead of stealing the screen.
+                if (state == RuntimeState::Communicator
+                    && communicator.timer_preemption_active()) {
+                    charging_mode.communication_active = true;
+                    reset_charging_owner_sequence(charging_mode);
+                    communicator.begin_charging_incoming();
+                } else if (state == RuntimeState::Communicator) {
+                    communicator.end();
+                }
+            }
+        }
+
+        if (charging_mode.active
+            && !charging_mode.owner_override_active) {
+            if (charging_mode.communication_active) {
+                if (communicator_enabled) {
+                    (void)communicator.process_incoming_for_charging();
+                }
+
+                const nikos::power::FilteredInput communication_input =
+                    display_lifecycle.filter_input(raw_input);
+
+                if (communication_input.wake_reason
+                    == nikos::power::WakeReason::UserButton) {
+                    communicator.redraw();
+                }
+
+                display_lifecycle.update();
+
+                const nikos::communicator::CommunicatorApp::UpdateResult
+                    communication_result =
+                        communicator.update(communication_input.input);
+
+                const bool communication_finished =
+                    communication_result
+                        == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested
+                    || !communicator.timer_preemption_active();
+
+                if (communication_finished) {
+                    communicator.end_charging_incoming();
+                    charging_mode.communication_active = false;
+                    charging_mode.presentation_visible = false;
+
+                    if (any_local_button_activity(raw_input)) {
+                        display_lifecycle.suppress_user_gesture_until_release();
+                    }
+
+                    show_charging_lock(
+                        board,
+                        display_lifecycle,
+                        charging_mode,
+                        loop_now_ms);
+                }
+
+                if (power_diag_session.running()) {
+                    power_diag_session.observe(
+                        monotonic_now_us(),
+                        make_power_diag_observation(
+                            state,
+                            charging_mode,
+                            display_lifecycle,
+                            communicator_enabled,
+                            messaging));
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                continue;
+            }
+
+            // RadioLab retains exclusive radio ownership. Charging Lock must
+            // not resume or steal messaging while that application owns the
+            // transport. Otherwise incoming communication preempts the lock
+            // using the normal Communicator notification/UI semantics.
+            if (state != RuntimeState::RadioLab
+                && communicator_enabled
+                && communicator.process_incoming_for_charging()) {
+                charging_mode.communication_active = true;
+                charging_mode.presentation_visible = false;
+                reset_charging_owner_sequence(charging_mode);
+                communicator.begin_charging_incoming();
+
+                if (any_local_button_activity(raw_input)) {
+                    display_lifecycle.suppress_user_gesture_until_release();
+                }
+
+                if (power_diag_session.running()) {
+                    power_diag_session.observe(
+                        monotonic_now_us(),
+                        make_power_diag_observation(
+                            state,
+                            charging_mode,
+                            display_lifecycle,
+                            communicator_enabled,
+                            messaging));
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                continue;
+            }
+
+            if (charging_mode.full_presentation_pending
+                || charging_cable_event
+                    == ChargingCableEvent::Connected
+                || owner_relocked_now) {
+                show_charging_lock(
+                    board,
+                    display_lifecycle,
+                    charging_mode,
+                    loop_now_ms);
+            }
+
+            const bool owner_override_started =
+                update_charging_owner_sequence(
+                    charging_mode,
+                    raw_input,
+                    loop_now_ms);
+
+            if (owner_override_started) {
+                charging_mode.presentation_visible = false;
+
+                // The final secret-sequence press belongs entirely to
+                // Charging Lock and must never execute in the restored UI.
+                display_lifecycle.suppress_user_gesture_until_release();
+                display_lifecycle.note_visible_activity();
+
+                if (state == RuntimeState::Communicator) {
+                    communicator.begin();
+                }
+                redraw_runtime_ui(
+                    state,
+                    launcher,
+                    communicator,
+                    power_diag,
+                    power_diag_session,
+                    radiolab);
+
+                vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                continue;
+            }
+
+            if (charging_wake_requested(raw_input)) {
+                show_charging_lock(
+                    board,
+                    display_lifecycle,
+                    charging_mode,
+                    loop_now_ms);
+            }
+
+            update_charging_presentation(
+                board,
+                display_lifecycle,
+                charging_mode,
+                loop_now_ms);
+
+            if (state == RuntimeState::RadioLab) {
+                (void)radiolab.update(
+                    nikos::board::InputState{},
+                    false);
+            }
+
+            if (power_diag_session.running()) {
+                power_diag_session.observe(
+                    monotonic_now_us(),
+                    make_power_diag_observation(
+                        state,
+                        charging_mode,
+                        display_lifecycle,
+                        communicator_enabled,
+                        messaging));
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
         }
 
         const nikos::power::FilteredInput display_input =
-            display_lifecycle.filter_input(board.poll_input());
+            display_lifecycle.filter_input(raw_input);
         const nikos::board::InputState& input = display_input.input;
 
         if (display_input.power_display_off) {
@@ -568,6 +1303,7 @@ extern "C" void app_main(void)
                 monotonic_now_us(),
                 make_power_diag_observation(
                     state,
+                    charging_mode,
                     display_lifecycle,
                     communicator_enabled,
                     messaging));
@@ -972,6 +1708,7 @@ extern "C" void app_main(void)
                         monotonic_now_us(),
                         make_power_diag_observation(
                             state,
+                            charging_mode,
                             display_lifecycle,
                             communicator_enabled,
                             messaging));

@@ -108,6 +108,8 @@ void CommunicatorApp::begin()
 
 void CommunicatorApp::end()
 {
+    charging_incoming_mode_ = false;
+
     if (signal_alert_active_) {
         signal_sound_.stop();
         signal_alert_active_ = false;
@@ -161,6 +163,7 @@ void CommunicatorApp::reset_session()
     signal_unavailable_feedback_ = false;
     signal_alert_active_ = false;
     signal_return_to_launcher_ = false;
+    charging_incoming_mode_ = false;
     signal_audio_complete_rendered_ = false;
     signal_animation_wide_ = false;
     signal_playback_cycles_started_ = 0;
@@ -299,7 +302,8 @@ bool CommunicatorApp::valid_user_message(
 }
 
 bool CommunicatorApp::accept_incoming(
-    const messaging::IncomingMessage& message)
+    const messaging::IncomingMessage& message,
+    bool notify)
 {
     if (!valid_user_message(message)) {
         return false;
@@ -316,7 +320,10 @@ bool CommunicatorApp::accept_incoming(
         response_set_ = catalogue::responses_for(preset);
         selected_response_index_ = 0;
         state_ = State::IncomingPreset;
-        notify_incoming();
+
+        if (notify) {
+            notify_incoming();
+        }
         return true;
     }
 
@@ -329,15 +336,16 @@ bool CommunicatorApp::accept_incoming(
     } else {
         state_ = State::IncomingResponse;
     }
-    notify_incoming();
+
+    if (notify) {
+        notify_incoming();
+    }
     return true;
 }
 
-bool CommunicatorApp::process_incoming()
+CommunicatorApp::IncomingDrainResult CommunicatorApp::drain_incoming()
 {
-    messaging::IncomingMessage latest_user_message{};
-    bool latest_user_message_valid = false;
-    bool ring_received = false;
+    IncomingDrainResult result;
 
     messaging::IncomingMessage incoming;
     while (messaging_.peek_incoming(incoming)) {
@@ -346,13 +354,13 @@ bool CommunicatorApp::process_incoming()
         }
 
         if (incoming.kind == messaging::IncomingKind::Ring) {
-            ring_received = true;
+            result.ring_received = true;
             continue;
         }
 
         if (valid_user_message(incoming)) {
-            latest_user_message = incoming;
-            latest_user_message_valid = true;
+            result.latest_user_message = incoming;
+            result.latest_user_message_valid = true;
         } else {
             ESP_LOGW(
                 kTag,
@@ -363,14 +371,22 @@ bool CommunicatorApp::process_incoming()
         }
     }
 
+    return result;
+}
+
+bool CommunicatorApp::process_incoming()
+{
+    const IncomingDrainResult incoming = drain_incoming();
+
     bool accepted = false;
     bool user_message_accepted = false;
-    if (latest_user_message_valid) {
-        user_message_accepted = accept_incoming(latest_user_message);
+    if (incoming.latest_user_message_valid) {
+        user_message_accepted =
+            accept_incoming(incoming.latest_user_message, true);
         accepted = user_message_accepted;
     }
 
-    if (ring_received && !signal_alert_active_) {
+    if (incoming.ring_received && !signal_alert_active_) {
         start_signal_alert();
 
         // A background RING by itself still returns to Launcher after
@@ -384,6 +400,60 @@ bool CommunicatorApp::process_incoming()
     }
 
     return accepted;
+}
+
+bool CommunicatorApp::process_incoming_for_charging()
+{
+    if (!signal_alert_active_) {
+        return process_incoming();
+    }
+
+    // Normal Communicator intentionally lets an active RING own presentation.
+    // Charging Lock still needs the bounded incoming handoff to keep draining
+    // during that transient alert. Retain only the newest valid user message
+    // underneath the signal; repeated RING frames coalesce into the alert
+    // already being presented.
+    const IncomingDrainResult incoming = drain_incoming();
+
+    bool accepted = false;
+    if (incoming.latest_user_message_valid) {
+        accepted = accept_incoming(
+            incoming.latest_user_message,
+            false);
+
+        if (accepted) {
+            // Dismissing the current RING must reveal the newly retained user
+            // message instead of ending the charging-time communication.
+            signal_return_to_launcher_ = false;
+        }
+    }
+
+    return accepted || incoming.ring_received;
+}
+
+void CommunicatorApp::begin_charging_incoming()
+{
+    charging_incoming_mode_ = true;
+    active_ = true;
+    foreground_exit_requested_ = false;
+
+    if (signal_alert_active_) {
+        render_signal_alert(signal_animation_wide_);
+    } else {
+        render_current();
+    }
+}
+
+void CommunicatorApp::end_charging_incoming(bool keep_foreground)
+{
+    charging_incoming_mode_ = false;
+
+    if (keep_foreground) {
+        active_ = true;
+        return;
+    }
+
+    end();
 }
 
 void CommunicatorApp::handle_delivery_receipt(
@@ -550,7 +620,9 @@ void CommunicatorApp::handle_incoming_preset_input(
 
     if (input.secondary_short) {
         state_ = State::Main;
-        render_main();
+        if (!charging_incoming_mode_) {
+            render_main();
+        }
     }
 }
 
@@ -574,7 +646,9 @@ void CommunicatorApp::handle_incoming_response_input(
 {
     if (input.primary_short || input.secondary_short) {
         state_ = State::Main;
-        render_main();
+        if (!charging_incoming_mode_) {
+            render_main();
+        }
     }
 }
 
@@ -598,7 +672,9 @@ void CommunicatorApp::handle_wait_decision_input(
     }
 
     state_ = State::Main;
-    render_main();
+    if (!charging_incoming_mode_) {
+        render_main();
+    }
 }
 
 bool CommunicatorApp::send_selected_preset()
@@ -651,7 +727,9 @@ bool CommunicatorApp::send_selected_response()
 
     track_latest_send();
     state_ = State::Main;
-    render_main();
+    if (!charging_incoming_mode_) {
+        render_main();
+    }
     return true;
 }
 
@@ -665,7 +743,9 @@ bool CommunicatorApp::send_wait_followup()
 
     track_latest_send();
     state_ = State::Main;
-    render_main();
+    if (!charging_incoming_mode_) {
+        render_main();
+    }
     return true;
 }
 
@@ -748,7 +828,8 @@ void CommunicatorApp::dismiss_signal_alert()
     const bool return_to_launcher = signal_return_to_launcher_;
     signal_return_to_launcher_ = false;
 
-    if (!return_to_launcher) {
+    if (!return_to_launcher
+        && (!charging_incoming_mode_ || state_ != State::Main)) {
         render_current();
     }
 }
