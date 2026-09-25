@@ -996,6 +996,11 @@ extern "C" void app_main(void)
             // immediately so normal local use is locked.
             if (state == RuntimeState::Communicator
                 && communicator.timer_preemption_active()) {
+                if (resume_snake_after_communicator) {
+                    resume_snake_after_communicator = false;
+                    state = RuntimeState::Snake;
+                }
+
                 charging_mode.communication_active = true;
                 charging_mode.presentation_visible = false;
                 communicator.begin_charging_incoming();
@@ -1015,6 +1020,9 @@ extern "C" void app_main(void)
                 // already in progress. Continue it as an ordinary foreground
                 // Communicator interaction.
                 communicator.end_charging_incoming(true);
+                if (state == RuntimeState::Snake) {
+                    resume_snake_after_communicator = true;
+                }
                 state = RuntimeState::Communicator;
             } else if (
                 state == RuntimeState::Communicator
@@ -1123,6 +1131,11 @@ extern "C" void app_main(void)
                 // charging-time preemption instead of stealing the screen.
                 if (state == RuntimeState::Communicator
                     && communicator.timer_preemption_active()) {
+                    if (resume_snake_after_communicator) {
+                        resume_snake_after_communicator = false;
+                        state = RuntimeState::Snake;
+                    }
+
                     charging_mode.communication_active = true;
                     reset_charging_owner_sequence(charging_mode);
                     communicator.begin_charging_incoming();
@@ -1652,6 +1665,11 @@ extern "C" void app_main(void)
                         messaging,
                         radio);
                 } else if (
+                    action == nikos::launcher::Action::OpenSnake) {
+                    display_lifecycle.note_visible_activity();
+                    snake.begin();
+                    state = RuntimeState::Snake;
+                } else if (
                     action == nikos::launcher::Action::OpenPowerDiag) {
                     display_lifecycle.note_visible_activity();
                     power_diag.begin(power_diag_session.snapshot());
@@ -1703,7 +1721,20 @@ extern "C" void app_main(void)
                 }
             }
         } else if (state == RuntimeState::Communicator) {
-            if (communicator.update(input)
+            const nikos::communicator::CommunicatorApp::UpdateResult
+                communicator_result = communicator.update(input);
+
+            if (resume_snake_after_communicator
+                && (communicator_result
+                        == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested
+                    || !communicator.timer_preemption_active())) {
+                communicator.end();
+                resume_snake_after_communicator = false;
+                display_lifecycle.note_visible_activity();
+                state = RuntimeState::Snake;
+                snake.redraw();
+            } else if (
+                communicator_result
                 == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested) {
                 communicator.end();
 
@@ -1754,6 +1785,24 @@ extern "C" void app_main(void)
                         communicator_status(communicator_enabled, messaging));
                     state = RuntimeState::Launcher;
                 }
+            }
+        } else if (state == RuntimeState::Snake) {
+            if (communicator_enabled
+                && communicator.process_incoming()) {
+                enter_communicator_for_incoming(
+                    state,
+                    resume_snake_after_communicator,
+                    communicator);
+            } else if (
+                display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+                && snake.update(input)
+                    == nikos::snake::SnakeApp::UpdateResult::ExitRequested) {
+                snake.end();
+                display_lifecycle.note_visible_activity();
+                launcher.begin_entertainment(
+                    communicator_status(communicator_enabled, messaging));
+                state = RuntimeState::Launcher;
             }
         } else {
             const bool radiolab_visible =
