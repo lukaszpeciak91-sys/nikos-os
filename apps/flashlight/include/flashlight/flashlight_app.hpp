@@ -24,7 +24,6 @@ public:
     UpdateResult update(const board::InputState& input);
 
     void prepare_for_foreground_takeover();
-    bool light_on() const;
 
 private:
     enum class State : std::uint8_t {
