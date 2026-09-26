@@ -127,11 +127,6 @@ void FlashlightApp::prepare_for_foreground_takeover()
     state_ = State::SelectBrightness;
 }
 
-bool FlashlightApp::light_on() const
-{
-    return state_ == State::LightOn;
-}
-
 std::uint8_t FlashlightApp::brightness_for_selection(
     std::uint8_t selection)
 {
