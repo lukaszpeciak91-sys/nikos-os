@@ -2,6 +2,10 @@
 
 namespace {
 
+constexpr std::uint8_t kBrightness50 = 128;
+constexpr std::uint8_t kBrightness75 = 192;
+constexpr std::uint8_t kBrightness100 = 255;
+
 void draw_selection_marker(
     nikos::board::Board& board,
     std::int16_t x,
@@ -57,7 +61,7 @@ void FlashlightApp::redraw()
 
     if (state_ == State::LightOn) {
         board_.set_display_brightness_override(
-            kBrightnessLevels[selection_]);
+            brightness_for_selection(selection_));
         board_.fill_flashlight_white();
         return;
     }
@@ -128,11 +132,25 @@ bool FlashlightApp::light_on() const
     return state_ == State::LightOn;
 }
 
+std::uint8_t FlashlightApp::brightness_for_selection(
+    std::uint8_t selection)
+{
+    switch (selection) {
+        case 0:
+            return kBrightness50;
+        case 2:
+            return kBrightness100;
+        case 1:
+        default:
+            return kBrightness75;
+    }
+}
+
 void FlashlightApp::start_light()
 {
     display_lifecycle_.note_visible_activity();
     board_.set_display_brightness_override(
-        kBrightnessLevels[selection_]);
+        brightness_for_selection(selection_));
     board_.fill_flashlight_white();
     state_ = State::LightOn;
 }
