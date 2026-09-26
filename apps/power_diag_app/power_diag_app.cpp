@@ -229,7 +229,9 @@ PowerDiagApp::UpdateResult PowerDiagApp::update(
         if (!rendered_second_valid_
             || second != rendered_second_
             || snapshot.current_voltage_mv != rendered_voltage_mv_
-            || snapshot.current_percent != rendered_percent_) {
+            || snapshot.current_percent != rendered_percent_
+            || snapshot.battery_current_sample_count
+                != rendered_current_sample_count_) {
             render(snapshot);
         }
     }
@@ -255,6 +257,8 @@ void PowerDiagApp::render(const Snapshot& snapshot)
     rendered_second_ = snapshot.total_us / 1000000ULL;
     rendered_voltage_mv_ = snapshot.current_voltage_mv;
     rendered_percent_ = snapshot.current_percent;
+    rendered_current_sample_count_ =
+        snapshot.battery_current_sample_count;
 }
 
 void PowerDiagApp::render_inactive()
@@ -426,21 +430,18 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
     std::snprintf(
         line,
         sizeof(line),
-        "COMM %s  %s",
+        "COMM %s %s  UI %s",
         snapshot.observation.communicator_enabled ? "ON" : "OFF",
-        comm_on);
+        comm_on,
+        comm_ui);
     board_.draw_text_region(
-        10, 28, 220, 14, line, 1,
+        10, 26, 220, 12, line, 1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
-    std::snprintf(line, sizeof(line), "COMM UI  %s", comm_ui);
+
+    std::snprintf(line, sizeof(line), "RADLAB %s", radiolab);
     board_.draw_text_region(
-        10, 43, 220, 14, line, 1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    std::snprintf(line, sizeof(line), "RADLAB   %s", radiolab);
-    board_.draw_text_region(
-        10, 58, 220, 14, line, 1,
+        10, 40, 220, 12, line, 1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
@@ -451,23 +452,13 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
         std::snprintf(
             line,
             sizeof(line),
-            "RX %s  %u/%u",
+            "RX %s %u/%u",
             rx_profile_text(observation.rx_profile),
             static_cast<unsigned>(observation.rx_interval_ms),
             static_cast<unsigned>(observation.rx_wake_window_ms));
     }
     board_.draw_text_region(
-        10, 77, 220, 14, line, 1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    std::snprintf(
-        line,
-        sizeof(line),
-        "MODE %s",
-        radio_mode_text(observation.radio_mode));
-    board_.draw_text_region(
-        10, 93, 95, 14, line, 1,
+        10, 54, 220, 12, line, 1,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
@@ -475,16 +466,21 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
         std::snprintf(
             line,
             sizeof(line),
-            "RSSI %d",
+            "MODE %s  RSSI %d",
+            radio_mode_text(observation.radio_mode),
             static_cast<int>(observation.rssi));
     } else {
-        std::snprintf(line, sizeof(line), "RSSI --");
+        std::snprintf(
+            line,
+            sizeof(line),
+            "MODE %s  RSSI --",
+            radio_mode_text(observation.radio_mode));
     }
     board_.draw_text_region(
-        112, 93, 116, 14, line, 1,
+        10, 68, 220, 12, line, 1,
         observation.peer_reachable
             ? board::DisplayColor::StatusActive
-            : board::DisplayColor::SecondaryText,
+            : board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
     const char* peer_text = "--";
@@ -494,23 +490,49 @@ void PowerDiagApp::render_usage(const Snapshot& snapshot)
         peer_text = "ZNANY";
     }
 
+    std::snprintf(
+        line,
+        sizeof(line),
+        "PEER %s  CHG %s",
+        peer_text,
+        charge_text(snapshot.charge_state));
+    board_.draw_text_region(
+        10, 82, 220, 12, line, 1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
     char current_text[20]{};
     format_battery_current(
         snapshot.battery_current_supported,
         snapshot.battery_current_ma,
         current_text,
         sizeof(current_text));
-
     std::snprintf(
         line,
         sizeof(line),
-        "CHG %s  I %s  PEER %s",
-        charge_text(snapshot.charge_state),
-        current_text,
-        peer_text);
+        "I NOW %s",
+        current_text);
     board_.draw_text_region(
-        10, 108, 220, 12, line, 1,
-        board::DisplayColor::SecondaryText,
+        10, 96, 220, 11, line, 1,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    char average_text[20]{};
+    format_battery_current(
+        snapshot.battery_current_sample_count > 0,
+        snapshot.battery_current_average_ma,
+        average_text,
+        sizeof(average_text));
+    std::snprintf(
+        line,
+        sizeof(line),
+        "I AVG %s  I N %lu",
+        average_text,
+        static_cast<unsigned long>(
+            snapshot.battery_current_sample_count));
+    board_.draw_text_region(
+        10, 109, 220, 11, line, 1,
+        board::DisplayColor::Accent,
         board::DisplayColor::Background);
 
     draw_footer(board_);
