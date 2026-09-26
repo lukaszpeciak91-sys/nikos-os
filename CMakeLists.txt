@@ -5,6 +5,7 @@ set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/apps/radiolab"
     "${CMAKE_CURRENT_LIST_DIR}/apps/communicator"
     "${CMAKE_CURRENT_LIST_DIR}/apps/power_diag_app"
+    "${CMAKE_CURRENT_LIST_DIR}/apps/flashlight"
     "${CMAKE_CURRENT_LIST_DIR}/apps/snake"
 )
 
