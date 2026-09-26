@@ -35,7 +35,7 @@ private:
         std::uint8_t selection);
 
     void start_light();
-    void stop_light(bool render_selector);
+    void stop_light(bool should_render_selector);
     void render_selector();
 
     board::Board& board_;

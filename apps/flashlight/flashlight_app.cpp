@@ -150,13 +150,13 @@ void FlashlightApp::start_light()
     state_ = State::LightOn;
 }
 
-void FlashlightApp::stop_light(bool render_selector)
+void FlashlightApp::stop_light(bool should_render_selector)
 {
     board_.restore_display_brightness();
     state_ = State::SelectBrightness;
     display_lifecycle_.note_visible_activity();
 
-    if (render_selector) {
+    if (should_render_selector) {
         render_selector();
     }
 }
