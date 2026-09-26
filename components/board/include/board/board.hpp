@@ -80,6 +80,9 @@ public:
     void set_display_brightness_profile(
         std::uint8_t active,
         std::uint8_t dimmed);
+    void set_display_brightness_override(std::uint8_t brightness);
+    void restore_display_brightness();
+    void fill_flashlight_white();
 
     void clear_screen();
     void fill_rect(
