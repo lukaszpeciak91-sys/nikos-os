@@ -32,11 +32,8 @@ private:
         LightOn,
     };
 
-    static constexpr std::uint8_t kBrightnessLevels[3] = {
-        128,
-        192,
-        255,
-    };
+    static std::uint8_t brightness_for_selection(
+        std::uint8_t selection);
 
     void start_light();
     void stop_light(bool render_selector);
