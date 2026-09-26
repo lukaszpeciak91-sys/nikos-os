@@ -531,7 +531,7 @@ All five palettes remain compile-time values behind `ui_theme`; no framebuffer/c
 
 **Status:** Accepted for hardware validation
 
-PowerDiag v0.1 adds two narrow layers. `PowerDiagSession` owns RAM-only measurement state and monotonic 64-bit accumulators; `PowerDiagApp` owns the two-page UI and START/NEW TEST navigation. A Running session survives leaving the PowerDiag UI and continues through Launcher, DisplayOff, Clock Glance, Communicator, Countdown, Stopwatch, RadioLab, and advisory overlays. Reboot or whole-device power-off naturally clears it.
+PowerDiag v0.1 adds two narrow layers. `PowerDiagSession` owns RAM-only measurement state and monotonic 64-bit accumulators; `PowerDiagApp` owns the two-page UI and START/NEW TEST navigation. A Running session survives leaving the PowerDiag UI and continues through Launcher, DisplayOff, Clock Glance, Communicator, Countdown, Stopwatch, Snake, RadioLab, and advisory overlays. Reboot or whole-device power-off naturally clears it.
 
 app_main supplies semantic observations rather than allowing the session to query Launcher, CommunicatorApp, or RadioLabApp internals. The session accumulates total time, LCD Active/Dimmed/Off time, Communicator-enabled time, Communicator-foreground time, and RadioLab-foreground time from `esp_timer_get_time()` timestamp deltas.
 
@@ -626,3 +626,19 @@ Countdown timing, pending expiration, PowerDiag battery-current semantics, Batte
 A hidden Owner Override is runtime-only: M5 -> BOCZNY -> M5 -> M5 -> BOCZNY must complete as short presses within 4 seconds while Charging Lock owns input. Wrong sequence, POWER, or a long press resets progress. Success consumes the final gesture, exposes the normal OS while VBUS remains present, and auto-relocks after 120 seconds without local button activity. Local button activity alone refreshes that timer; radio/background activity does not. No device role or NVS state is introduced.
 
 **Rationale:** VBUS is the stable authority for whether local use should be locked, while communication remains a legitimate higher-priority interaction. Conservative BatteryGuard-sourced completion evidence avoids a false `OK`, and separating confirmed Full from its one-shot presentation prevents Charging Mode from stealing incoming or owner foregrounds without changing the underlying safety/radio architecture.
+
+## D-040 — Snake is a self-contained Entertainment application
+
+**Status:** Accepted for hardware validation
+
+Snake v0.1 is implemented as a dedicated `apps/snake` application. Launcher owns only the explicit `Snake / Powrót` Entertainment menu and `OpenSnake` action; `app_main` owns runtime enter/exit and higher-priority overlay/preemption composition. No generic game engine, sprite framework, dynamic game registry, asset system, or persistence subsystem is introduced.
+
+The game uses the existing logical 240×135 landscape display orientation without calling display rotation APIs. A 15-pixel HUD leaves a 240×120 playfield, represented as a 40×20 grid of 6×6 cells. Snake storage is one fixed 800-cell array placed in static/BSS storage inside the Snake component rather than inside the app_main task-stack object. No heap allocation or main-task stack-size increase is introduced. M5 short turns left relative to travel direction, BOCZNY short turns right, and only one queued turn is accepted between movement ticks so immediate 180-degree reversal cannot occur. BOCZNY long exits to Entertainment. All four playfield edges wrap; only self-collision ends an ordinary game.
+
+Movement uses monotonic time rather than loop count: 220 ms initial interval, an 8 ms reduction per score point, and a 95 ms minimum. Food starts from an ESP-IDF random grid index and selects an unoccupied cell. Score grows by one per food and the best score is retained only in RAM for the current firmware runtime.
+
+A Snake application entry starts one 10-minute monotonic play session. Game-over restarts are allowed only while that session remains below the limit. At the limit, gameplay stops on a calm break screen and either user button returns to Entertainment; the break screen cannot restart. Re-entering Snake starts a new bounded play session while the RAM-only record remains.
+
+Active movement ticks use the existing `DisplayLifecycle::note_visible_activity()` API to keep the display awake without changing global power thresholds. Explicit DisplayOff and higher-priority overlays pause movement. Snake does not access radio/messaging. If Communicator is enabled, existing incoming communication can preempt Snake; app_main retains the Snake runtime as the return target and redraws its current state when that communication interaction ends.
+
+**Rationale:** The first Entertainment application should prove the category with a small removable module and fixed memory while preserving existing display, radio, messaging, and system-overlay ownership boundaries.

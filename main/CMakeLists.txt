@@ -18,4 +18,5 @@ idf_component_register(
         radiolab
         settings
         signal_sound
+        snake
 )
