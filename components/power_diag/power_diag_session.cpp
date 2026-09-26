@@ -59,6 +59,12 @@ void PowerDiagSession::record_battery_sample(
         return;
     }
 
+    if (status.current_supported) {
+        battery_current_sum_ma_ +=
+            static_cast<std::int64_t>(status.current_ma);
+        ++battery_current_sample_count_;
+    }
+
     if (start_voltage_mv_ <= 0 || start_percent_ < 0) {
         start_voltage_mv_ = status.voltage_mv;
         start_percent_ = status.level_percent;
@@ -110,6 +116,15 @@ Snapshot PowerDiagSession::snapshot() const
             : 0;
     result.battery_current_ma = battery_current_ma_;
     result.battery_current_supported = battery_current_supported_;
+    result.battery_current_sample_count =
+        battery_current_sample_count_;
+    result.battery_current_average_ma =
+        battery_current_sample_count_ > 0
+            ? static_cast<std::int32_t>(
+                battery_current_sum_ma_
+                / static_cast<std::int64_t>(
+                    battery_current_sample_count_))
+            : 0;
     result.charge_state = charge_state_;
 
     result.observation = last_observation_;
@@ -155,6 +170,8 @@ void PowerDiagSession::reset_session_battery_from_cached_sample()
     minimum_voltage_mv_ = -1;
     battery_current_ma_ = 0;
     battery_current_supported_ = false;
+    battery_current_sum_ma_ = 0;
+    battery_current_sample_count_ = 0;
 
     if (!cached_battery_valid_) {
         return;
