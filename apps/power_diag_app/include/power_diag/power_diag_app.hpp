@@ -46,6 +46,7 @@ private:
     std::uint64_t rendered_second_ = 0;
     std::int16_t rendered_voltage_mv_ = -2;
     std::int32_t rendered_percent_ = -2;
+    std::uint32_t rendered_current_sample_count_ = 0;
 };
 
 }  // namespace nikos::power_diag
