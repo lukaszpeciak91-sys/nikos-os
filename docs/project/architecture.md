@@ -14,7 +14,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
-- `Narzędzia` contains `RadioLab`, `PowerDiag`, and visible `Powrót`; RadioLab and PowerDiag remain application siblings launched through the tools category.
+- `Narzędzia` contains `RadioLab`, `PowerDiag`, `Latarka`, and visible `Powrót`; RadioLab, PowerDiag, and Flashlight remain application siblings launched through the tools category.
 - `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT`. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
@@ -32,7 +32,11 @@ Owns M5-specific hardware integration:
 - AXP192 / PMU
 - battery information
 - display wake/activation
+- normal Active/Dimmed backlight profile application;
+- the narrow Flashlight-only temporary brightness override / active-brightness restore and physical full-white LCD fill;
 - M5-specific hardware integration
+
+Flashlight display helpers do not mutate the configured Active/Dimmed brightness profile and do not change display rotation.
 
 ### clock
 
@@ -265,6 +269,19 @@ Gameplay uses a fixed 800-cell segment array with no normal-play dynamic allocat
 Active movement ticks call the existing `DisplayLifecycle::note_visible_activity()` boundary so gameplay keeps the display active without changing global dim/off policy or polling at the 20 ms main-loop cadence. Explicit DisplayOff and higher-priority system/communication overlays pause movement; the 10-minute session clock remains monotonic.
 
 Snake owns no radio or messaging behavior. If background Communicator messaging is enabled, accepted incoming PresetMessage/PresetResponse or RING may preempt Snake through existing app_main/Communicator orchestration. The current Snake state is retained and redrawn when the communication interaction finishes. Charging Lock may cover Snake without destroying it, and RadioLab ownership is unchanged.
+
+### Flashlight
+
+Flashlight v0.1 is a dedicated `apps/flashlight` ordinary foreground utility. Launcher owns only the `Latarka` Tools entry/action; `FlashlightApp` owns its small `SelectBrightness / LightOn` state, remembered boot-session selection, selector rendering, and local M5/BOCZNY behavior.
+
+The three light levels are explicit temporary LCD-backlight values: 128, 192, and 255. They are not Settings brightness profiles and never modify Board's configured Active/Dimmed values. Board remains the physical display owner through a narrow temporary brightness override, restore-to-current-Active operation, and a true RGB565 `0xFFFF` full-screen white fill. Flashlight never changes rotation or calls M5GFX/M5.Display directly.
+
+While LightOn, the application refreshes the existing DisplayLifecycle activity boundary so normal inactivity cannot dim the light. POWER remains system-owned: app_main clears Flashlight's temporary output immediately before passing the same raw POWER click into the existing DisplayLifecycle filter, so DisplayOff/Clock Glance semantics are unchanged and wake never revives the white screen.
+
+Any higher-priority system/communication foreground takeover first moves Flashlight back to its brightness selector and restores the current configured system brightness. This includes Communicator incoming/RING, Charging Lock, Timer alert, BatteryGuard advisory/critical shutdown, app exit, and POWER DisplayOff. Communicator may return to the retained Flashlight runtime after the interaction, but only to the selector; the white output is never automatically re-enabled.
+
+Flashlight has no radio ownership, persistence, timeout, battery telemetry, strobe/SOS behavior, generic display-effects layer, or dynamic allocation.
+
 
 ### BatteryGuard
 

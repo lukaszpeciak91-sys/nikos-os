@@ -259,6 +259,25 @@ void Board::set_display_brightness_profile(
     M5.Display.setBrightness(active_brightness_);
 }
 
+void Board::set_display_brightness_override(
+    std::uint8_t brightness)
+{
+    // Temporary presentation-only override. Do not mutate the configured
+    // Active/Dimmed profile owned by Settings.
+    M5.Display.setBrightness(brightness);
+}
+
+void Board::restore_display_brightness()
+{
+    M5.Display.setBrightness(active_brightness_);
+}
+
+void Board::fill_flashlight_white()
+{
+    // Flashlight is a physical light source, not theme UI.
+    M5.Display.fillScreen(static_cast<std::uint16_t>(0xFFFF));
+}
+
 void Board::clear_screen()
 {
     M5.Display.fillScreen(resolve_display_color(DisplayColor::Background));

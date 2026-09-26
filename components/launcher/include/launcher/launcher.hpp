@@ -17,6 +17,7 @@ enum class Action : std::uint8_t {
     StopCommunicator,
     OpenRadioLab,
     OpenPowerDiag,
+    OpenFlashlight,
     OpenSnake,
     ShutdownRequested,
 };

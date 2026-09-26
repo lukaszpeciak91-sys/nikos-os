@@ -642,3 +642,21 @@ A Snake application entry starts one 10-minute monotonic play session. Game-over
 Active movement ticks use the existing `DisplayLifecycle::note_visible_activity()` API to keep the display awake without changing global power thresholds. Explicit DisplayOff and higher-priority overlays pause movement. Snake does not access radio/messaging. If Communicator is enabled, existing incoming communication can preempt Snake; app_main retains the Snake runtime as the return target and redraws its current state when that communication interaction ends.
 
 **Rationale:** The first Entertainment application should prove the category with a small removable module and fixed memory while preserving existing display, radio, messaging, and system-overlay ownership boundaries.
+
+## D-041 — Flashlight is a temporary Board-owned display override with system takeover priority
+
+**Status:** Accepted for hardware validation
+
+Flashlight v0.1 is implemented as a dedicated `apps/flashlight` foreground application launched from `Narzędzia`. It has only two local states: brightness selection and LightOn. The boot-session brightness selection defaults to 75% and may retain 50/75/100 selection across exits; no NVS or persistence is added.
+
+The physical light levels are fixed temporary backlight values 128, 192, and 255. Board exposes the minimum explicit hardware boundary: set a temporary display brightness, restore the currently configured normal Active brightness, and fill the complete physical LCD with true RGB565 white `0xFFFF`. These operations never overwrite the normal Active/Dimmed profile and never change rotation. Flashlight itself never calls M5.Display.
+
+While LightOn, any M5 short/long or BOCZNY short/long action extinguishes the white output first. M5 short/long and BOCZNY short return to the selector; BOCZNY long exits to Tools. LightOn refreshes existing DisplayLifecycle visible activity so inactivity does not dim it.
+
+POWER remains exclusively owned by the existing DisplayLifecycle path. app_main only performs Flashlight cleanup before forwarding a raw POWER short into the unchanged global filter. Therefore POWER still performs immediate DisplayOff and normal later Clock Glance, while Flashlight's temporary brightness is already cleared and its state is selector-only before sleep.
+
+app_main also performs the same idempotent Flashlight cleanup before higher-priority Communicator, Charging Lock, Timer, BatteryGuard advisory/critical, or other system foreground presentation. Communicator preemption may resume Flashlight afterward, but only at the selector. No takeover can automatically re-enable the white output.
+
+No generic light-control framework, display override manager, PMU telemetry, timeout, strobe/SOS mode, colored-light mode, radio ownership, or persistence is introduced.
+
+**Rationale:** A flashlight needs direct physical LCD behavior that theme UI cannot express, but the hardware override must remain narrow, reversible, and subordinate to existing system display/foreground ownership.
