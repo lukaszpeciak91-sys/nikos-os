@@ -20,6 +20,7 @@ enum class Action : std::uint8_t {
     OpenFlashlight,
     OpenSnake,
     BrightnessChanged,
+    AutoPowerOffChanged,
     ShutdownRequested,
 };
 
@@ -82,6 +83,7 @@ private:
         Brightness,
         Theme,
         Orientation,
+        AutoPowerOff,
         EnableCommunicator,
         ActiveCommunicator,
         DisableCommunicator,
@@ -114,6 +116,7 @@ private:
     void render_brightness();
     void render_theme();
     void render_orientation();
+    void render_auto_power_off();
     void render_enable_communicator();
     void render_active_communicator();
     void render_disable_communicator();
@@ -148,6 +151,7 @@ private:
     std::uint8_t brightness_selection_ = 0;
     std::uint8_t theme_selection_ = 0;
     std::uint8_t orientation_selection_ = 0;
+    std::uint8_t auto_power_off_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
     std::uint8_t confirmation_selection_ = 0;
 
