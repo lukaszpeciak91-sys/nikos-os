@@ -660,3 +660,13 @@ app_main also performs the same idempotent Flashlight cleanup before higher-prio
 No generic light-control framework, display override manager, PMU telemetry, timeout, strobe/SOS mode, colored-light mode, radio ownership, or persistence is introduced.
 
 **Rationale:** A flashlight needs direct physical LCD behavior that theme UI cannot express, but the hardware override must remain narrow, reversible, and subordinate to existing system display/foreground ownership.
+
+## D-042 — Facts keep separate editorial titles without a display decision
+
+**Status:** Accepted
+
+Every Facts JSONL record contains a short Polish `title` (1–48 Unicode characters) as a required authoring-time metadata field, separate from the two short sentence-panels in `text`. The 180-character fact-text limit is unchanged. Titles are curated for the existing editorial dataset and validated for future additions.
+
+The future `Ciekawostki` application's decision to display or hide a title on the 240×135 LCD is intentionally deferred; this content-only change does not introduce UI, persistence, firmware generation, a generic content engine, or title-based navigation.
+
+**Rationale:** Preserve useful per-fact labels for potential browsing/history while keeping current two-panel reading behavior and embedded display constraints independent.
