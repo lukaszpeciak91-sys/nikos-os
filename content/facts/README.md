@@ -24,11 +24,12 @@ Normal development validation allows categories to be populated gradually from
 Each non-empty line is one UTF-8 JSON object:
 
 ```json
-{"id":"space-001","text":"Na Wenus doba trwa dłużej niż rok.","source":"..."}
+{"id":"space-001","title":"Doba dłuższa od roku","text":"Na Wenus doba trwa dłużej niż rok.","source":"..."}
 ```
 
-Required fields are `id`, `text`, and `source`. The optional `note` field may be
-used for editorial context. No other fields are supported in v0.1.
+Required fields are `id`, `title`, `text`, and `source`. The optional `note` field
+may be used for editorial context. No other fields are supported in the authoring
+format.
 
 The category is inferred from the filename and must not be duplicated in a
 record. IDs use the category prefix followed by exactly three decimal digits
@@ -38,9 +39,16 @@ unique across the full dataset. Development validation accepts any unique
 subset of that range; release validation requires the complete `001..100`
 set for every category.
 
+`title` is required short Polish editorial metadata (1–48 Unicode characters,
+nonblank, trimmed, without control characters). It is stored separately from
+the two fact sentences and does not count toward the 180-character `text` limit.
+Whether titles will be displayed on the M5Stick is deliberately undecided;
+adding titles now does not add a screen or change the existing two-panel design.
+
 `source` is required editorial provenance for verification. `source` and
 `note` are editorial metadata and may be stripped from generated firmware data
-later.
+later. Unlike `source` and `note`, `title` is preserved in the authoring dataset
+for a possible future browsing / read-history UI, without committing to one.
 
 Fact `text` must be natural Polish with correct Polish diacritics and is limited
 to 180 Unicode characters.
