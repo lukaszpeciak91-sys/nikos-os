@@ -19,6 +19,7 @@ enum class Action : std::uint8_t {
     OpenPowerDiag,
     OpenFlashlight,
     OpenSnake,
+    BrightnessChanged,
     ShutdownRequested,
 };
 
@@ -55,7 +56,6 @@ public:
     void set_communicator_delivery_status(
         CommunicatorDeliveryStatus status,
         bool render_if_changed = true);
-    void set_low_battery_reserve(bool active);
     void redraw();
     Action update(const board::InputState& input);
 
@@ -167,8 +167,6 @@ private:
     bool battery_sample_valid_ = false;
     std::uint32_t last_battery_sample_ms_ = 0;
     std::int32_t cached_battery_percent_ = -1;
-    bool low_battery_reserve_active_ = false;
-
     bool rendered_battery_valid_ = false;
     std::int32_t rendered_battery_percent_ = -2;
 };
