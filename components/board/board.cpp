@@ -221,6 +221,11 @@ void Board::wake_display()
     // always reapply the configured Active level so a prior dim state cannot
     // survive wake. A Flashlight override keeps owning physical brightness.
     M5.Display.wakeup();
+    apply_active_display_brightness();
+}
+
+void Board::apply_active_display_brightness()
+{
     if (!display_brightness_override_active_) {
         M5.Display.setBrightness(active_brightness_);
     }
