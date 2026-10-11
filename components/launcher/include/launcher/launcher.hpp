@@ -57,6 +57,7 @@ public:
     void set_communicator_delivery_status(
         CommunicatorDeliveryStatus status,
         bool render_if_changed = true);
+    void restore_auto_power_off_preference(bool enabled);
     void redraw();
     Action update(const board::InputState& input);
 
