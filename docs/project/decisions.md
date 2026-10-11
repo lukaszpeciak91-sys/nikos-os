@@ -660,3 +660,16 @@ app_main also performs the same idempotent Flashlight cleanup before higher-prio
 No generic light-control framework, display override manager, PMU telemetry, timeout, strobe/SOS mode, colored-light mode, radio ownership, or persistence is introduced.
 
 **Rationale:** A flashlight needs direct physical LCD behavior that theme UI cannot express, but the hardware override must remain narrow, reversible, and subordinate to existing system display/foreground ownership.
+
+
+## D-042 — Low Battery Reserve temporarily constrains effective display brightness
+
+**Status:** Accepted for hardware validation
+
+BatteryGuard owns the low-battery Reserve state using its existing battery policy thresholds: enter at <=20%, remain active through the hysteresis range, and recover only above 25% or when charging is detected. No duplicate reserve thresholds are introduced elsewhere.
+
+Settings remains the owner of the boot-scoped brightness preference. The effective normal display profile resolves to the existing Low profile (72 Active / 18 Dimmed) while Reserve is active, without mutating the selected preference. A brightness change made in Settings during Reserve therefore updates the preference but cannot bypass Reserve; the newly selected profile becomes effective when Reserve clears.
+
+Reserve affects only the normal Board Active/Dimmed profile used by wake and Clock Glance. It does not disable Communicator, alter the 3000/500 or 1000/500 RX schedules, change Charging Mode, advisories, the 10% Very Low threshold, the <=3300 mV critical shutdown path, percentage mapping, persistence, or Flashlight semantics.
+
+**Rationale:** Low battery should reduce normal LCD power draw without coupling display conservation to communication availability or losing the user's selected brightness preference.
