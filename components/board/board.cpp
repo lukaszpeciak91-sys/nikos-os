@@ -256,7 +256,9 @@ void Board::set_display_brightness_profile(
 {
     active_brightness_ = active;
     dimmed_brightness_ = dimmed;
-    M5.Display.setBrightness(active_brightness_);
+    if (!display_brightness_override_active_) {
+        M5.Display.setBrightness(active_brightness_);
+    }
 }
 
 void Board::set_display_brightness_override(
@@ -264,11 +266,13 @@ void Board::set_display_brightness_override(
 {
     // Temporary presentation-only override. Do not mutate the configured
     // Active/Dimmed profile owned by Settings.
+    display_brightness_override_active_ = true;
     M5.Display.setBrightness(brightness);
 }
 
 void Board::restore_display_brightness()
 {
+    display_brightness_override_active_ = false;
     M5.Display.setBrightness(active_brightness_);
 }
 
