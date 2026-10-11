@@ -131,6 +131,7 @@ private:
     ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
     std::uint8_t active_brightness_ = 96;
     std::uint8_t dimmed_brightness_ = 24;
+    bool display_brightness_override_active_ = false;
     bool rtc_available_ = false;
 };
 
