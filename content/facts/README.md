@@ -31,9 +31,12 @@ Required fields are `id`, `text`, and `source`. The optional `note` field may be
 used for editorial context. No other fields are supported in v0.1.
 
 The category is inferred from the filename and must not be duplicated in a
-record. IDs use the category prefix followed by exactly three decimal digits,
-for example `space-001`, `animals-014`, or `technology-087`. IDs must be
-globally unique across the full dataset.
+record. IDs use the category prefix followed by exactly three decimal digits
+and are limited to the numeric range `001` through `100`, for example
+`space-001`, `animals-014`, or `technology-087`. IDs must be globally
+unique across the full dataset. Development validation accepts any unique
+subset of that range; release validation requires the complete `001..100`
+set for every category.
 
 `source` is required editorial provenance for verification. `source` and
 `note` are editorial metadata and may be stripped from generated firmware data

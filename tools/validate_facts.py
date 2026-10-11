@@ -11,6 +11,8 @@ import unicodedata
 from pathlib import Path
 
 CATEGORY_LIMIT = 100
+CATEGORY_ID_MIN = 1
+CATEGORY_ID_MAX = CATEGORY_LIMIT
 TEXT_MAX_CHARS = 180
 CATEGORIES = (
     "space",
@@ -46,6 +48,7 @@ def validate_dataset(data_dir: Path, release: bool) -> tuple[list[str], dict[str
     errors: list[str] = []
     counts = {category: 0 for category in CATEGORIES}
     seen_ids: dict[str, tuple[Path, int]] = {}
+    seen_id_numbers = {category: set() for category in CATEGORIES}
     seen_texts: dict[str, tuple[Path, int, str]] = {}
 
     for category in CATEGORIES:
@@ -63,7 +66,7 @@ def validate_dataset(data_dir: Path, release: bool) -> tuple[list[str], dict[str
             errors.append(f"{path}: could not read file ({exc})")
             continue
 
-        id_pattern = re.compile(rf"^{re.escape(category)}-\d{{3}}$")
+        id_pattern = re.compile(rf"^{re.escape(category)}-(\d{{3}})$")
 
         for line_number, raw_line in enumerate(content.splitlines(), start=1):
             if not raw_line.strip():
@@ -112,10 +115,20 @@ def validate_dataset(data_dir: Path, release: bool) -> tuple[list[str], dict[str
             if isinstance(fact_id, str):
                 if fact_id != fact_id.strip():
                     errors.append(f"{location}: id must not have leading/trailing whitespace")
-                if not id_pattern.fullmatch(fact_id):
+                id_match = id_pattern.fullmatch(fact_id)
+                if not id_match:
                     errors.append(
                         f"{location}: id must match {category}-NNN with exactly three decimal digits"
                     )
+                else:
+                    id_number = int(id_match.group(1))
+                    if not CATEGORY_ID_MIN <= id_number <= CATEGORY_ID_MAX:
+                        errors.append(
+                            f"{location}: id numeric suffix must be between "
+                            f"{CATEGORY_ID_MIN:03d} and {CATEGORY_ID_MAX:03d}"
+                        )
+                    else:
+                        seen_id_numbers[category].add(id_number)
                 previous = seen_ids.get(fact_id)
                 if previous is not None:
                     previous_path, previous_line = previous
@@ -185,6 +198,16 @@ def validate_dataset(data_dir: Path, release: bool) -> tuple[list[str], dict[str
                     f"{data_dir / f'{category}.jsonl'}: release requires exactly "
                     f"{CATEGORY_LIMIT} facts; found {count}"
                 )
+            else:
+                expected_id_numbers = set(
+                    range(CATEGORY_ID_MIN, CATEGORY_ID_MAX + 1)
+                )
+                if seen_id_numbers[category] != expected_id_numbers:
+                    errors.append(
+                        f"{data_dir / f'{category}.jsonl'}: release requires the exact "
+                        f"ID range {category}-{CATEGORY_ID_MIN:03d} through "
+                        f"{category}-{CATEGORY_ID_MAX:03d}"
+                    )
 
         total = sum(counts.values())
         release_total = CATEGORY_LIMIT * len(CATEGORIES)
