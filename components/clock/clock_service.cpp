@@ -55,10 +55,6 @@ constexpr std::uint8_t weekday_monday_value(
     std::uint8_t month,
     std::uint8_t day)
 {
-    static constexpr std::uint8_t kMonthOffsets[12] = {
-        0U, 3U, 2U, 5U, 0U, 3U, 5U, 1U, 4U, 6U, 2U, 4U,
-    };
-
     std::uint32_t adjusted_year = year;
     if (month < 3U) {
         --adjusted_year;
