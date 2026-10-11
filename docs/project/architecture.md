@@ -159,13 +159,14 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 
 ### settings
 
-`settings::State` owns the current boot-scoped user preference state. It now contains five real runtime preferences:
+`settings::State` owns the current runtime preference state. It now contains six real preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
 - Communicator main-message view: List / `LISTA` (default) or Single / `POJEDYNCZO`;
 - display brightness: Low / `NISKA` = 72/18, Medium / `SREDNIA` = 96/24 (default), or High / `WYSOKA` = 128/32 for Active/Dimmed;
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
-- display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
+- display orientation: Right / `PRAWA` (default) or Left / `LEWA`;
+- Auto Power-Off: enabled by default, persisted per device through the narrow storage component.
 
 The state is created by composition in `app_main` and is shared with the launcher Settings UI and the narrow consumers that need each typed value. Sound, view, brightness, theme, and orientation remain boot-scoped. Auto Power-Off is the single persistent Settings exception in v0.1: `storage::AutoPowerOffStore` loads/saves its per-device boolean, defaulting ON for a missing/invalid key. No generic preferences framework or timestamp persistence is introduced.
 
