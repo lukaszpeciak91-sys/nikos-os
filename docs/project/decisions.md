@@ -553,7 +553,7 @@ Settings adds one semantic display-brightness preference:
 - `Medium` / SREDNIA: Active 96, Dimmed 24;
 - `High` / WYSOKA: Active 128, Dimmed 32.
 
-Medium 96/24 is the new boot default. The exact three profile mappings are centralized behind `settings::brightness_profile()`. `settings::State` stores only the semantic selection; Board stores the currently applied Active/Dimmed numeric levels and uses them for immediate Active preview, normal dimming, and wake. DisplayOff behavior is unchanged.
+Medium 96/24 is the new boot default. The exact three profile mappings are centralized behind `settings::brightness_profile()`. `settings::State` stores only the semantic selection; Board stores the configured Active/Dimmed numeric levels, while `DisplayLifecycle` applies the level appropriate to its current Active / Dimmed / DisplayOff state when the effective profile changes and during normal lifecycle transitions. DisplayOff behavior is unchanged.
 
 `power::DisplayLifecycle` remains the sole semantic lifecycle owner for Active / Dimmed / DisplayOff and contains no brightness-level policy or numeric brightness constants. Clock Glance inherits the normal Board Active brightness through the existing wake path.
 
