@@ -25,6 +25,11 @@ AdvisoryLevel BatteryGuard::pending_advisory() const
     return pending_advisory_;
 }
 
+bool BatteryGuard::low_battery_reserve_active() const
+{
+    return low_battery_reserve_active_;
+}
+
 void BatteryGuard::acknowledge_advisory()
 {
     pending_advisory_ = AdvisoryLevel::None;
@@ -56,8 +61,17 @@ void BatteryGuard::sample(
         low_armed_ = true;
         very_low_armed_ = true;
         pending_advisory_ = AdvisoryLevel::None;
+        low_battery_reserve_active_ = false;
         critical_confirm_count_ = 0;
         return;
+    }
+
+    if (status.level_percent >= 0) {
+        if (status.level_percent <= kLowPercent) {
+            low_battery_reserve_active_ = true;
+        } else if (status.level_percent > kLowRearmPercent) {
+            low_battery_reserve_active_ = false;
+        }
     }
 
     update_advisory(status);
