@@ -33,6 +33,9 @@ public:
     FilteredInput filter_input(const board::InputState& input);
 
     void note_visible_activity();
+    void apply_brightness_profile(
+        std::uint8_t active,
+        std::uint8_t dimmed);
     void display_off_now();
     void suppress_user_gesture_until_release();
 
