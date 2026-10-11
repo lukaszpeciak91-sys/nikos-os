@@ -15,7 +15,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
 - `Narzędzia` contains `RadioLab`, `PowerDiag`, `Latarka`, and visible `Powrót`; RadioLab, PowerDiag, and Flashlight remain application siblings launched through the tools category.
-- `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT`. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
+- `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes RTC-backed `HH:MM`, `USTAW CZAS`, `USTAW DATE`, `KALENDARZ`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT` through a local scrolling viewport. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -40,17 +40,21 @@ Flashlight display helpers do not mutate the configured Active/Dimmed brightness
 
 ### clock
 
-Owns the small product-level local wall-clock capability above `board`:
+Owns the small product-level local RTC clock/calendar capability above `board`:
 
 - trustworthy `HH:MM` read semantics;
+- independent trustworthy Gregorian date read semantics for 2000-01-01 through 2099-12-31;
 - RTC validity derived from hardware availability, successful read, valid ranges, and clear RTC voltage-low/VL indication;
 - manual `HH:MM` setting with seconds forced to `00`;
-- write verification through RTC readback;
-- lightweight `HH:MM` formatting with `--:--` for invalid/unavailable time.
+- manual `DD.MM.YYYY` setting with exact RTC readback verification;
+- bounded Gregorian helpers for leap years, month lengths, date validity, and Monday-first weekday placement;
+- lightweight `HH:MM` and `DD.MM.YYYY` formatting with independent invalid fallbacks `--:--` and `--.--.----`.
 
-`board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Initialization does not write/reset time registers and RTC failure does not block boot.
+`board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Board exposes parallel `RtcTime` and `RtcDate` boundaries; date writes provide the RTC's required weekday value but product UI never treats RTC weekday as state. Date-only writes do not alter the RTC time, and time-only writes do not alter the RTC date. Initialization does not write/reset RTC fields and RTC failure does not block boot.
 
-The v0.1 clock service is local wall-clock time only. It has no date/calendar model, timezone, DST, NTP, system-time synchronization, Timer/Stopwatch timing ownership, alarm clock, or NVS clock-configured flag.
+Launcher owns the six-row ZEGAR menu through a local four-row viewport, the three-step date editor, and the read-only monthly calendar. The calendar is generated directly from year/month arithmetic with Monday-first placement and no heap-owned day model. `app_main` continues to own Clock Glance and now renders one fresh date read below the existing dominant HH:MM on each new glance.
+
+The clock/calendar capability remains local RTC state only. It has no timezone, DST, NTP, Internet/system-time synchronization, Timer/Stopwatch timing ownership, alarms, reminders, events, holidays, birthdays, week numbers, or separate date persistence.
 
 ### radio
 
