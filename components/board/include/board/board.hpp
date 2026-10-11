@@ -71,6 +71,7 @@ public:
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
     void wake_display();
+    void apply_active_display_brightness();
     void dim_display();
     void sleep_display();
     void power_off();
@@ -131,6 +132,7 @@ private:
     ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
     std::uint8_t active_brightness_ = 96;
     std::uint8_t dimmed_brightness_ = 24;
+    bool display_brightness_override_active_ = false;
     bool rtc_available_ = false;
 };
 

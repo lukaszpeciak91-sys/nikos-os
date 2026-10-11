@@ -217,16 +217,25 @@ void Board::stop_tone()
 
 void Board::wake_display()
 {
-    // M5GFX wakeup() restores its remembered brightness. Always override it
-    // with the currently selected ACTIVE level so a prior dim state cannot
-    // survive wake.
+    // M5GFX wakeup() restores its remembered brightness. For normal UI,
+    // always reapply the configured Active level so a prior dim state cannot
+    // survive wake. A Flashlight override keeps owning physical brightness.
     M5.Display.wakeup();
-    M5.Display.setBrightness(active_brightness_);
+    apply_active_display_brightness();
+}
+
+void Board::apply_active_display_brightness()
+{
+    if (!display_brightness_override_active_) {
+        M5.Display.setBrightness(active_brightness_);
+    }
 }
 
 void Board::dim_display()
 {
-    M5.Display.setBrightness(dimmed_brightness_);
+    if (!display_brightness_override_active_) {
+        M5.Display.setBrightness(dimmed_brightness_);
+    }
 }
 
 void Board::sleep_display()
@@ -256,7 +265,6 @@ void Board::set_display_brightness_profile(
 {
     active_brightness_ = active;
     dimmed_brightness_ = dimmed;
-    M5.Display.setBrightness(active_brightness_);
 }
 
 void Board::set_display_brightness_override(
@@ -264,11 +272,13 @@ void Board::set_display_brightness_override(
 {
     // Temporary presentation-only override. Do not mutate the configured
     // Active/Dimmed profile owned by Settings.
+    display_brightness_override_active_ = true;
     M5.Display.setBrightness(brightness);
 }
 
 void Board::restore_display_brightness()
 {
+    display_brightness_override_active_ = false;
     M5.Display.setBrightness(active_brightness_);
 }
 

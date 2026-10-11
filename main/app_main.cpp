@@ -883,6 +883,20 @@ nikos::power_diag::Observation make_power_diag_observation(
     return observation;
 }
 
+void apply_effective_brightness_profile(
+    nikos::power::DisplayLifecycle& display_lifecycle,
+    const nikos::settings::State& settings,
+    bool low_battery_reserve_active)
+{
+    const nikos::settings::BrightnessProfile profile =
+        nikos::settings::effective_brightness_profile(
+            settings.brightness,
+            low_battery_reserve_active);
+    display_lifecycle.apply_brightness_profile(
+        profile.active,
+        profile.dimmed);
+}
+
 }  // namespace
 
 extern "C" void app_main(void)
@@ -1085,6 +1099,10 @@ extern "C" void app_main(void)
         if (battery_update.sampled) {
             power_diag_session.record_battery_sample(
                 battery_update.power_status);
+            apply_effective_brightness_profile(
+                display_lifecycle,
+                settings,
+                battery_guard.low_battery_reserve_active());
         }
 
         if (battery_update.critical_confirmed) {
@@ -1686,7 +1704,12 @@ extern "C" void app_main(void)
 
                 const nikos::launcher::Action action = launcher.update(input);
 
-                if (action == nikos::launcher::Action::StartCommunicator) {
+                if (action == nikos::launcher::Action::BrightnessChanged) {
+                    apply_effective_brightness_profile(
+                        display_lifecycle,
+                        settings,
+                        battery_guard.low_battery_reserve_active());
+                } else if (action == nikos::launcher::Action::StartCommunicator) {
                     communicator.reset_session();
 
                     if (messaging.begin(

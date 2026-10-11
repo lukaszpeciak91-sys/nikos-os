@@ -85,17 +85,6 @@ nikos::settings::Brightness brightness_from_index(std::uint8_t index)
     }
 }
 
-void apply_brightness_profile(
-    nikos::board::Board& board,
-    nikos::settings::Brightness brightness)
-{
-    const nikos::settings::BrightnessProfile profile =
-        nikos::settings::brightness_profile(brightness);
-    board.set_display_brightness_profile(
-        profile.active,
-        profile.dimmed);
-}
-
 void format_mmss(
     std::uint32_t total_seconds,
     char* output,
@@ -293,7 +282,6 @@ Launcher::Launcher(
       settings_(settings),
       signal_sound_(signal_sound)
 {
-    apply_brightness_profile(board_, settings_.brightness);
 }
 
 void Launcher::show_splash()
@@ -878,9 +866,8 @@ Action Launcher::update(const board::InputState& input)
 
         settings_.brightness =
             brightness_from_index(brightness_selection_);
-        apply_brightness_profile(board_, settings_.brightness);
         render();
-        return Action::None;
+        return Action::BrightnessChanged;
     }
 
     if (screen_ == Screen::Theme) {
