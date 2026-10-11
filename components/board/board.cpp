@@ -90,6 +90,10 @@ constexpr std::uint8_t rtc_weekday_sunday0(
         % 7U);
 }
 
+static_assert(rtc_weekday_sunday0(2026U, 10U, 11U) == 0U);
+static_assert(rtc_weekday_sunday0(2026U, 10U, 1U) == 4U);
+static_assert(rtc_weekday_sunday0(2000U, 1U, 1U) == 6U);
+
 std::int32_t battery_level_from_voltage_mv(std::int16_t voltage_mv)
 {
     // Match M5Unified 0.2.22 Power_Class::getBatteryLevel() voltage
