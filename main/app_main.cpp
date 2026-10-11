@@ -13,13 +13,13 @@
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
+#include "storage/auto_power_off_store.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "nvs.h"
 #include "nvs_flash.h"
 
 #include "flashlight/flashlight_app.hpp"
@@ -44,8 +44,6 @@ constexpr std::uint32_t kChargingFullToneMs = 90;
 constexpr std::uint32_t kChargingOwnerSequenceWindowMs = 4000;
 constexpr std::uint32_t kChargingOwnerOverrideIdleMs = 120000;
 constexpr std::uint32_t kAutoPowerOffIdleMs = 20U * 60U * 1000U;
-constexpr char kSettingsNvsNamespace[] = "nikos";
-constexpr char kAutoPowerOffNvsKey[] = "auto_off";
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
@@ -732,68 +730,6 @@ void enter_communicator_for_incoming(
 }
 
 
-bool load_auto_power_off_enabled()
-{
-    nvs_handle_t handle = 0;
-    esp_err_t result = nvs_open(
-        kSettingsNvsNamespace,
-        NVS_READONLY,
-        &handle);
-    if (result != ESP_OK) {
-        ESP_LOGW(
-            kTag,
-            "Auto power-off preference unavailable; using default ON: %s",
-            esp_err_to_name(result));
-        return true;
-    }
-
-    std::uint8_t stored = 1;
-    result = nvs_get_u8(handle, kAutoPowerOffNvsKey, &stored);
-    nvs_close(handle);
-
-    if (result == ESP_ERR_NVS_NOT_FOUND) {
-        return true;
-    }
-    if (result != ESP_OK || stored > 1U) {
-        ESP_LOGW(
-            kTag,
-            "Invalid auto power-off preference; using default ON");
-        return true;
-    }
-
-    return stored == 1U;
-}
-
-bool save_auto_power_off_enabled(bool enabled)
-{
-    nvs_handle_t handle = 0;
-    esp_err_t result = nvs_open(
-        kSettingsNvsNamespace,
-        NVS_READWRITE,
-        &handle);
-    if (result == ESP_OK) {
-        result = nvs_set_u8(
-            handle,
-            kAutoPowerOffNvsKey,
-            enabled ? 1U : 0U);
-    }
-    if (result == ESP_OK) {
-        result = nvs_commit(handle);
-    }
-    if (handle != 0) {
-        nvs_close(handle);
-    }
-
-    if (result != ESP_OK) {
-        ESP_LOGE(
-            kTag,
-            "Failed to persist auto power-off preference: %s",
-            esp_err_to_name(result));
-        return false;
-    }
-    return true;
-}
-
 bool initialize_nvs()
 {
     esp_err_t result = nvs_flash_init();
@@ -1018,8 +954,9 @@ extern "C" void app_main(void)
         }
     }
 
+    nikos::storage::AutoPowerOffStore auto_power_off_store;
     settings.auto_power_off_enabled =
-        load_auto_power_off_enabled();
+        auto_power_off_store.load_enabled();
 
     nikos::radio::RadioService radio;
     nikos::messaging::Service messaging(radio);
@@ -1819,7 +1756,7 @@ extern "C" void app_main(void)
                         battery_guard.low_battery_reserve_active());
                 } else if (
                     action == nikos::launcher::Action::AutoPowerOffChanged) {
-                    (void)save_auto_power_off_enabled(
+                    (void)auto_power_off_store.save_enabled(
                         settings.auto_power_off_enabled);
                     auto_power_off_due = false;
                     if (settings.auto_power_off_enabled) {
