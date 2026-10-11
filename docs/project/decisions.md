@@ -681,10 +681,10 @@ Reserve affects only the normal Board Active/Dimmed profile used by wake and Clo
 
 **Status:** Accepted for hardware validation
 
-Auto Power-Off v0.1 defaults ON and stores only one per-device boolean in NVS. Missing, unreadable, or invalid stored values resolve to ON. Runtime timestamps and pending-idle state are never persisted.
+Auto Power-Off v0.1 defaults ON and stores only one per-device boolean in NVS. Missing, unreadable, or invalid stored values resolve to ON. Runtime timestamps and pending-idle state are never persisted. A failed NVS write does not change the effective preference: runtime and Settings UI roll back to the last successfully persisted/default value, with no retry loop.
 
 The 20-minute inactivity clock is reset only by local physical M5/BOCZNY activity or short POWER. Messaging Presence/ACK/RX/TX, received messages or SYGNAL by themselves, BatteryGuard sampling, communication-driven display wake, and other background work do not count as user activity. Communicator being enabled does not block shutdown.
 
-Physical VBUS suspends Auto Power-Off and unplug starts a fresh 20-minute idle window. A running Countdown or pending Countdown expiration blocks shutdown. A due shutdown is deferred while an incoming Communicator interaction owns the foreground; local input during that interaction resets the inactivity window. Shutdown always reuses the existing controlled whole-device shutdown path.
+Physical VBUS suspends Auto Power-Off and unplug starts a fresh 20-minute idle window. A running Countdown or pending Countdown expiration blocks shutdown. If the normal deadline expires while an incoming Communicator interaction owns the foreground, shutdown receives one bounded 2-minute grace; radio/background traffic cannot restart that grace. Local input during the grace starts a fresh 20-minute inactivity window. If no local input occurs, controlled shutdown proceeds after the grace even if the incoming screen remains open.
 
 DisplayLifecycle remains unchanged at 15-second Dimmed and 45-second DisplayOff behavior. Auto Power-Off is a separate whole-device policy; no sleep mode or second shutdown path is introduced.
