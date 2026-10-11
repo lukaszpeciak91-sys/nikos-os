@@ -29,6 +29,7 @@ constexpr std::uint8_t kClockVisibleRows = 4;
 constexpr std::uint8_t kClockTimerIndex = 3;
 constexpr std::int16_t kClockMenuFirstY = 56;
 constexpr std::int16_t kClockMenuRowHeight = 16;
+static_assert(((6U + 31U - 1U) / 7U) == 5U);
 
 constexpr const char* kMonthLabels[12] = {
     "STYCZEN",
