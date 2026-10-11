@@ -35,6 +35,19 @@ constexpr std::uint8_t days_in_month_value(
     }
 }
 
+constexpr std::uint8_t clamped_day_value(
+    std::uint16_t year,
+    std::uint8_t month,
+    std::uint8_t day)
+{
+    const std::uint8_t max_day =
+        days_in_month_value(year, month);
+    if (max_day == 0U) {
+        return 1U;
+    }
+    return day > max_day ? max_day : (day == 0U ? 1U : day);
+}
+
 constexpr bool valid_date_value(
     std::uint16_t year,
     std::uint8_t month,
@@ -82,6 +95,9 @@ static_assert(days_in_month_value(2026U, 4U) == 30U);
 static_assert(days_in_month_value(2026U, 1U) == 31U);
 static_assert(days_in_month_value(2024U, 2U) == 29U);
 static_assert(days_in_month_value(2025U, 2U) == 28U);
+static_assert(clamped_day_value(2025U, 2U, 31U) == 28U);
+static_assert(clamped_day_value(2024U, 2U, 31U) == 29U);
+static_assert(clamped_day_value(2025U, 2U, 29U) == 28U);
 static_assert(weekday_monday_value(2026U, 10U, 11U) == 6U);
 static_assert(weekday_monday_value(2026U, 10U, 1U) == 3U);
 static_assert(weekday_monday_value(2000U, 1U, 1U) == 5U);
