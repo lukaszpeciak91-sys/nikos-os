@@ -71,6 +71,7 @@ public:
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
     void wake_display();
+    void apply_active_display_brightness();
     void dim_display();
     void sleep_display();
     void power_off();
