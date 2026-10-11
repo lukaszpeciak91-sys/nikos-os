@@ -34,6 +34,9 @@ struct BrightnessProfile {
 };
 
 BrightnessProfile brightness_profile(Brightness brightness);
+BrightnessProfile effective_brightness_profile(
+    Brightness brightness,
+    bool low_battery_reserve_active);
 
 struct State {
     Orientation orientation = Orientation::Right;
