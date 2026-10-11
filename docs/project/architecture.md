@@ -167,7 +167,7 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
 - display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
 
-The state is created by composition in `app_main` and is shared with the launcher Settings UI and the narrow consumers that need each typed value. Sound, view, brightness, theme, and orientation remain boot-scoped. Auto Power-Off is the single persistent Settings exception in v0.1: its boolean defaults ON when the NVS key is missing/invalid and is stored per device. No generic preferences framework or timestamp persistence is introduced.
+The state is created by composition in `app_main` and is shared with the launcher Settings UI and the narrow consumers that need each typed value. Sound, view, brightness, theme, and orientation remain boot-scoped. Auto Power-Off is the single persistent Settings exception in v0.1: `storage::AutoPowerOffStore` loads/saves its per-device boolean, defaulting ON for a missing/invalid key. No generic preferences framework or timestamp persistence is introduced.
 
 ### ui_theme
 
