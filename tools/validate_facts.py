@@ -14,6 +14,7 @@ CATEGORY_LIMIT = 100
 CATEGORY_ID_MIN = 1
 CATEGORY_ID_MAX = CATEGORY_LIMIT
 TEXT_MAX_CHARS = 180
+TITLE_MAX_CHARS = 48
 CATEGORIES = (
     "space",
     "animals",
@@ -22,7 +23,7 @@ CATEGORIES = (
     "history",
     "world",
 )
-REQUIRED_FIELDS = {"id", "text", "source"}
+REQUIRED_FIELDS = {"id", "title", "text", "source"}
 OPTIONAL_FIELDS = {"note"}
 SUPPORTED_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
@@ -105,7 +106,7 @@ def validate_dataset(data_dir: Path, release: bool) -> tuple[list[str], dict[str
                     f"{location}: missing required field(s): {', '.join(missing_fields)}"
                 )
 
-            for field in ("id", "text", "source"):
+            for field in ("id", "title", "text", "source"):
                 if field in record and not isinstance(record[field], str):
                     errors.append(f"{location}: {field} must be a string")
 
@@ -138,6 +139,24 @@ def validate_dataset(data_dir: Path, release: bool) -> tuple[list[str], dict[str
                     )
                 else:
                     seen_ids[fact_id] = (path, line_number)
+
+            title = record.get("title")
+            if isinstance(title, str):
+                if title != title.strip():
+                    errors.append(
+                        f"{location}: title must not have leading/trailing whitespace"
+                    )
+                if not title.strip():
+                    errors.append(f"{location}: title must not be blank")
+                if has_control_characters(title):
+                    errors.append(
+                        f"{location}: title must not contain newline/control characters"
+                    )
+                if len(title) > TITLE_MAX_CHARS:
+                    errors.append(
+                        f"{location}: title is {len(title)} characters; maximum is "
+                        f"{TITLE_MAX_CHARS}"
+                    )
 
             text = record.get("text")
             if isinstance(text, str):
