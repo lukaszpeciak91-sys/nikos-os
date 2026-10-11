@@ -485,22 +485,40 @@ void render_clock_glance(
     nikos::board::Board& board,
     nikos::clock::ClockService& clock_service)
 {
-    const nikos::clock::Reading reading = clock_service.read();
+    const nikos::clock::Reading time_reading =
+        clock_service.read();
+    const nikos::clock::DateReading date_reading =
+        clock_service.read_date();
+
     char time_text[6]{};
+    char date_text[11]{};
     nikos::clock::ClockService::format_hhmm(
-        reading,
+        time_reading,
         time_text,
         sizeof(time_text));
+    nikos::clock::ClockService::format_ddmmyyyy(
+        date_reading,
+        date_text,
+        sizeof(date_text));
 
     board.clear_screen();
     board.draw_text_region(
         60,
-        48,
+        34,
         120,
         40,
         time_text,
         4,
         nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+    board.draw_text_region(
+        54,
+        84,
+        132,
+        20,
+        date_text,
+        2,
+        nikos::board::DisplayColor::SecondaryText,
         nikos::board::DisplayColor::Background);
 }
 
