@@ -370,6 +370,13 @@ void Launcher::begin_entertainment(
     render();
 }
 
+void Launcher::restore_auto_power_off_preference(bool enabled)
+{
+    settings_.auto_power_off_enabled = enabled;
+    auto_power_off_selection_ = enabled ? 0U : 1U;
+    render();
+}
+
 void Launcher::redraw()
 {
     if (screen_ == Screen::TimerActive
