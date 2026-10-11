@@ -21,6 +21,10 @@ constexpr std::uint16_t kDangerRgb565 = 0xC2EB;         // #C65F5F
 constexpr char kPolishFontSanityText[] =
     "ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
 
+constexpr std::uint8_t kRtcMonthOffsets[12] = {
+    0U, 3U, 2U, 5U, 0U, 3U, 5U, 1U, 4U, 6U, 2U, 4U,
+};
+
 constexpr bool rtc_leap_year(std::uint16_t year)
 {
     return (year % 4U == 0U)
@@ -71,10 +75,6 @@ constexpr std::uint8_t rtc_weekday_sunday0(
     std::uint8_t month,
     std::uint8_t day)
 {
-    static constexpr std::uint8_t kMonthOffsets[12] = {
-        0U, 3U, 2U, 5U, 0U, 3U, 5U, 1U, 4U, 6U, 2U, 4U,
-    };
-
     std::uint32_t adjusted_year = year;
     if (month < 3U) {
         --adjusted_year;
@@ -85,7 +85,7 @@ constexpr std::uint8_t rtc_weekday_sunday0(
             + adjusted_year / 4U
             - adjusted_year / 100U
             + adjusted_year / 400U
-            + kMonthOffsets[month - 1U]
+            + kRtcMonthOffsets[month - 1U]
             + day)
         % 7U);
 }
