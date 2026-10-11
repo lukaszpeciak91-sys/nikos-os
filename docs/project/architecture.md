@@ -219,9 +219,9 @@ Owns the first small product-level display lifecycle policy only:
 
 `DisplayOff` is LCD/backlight state only. It does not stop `app_main`, messaging, Communicator background reception, or the configured ESP-NOW RX schedule, and it never performs whole-device shutdown.
 
-Whole-device shutdown remains separate: the launcher emits only an explicit shutdown request, `app_main` performs orderly runtime cleanup, and the board layer owns the M5-specific `M5.Power.powerOff()` call.
+Whole-device shutdown remains separate from display lifecycle: manual Launcher shutdown and the bounded Auto Power-Off policy both converge on the existing `app_main` controlled-shutdown path, which performs orderly runtime cleanup before the board layer owns the M5-specific `M5.Power.powerOff()` call.
 
-The current messaging RX schedules remain experimental transport configuration and are unchanged by display lifecycle v0.1. No automatic device shutdown, CPU sleep, radio sleep policy, or persistent power setting is introduced.
+The current messaging RX schedules remain experimental transport configuration and are unchanged by display lifecycle v0.1. Auto Power-Off is the one explicit persistent whole-device power policy; no CPU sleep, radio sleep policy, or second shutdown mechanism is introduced.
 
 ### launcher
 
