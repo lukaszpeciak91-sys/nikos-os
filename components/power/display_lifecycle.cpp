@@ -144,7 +144,7 @@ void DisplayLifecycle::apply_brightness_profile(
             break;
         case DisplayState::Active:
         default:
-            board_.wake_display();
+            board_.apply_active_display_brightness();
             break;
     }
 }
