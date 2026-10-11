@@ -167,7 +167,7 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
 - display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
 
-The state is created by composition in `app_main`, is shared with the launcher Settings UI and the narrow consumers that need each typed value, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
+The state is created by composition in `app_main` and is shared with the launcher Settings UI and the narrow consumers that need each typed value. Sound, view, brightness, theme, and orientation remain boot-scoped. Auto Power-Off is the single persistent Settings exception in v0.1: its boolean defaults ON when the NVS key is missing/invalid and is stored per device. No generic preferences framework or timestamp persistence is introduced.
 
 ### ui_theme
 
@@ -203,6 +203,8 @@ Owns versioned persistent configuration when persistence is required.
 No persistent contact database, chat history, or user-settings schema is introduced by the current implementation.
 
 ### power
+
+DisplayLifecycle continues to own only LCD Active / Dimmed / DisplayOff semantics. Auto Power-Off v0.1 is a separate whole-device policy coordinated in `app_main`: when enabled, 20 minutes without local physical M5 / BOCZNY / short-POWER activity makes whole-device shutdown due. Radio traffic, received content, background work, battery sampling, and communication-driven display wake do not reset this clock. VBUS suspends the policy and unplug starts a fresh 20-minute window. A running Countdown or pending Countdown expiration blocks shutdown. If an incoming Communicator interaction currently owns the foreground, a due shutdown waits until that interaction ends unless local input resets the clock. Shutdown reuses the existing `controlled_shutdown()` path.
 
 Owns the first small product-level display lifecycle policy only:
 
