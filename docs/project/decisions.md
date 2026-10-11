@@ -688,3 +688,24 @@ The 20-minute inactivity clock is reset only by local physical M5/BOCZNY activit
 Physical VBUS suspends Auto Power-Off and unplug starts a fresh 20-minute idle window. A running Countdown or pending Countdown expiration blocks shutdown. If the normal deadline expires while an incoming Communicator interaction owns the foreground, shutdown receives one bounded 2-minute grace; radio/background traffic cannot restart that grace. Local input during the grace starts a fresh 20-minute inactivity window. If no local input occurs, controlled shutdown proceeds after the grace even if the incoming screen remains open.
 
 DisplayLifecycle remains unchanged at 15-second Dimmed and 45-second DisplayOff behavior. Auto Power-Off is a separate whole-device policy; no sleep mode or second shutdown path is introduced.
+
+
+## D-044 — RTC date/calendar extends D-025 without adding civil-time infrastructure
+
+**Status:** Accepted for hardware validation
+
+This decision supersedes only the date/calendar exclusion in D-025. D-025 remains authoritative for the existing RTC initialization, HH:MM semantics, Clock Glance ownership, DisplayLifecycle behavior, and communication priority rules.
+
+Board adds a date boundary parallel to `RtcTime`: `RtcDate { year, month, day }`, `read_rtc_date()`, and `write_rtc_date()`. Board remains the only layer calling M5Unified RTC date APIs. M5Unified 0.2.22 represents `rtc_date_t` with a full year and stores weekday as 0=Sunday through 6=Saturday; Board computes and supplies that hardware weekday locally. Date-only `setDate` is used so setting a date does not rewrite HH:MM:SS, while the existing time-only `setTime` path remains unchanged.
+
+`clock::ClockService` keeps the existing time API and adds the sibling `Date` / `DateReading` API for the supported product range 2000-01-01 through 2099-12-31. Time validity and date validity are independent. Date validity requires RTC availability, clear VL indication, successful date read, and a valid Gregorian date in the supported range. Date writes are explicitly requested by the user and are accepted only after exact year/month/day readback. No fallback editor seed is ever written automatically.
+
+ClockService also owns small bounded Gregorian helpers: correct leap-year rules, month lengths, date validation, and Monday-first weekday calculation. The month view is generated directly from year/month and these helpers; it does not allocate or retain a vector/list of days and does not depend on the RTC weekday field for rendering correctness.
+
+Launcher extends ZEGAR to six items: USTAW CZAS, USTAW DATE, KALENDARZ, MINUTNIK, STOPER, POWROT. A local four-row viewport keeps the existing large HH:MM. MINUTNIK keeps its dynamic label at whatever visible row the viewport assigns. The date editor progresses DAY -> MONTH -> YEAR -> SAVE, wraps each field, clamps day after month/year changes, seeds from a trustworthy RTC date or 01.01.2026 when unavailable, and writes only on explicit save. KALENDARZ is read-only, Monday-first, supports previous/next month across year boundaries, clamps navigation at January 2000 / December 2099, highlights today's trustworthy RTC date using semantic theme colors, and shows BRAK DATY rather than inventing a current month when date is invalid.
+
+Clock Glance remains an `app_main`-owned transient overlay with the same wake, approximately-four-second timeout, second-gesture suppression, Timer priority, Communicator priority, and DisplayLifecycle ownership. Each new glance performs one independent time read and one independent date read, renders large `HH:MM` plus secondary `DD.MM.YYYY`, and never renders a weekday. Invalid date is shown as `--.--.----` without invalidating an otherwise trustworthy time.
+
+Countdown and Stopwatch remain monotonic and have no RTC/date coupling. Timezone, DST, NTP, Internet/system time, alarms, reminders, events, birthdays, holidays, week numbers, recurring items, and separate calendar persistence remain out of scope.
+
+**Rationale:** The hardware RTC already stores a calendar date, and exposing that bounded local information adds useful glance/editor/calendar behavior without introducing timezone/network/civil-time infrastructure or coupling monotonic timing features to RTC state.
