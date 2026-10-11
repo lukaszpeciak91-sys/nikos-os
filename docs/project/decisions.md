@@ -668,7 +668,9 @@ No generic light-control framework, display override manager, PMU telemetry, tim
 
 BatteryGuard owns the low-battery Reserve state using its existing battery policy thresholds: enter at <=20%, remain active through the hysteresis range, and recover only above 25% or when charging is detected. No duplicate reserve thresholds are introduced elsewhere.
 
-Settings remains the owner of the boot-scoped brightness preference. The effective normal display profile resolves to the existing Low profile (72 Active / 18 Dimmed) while Reserve is active, without mutating the selected preference. A brightness change made in Settings during Reserve therefore updates the preference but cannot bypass Reserve; the newly selected profile becomes effective when Reserve clears.
+Settings remains the owner of the boot-scoped brightness preference. Launcher changes only that preference and reports the change to composition. `app_main` resolves the effective normal display profile from Settings plus BatteryGuard Reserve and applies it through DisplayLifecycle. DisplayLifecycle keeps its current semantic state authoritative: Active receives the effective Active level, Dimmed receives the effective Dimmed level, and DisplayOff remains physically off. Board stores the profile values but does not infer lifecycle state.
+
+The effective profile resolves to the existing Low profile (72 Active / 18 Dimmed) while Reserve is active, without mutating the selected preference. A brightness change made in Settings during Reserve therefore updates the preference but cannot bypass Reserve; the newly selected profile becomes effective when Reserve clears.
 
 Reserve affects only the normal Board Active/Dimmed profile used by wake and Clock Glance. It does not disable Communicator, alter the 3000/500 or 1000/500 RX schedules, change Charging Mode, advisories, the 10% Very Low threshold, the <=3300 mV critical shutdown path, percentage mapping, persistence, or Flashlight semantics.
 
