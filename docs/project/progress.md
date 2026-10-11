@@ -134,3 +134,5 @@ Append concise entries here when the authoritative project state changes.
 - 2026-09-26 — Extended PowerDiag for the final A/B battery diagnostic: Running sessions now accumulate signed I AVG and I N from the existing valid/current-supported BatteryGuard samples only; START/NEW TEST resets the statistic, I NOW keeps the existing latest-sample behavior, and no battery-safety or sampling policy changed.
 
 - 2026-09-26 — Added Flashlight v0.1 under Narzedzia: selector-first 50/75/100% temporary backlight levels (128/192/255), full physical white LCD output through Board-only helpers, all M5/BOCZNY actions extinguish the light, POWER keeps unchanged global DisplayOff/Clock Glance ownership, and Communicator/Charging/Timer/Battery takeovers always restore normal brightness and return only to the selector.
+
+- 2026-10-11 — Added Low Battery Reserve v0.1: BatteryGuard now exposes a 20%/25% hysteretic reserve state that temporarily forces the effective normal display profile to Low 72/18 while preserving the user's selected brightness; charging clears Reserve, and Communicator/radio/critical BatteryGuard behavior remains unchanged.
