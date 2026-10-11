@@ -1085,6 +1085,8 @@ extern "C" void app_main(void)
         if (battery_update.sampled) {
             power_diag_session.record_battery_sample(
                 battery_update.power_status);
+            launcher.set_low_battery_reserve(
+                battery_guard.low_battery_reserve_active());
         }
 
         if (battery_update.critical_confirmed) {
