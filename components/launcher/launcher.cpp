@@ -85,20 +85,6 @@ nikos::settings::Brightness brightness_from_index(std::uint8_t index)
     }
 }
 
-void apply_brightness_profile(
-    nikos::board::Board& board,
-    nikos::settings::Brightness brightness,
-    bool low_battery_reserve_active)
-{
-    const nikos::settings::BrightnessProfile profile =
-        nikos::settings::effective_brightness_profile(
-            brightness,
-            low_battery_reserve_active);
-    board.set_display_brightness_profile(
-        profile.active,
-        profile.dimmed);
-}
-
 void format_mmss(
     std::uint32_t total_seconds,
     char* output,
@@ -296,10 +282,6 @@ Launcher::Launcher(
       settings_(settings),
       signal_sound_(signal_sound)
 {
-    apply_brightness_profile(
-        board_,
-        settings_.brightness,
-        low_battery_reserve_active_);
 }
 
 void Launcher::show_splash()
@@ -385,19 +367,6 @@ void Launcher::begin_entertainment(
     update_clock_sample(now, true);
     update_battery_sample(now);
     render();
-}
-
-void Launcher::set_low_battery_reserve(bool active)
-{
-    if (low_battery_reserve_active_ == active) {
-        return;
-    }
-
-    low_battery_reserve_active_ = active;
-    apply_brightness_profile(
-        board_,
-        settings_.brightness,
-        low_battery_reserve_active_);
 }
 
 void Launcher::redraw()
@@ -897,12 +866,8 @@ Action Launcher::update(const board::InputState& input)
 
         settings_.brightness =
             brightness_from_index(brightness_selection_);
-        apply_brightness_profile(
-            board_,
-            settings_.brightness,
-            low_battery_reserve_active_);
         render();
-        return Action::None;
+        return Action::BrightnessChanged;
     }
 
     if (screen_ == Screen::Theme) {
