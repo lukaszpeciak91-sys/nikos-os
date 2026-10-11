@@ -19,6 +19,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs.h"
 #include "nvs_flash.h"
 
 #include "flashlight/flashlight_app.hpp"
@@ -42,6 +43,9 @@ constexpr float kChargingFullToneHz = 3200.0F;
 constexpr std::uint32_t kChargingFullToneMs = 90;
 constexpr std::uint32_t kChargingOwnerSequenceWindowMs = 4000;
 constexpr std::uint32_t kChargingOwnerOverrideIdleMs = 120000;
+constexpr std::uint32_t kAutoPowerOffIdleMs = 20U * 60U * 1000U;
+constexpr char kSettingsNvsNamespace[] = "nikos";
+constexpr char kAutoPowerOffNvsKey[] = "auto_off";
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
@@ -728,6 +732,68 @@ void enter_communicator_for_incoming(
 }
 
 
+bool load_auto_power_off_enabled()
+{
+    nvs_handle_t handle = 0;
+    esp_err_t result = nvs_open(
+        kSettingsNvsNamespace,
+        NVS_READONLY,
+        &handle);
+    if (result != ESP_OK) {
+        ESP_LOGW(
+            kTag,
+            "Auto power-off preference unavailable; using default ON: %s",
+            esp_err_to_name(result));
+        return true;
+    }
+
+    std::uint8_t stored = 1;
+    result = nvs_get_u8(handle, kAutoPowerOffNvsKey, &stored);
+    nvs_close(handle);
+
+    if (result == ESP_ERR_NVS_NOT_FOUND) {
+        return true;
+    }
+    if (result != ESP_OK || stored > 1U) {
+        ESP_LOGW(
+            kTag,
+            "Invalid auto power-off preference; using default ON");
+        return true;
+    }
+
+    return stored == 1U;
+}
+
+bool save_auto_power_off_enabled(bool enabled)
+{
+    nvs_handle_t handle = 0;
+    esp_err_t result = nvs_open(
+        kSettingsNvsNamespace,
+        NVS_READWRITE,
+        &handle);
+    if (result == ESP_OK) {
+        result = nvs_set_u8(
+            handle,
+            kAutoPowerOffNvsKey,
+            enabled ? 1U : 0U);
+    }
+    if (result == ESP_OK) {
+        result = nvs_commit(handle);
+    }
+    if (handle != 0) {
+        nvs_close(handle);
+    }
+
+    if (result != ESP_OK) {
+        ESP_LOGE(
+            kTag,
+            "Failed to persist auto power-off preference: %s",
+            esp_err_to_name(result));
+        return false;
+    }
+    return true;
+}
+
 bool initialize_nvs()
 {
     esp_err_t result = nvs_flash_init();
@@ -952,6 +1018,9 @@ extern "C" void app_main(void)
         }
     }
 
+    settings.auto_power_off_enabled =
+        load_auto_power_off_enabled();
+
     nikos::radio::RadioService radio;
     nikos::messaging::Service messaging(radio);
     nikos::communicator::CommunicatorApp communicator(
@@ -980,6 +1049,8 @@ extern "C" void app_main(void)
     bool battery_advisory_visible = false;
     nikos::battery_guard::AdvisoryLevel battery_advisory_level =
         nikos::battery_guard::AdvisoryLevel::None;
+    std::uint32_t auto_power_off_last_local_activity_ms = now_ms();
+    bool auto_power_off_due = false;
 
     if (charging_mode.active) {
         display_lifecycle.display_off_now();
@@ -1022,6 +1093,7 @@ extern "C" void app_main(void)
                 loop_now_ms);
 
         if (charging_cable_event == ChargingCableEvent::Connected) {
+            auto_power_off_due = false;
             prepare_flashlight_for_foreground_takeover(
                 state,
                 flashlight);
@@ -1053,6 +1125,8 @@ extern "C" void app_main(void)
             }
         } else if (
             charging_cable_event == ChargingCableEvent::Disconnected) {
+            auto_power_off_last_local_activity_ms = loop_now_ms;
+            auto_power_off_due = false;
             clock_glance_active = false;
             timer_alert_visible = false;
             battery_advisory_visible = false;
@@ -1157,6 +1231,17 @@ extern "C" void app_main(void)
 
         const nikos::board::InputState raw_input =
             board.poll_input();
+
+        if (any_local_button_activity(raw_input)) {
+            auto_power_off_last_local_activity_ms = loop_now_ms;
+            auto_power_off_due = false;
+        } else if (
+            settings.auto_power_off_enabled
+            && !charging_mode.active
+            && loop_now_ms - auto_power_off_last_local_activity_ms
+                >= kAutoPowerOffIdleMs) {
+            auto_power_off_due = true;
+        }
 
         bool owner_relocked_now = false;
         if (charging_mode.active
@@ -1409,6 +1494,29 @@ extern "C" void app_main(void)
         }
 
         display_lifecycle.update();
+
+        const bool auto_power_off_blocked_by_incoming =
+            state == RuntimeState::Communicator
+            && communicator.timer_preemption_active();
+        const bool auto_power_off_blocked_by_countdown =
+            countdown.state() == nikos::countdown::State::Running
+            || countdown.expired_pending();
+
+        if (auto_power_off_due
+            && settings.auto_power_off_enabled
+            && !charging_mode.active
+            && !auto_power_off_blocked_by_incoming
+            && !auto_power_off_blocked_by_countdown) {
+            prepare_flashlight_for_foreground_takeover(
+                state,
+                flashlight);
+            controlled_shutdown(
+                board,
+                signal_sound,
+                communicator,
+                messaging,
+                radio);
+        }
 
         if (power_diag_session.running()) {
             power_diag_session.observe(
@@ -1709,6 +1817,15 @@ extern "C" void app_main(void)
                         display_lifecycle,
                         settings,
                         battery_guard.low_battery_reserve_active());
+                } else if (
+                    action == nikos::launcher::Action::AutoPowerOffChanged) {
+                    (void)save_auto_power_off_enabled(
+                        settings.auto_power_off_enabled);
+                    auto_power_off_due = false;
+                    if (settings.auto_power_off_enabled) {
+                        auto_power_off_last_local_activity_ms =
+                            loop_now_ms;
+                    }
                 } else if (action == nikos::launcher::Action::StartCommunicator) {
                     communicator.reset_session();
 
