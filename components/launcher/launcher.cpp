@@ -332,6 +332,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     brightness_selection_ = brightness_index(settings_.brightness);
     theme_selection_ = theme_index(settings_.theme);
     orientation_selection_ = orientation_index(settings_.orientation);
+    auto_power_off_selection_ = settings_.auto_power_off_enabled ? 0U : 1U;
     active_communicator_selection_ = 0;
 
     const std::uint32_t now = now_ms();
@@ -769,7 +770,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             settings_selection_ =
-                static_cast<std::uint8_t>((settings_selection_ + 1U) % 5U);
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 6U);
             render();
             return Action::None;
         }
@@ -790,6 +791,10 @@ Action Launcher::update(const board::InputState& input)
                 orientation_selection_ =
                     orientation_index(settings_.orientation);
                 screen_ = Screen::Orientation;
+            } else if (settings_selection_ == 4U) {
+                auto_power_off_selection_ =
+                    settings_.auto_power_off_enabled ? 0U : 1U;
+                screen_ = Screen::AutoPowerOff;
             } else {
                 signal_sound_.stop();
                 screen_ = Screen::Main;
@@ -934,6 +939,39 @@ Action Launcher::update(const board::InputState& input)
             board_orientation(settings_.orientation));
         render();
         return Action::None;
+    }
+
+    if (screen_ == Screen::AutoPowerOff) {
+        if (input.secondary_long) {
+            settings_selection_ = 4U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            auto_power_off_selection_ =
+                static_cast<std::uint8_t>(
+                    (auto_power_off_selection_ + 1U) % 3U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (auto_power_off_selection_ == 2U) {
+            settings_selection_ = 4U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        settings_.auto_power_off_enabled =
+            auto_power_off_selection_ == 0U;
+        render();
+        return Action::AutoPowerOffChanged;
     }
 
     if (screen_ == Screen::ShutdownConfirm) {
@@ -1134,6 +1172,9 @@ void Launcher::render()
             break;
         case Screen::Orientation:
             render_orientation();
+            break;
+        case Screen::AutoPowerOff:
+            render_auto_power_off();
             break;
         case Screen::EnableCommunicator:
             render_enable_communicator();
@@ -2007,11 +2048,12 @@ void Launcher::render_settings()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[5] = {
+    constexpr const char* kItems[6] = {
         "Dzwiek",
         "Jasnosc",
         "Motyw",
         "Orientacja",
+        "AUTO WYLACZ.",
         "Powrot",
     };
 
@@ -2346,6 +2388,80 @@ void Launcher::render_orientation()
     board_.draw_text_region(
         14,
         116,
+        212,
+        14,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_auto_power_off()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        10,
+        212,
+        18,
+        "AUTO WYLACZANIE",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    constexpr const char* kItems[3] = {
+        "WLACZONE",
+        "WYLACZONE",
+        "POWROT",
+    };
+
+    for (std::uint8_t index = 0; index < 3U; ++index) {
+        const bool selected = index == auto_power_off_selection_;
+        const bool active =
+            index < 2U
+            && settings_.auto_power_off_enabled == (index == 0U);
+        const std::int16_t y =
+            static_cast<std::int16_t>(35 + index * 21);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            19,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            draw_selection_marker(board_, 14, y, 17);
+        }
+        if (active) {
+            board_.fill_circle(
+                211,
+                static_cast<std::int16_t>(y + 8),
+                3,
+                board::DisplayColor::Accent);
+        }
+    }
+
+    board_.draw_text_region(
+        14,
+        100,
+        212,
+        12,
+        "PO 20 MIN BEZCZYNNOSCI",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        14,
+        119,
         212,
         14,
         "M5 WYBIERZ | BOCZNY DALEJ",
