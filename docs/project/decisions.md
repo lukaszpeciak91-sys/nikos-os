@@ -675,3 +675,16 @@ The effective profile resolves to the existing Low profile (72 Active / 18 Dimme
 Reserve affects only the normal Board Active/Dimmed profile used by wake and Clock Glance. It does not disable Communicator, alter the 3000/500 or 1000/500 RX schedules, change Charging Mode, advisories, the 10% Very Low threshold, the <=3300 mV critical shutdown path, percentage mapping, persistence, or Flashlight semantics.
 
 **Rationale:** Low battery should reduce normal LCD power draw without coupling display conservation to communication availability or losing the user's selected brightness preference.
+
+
+## D-043 — Auto Power-Off uses local-input inactivity and one narrow NVS boolean
+
+**Status:** Accepted for hardware validation
+
+Auto Power-Off v0.1 defaults ON and stores only one per-device boolean in NVS. Missing, unreadable, or invalid stored values resolve to ON. Runtime timestamps and pending-idle state are never persisted.
+
+The 20-minute inactivity clock is reset only by local physical M5/BOCZNY activity or short POWER. Messaging Presence/ACK/RX/TX, received messages or SYGNAL by themselves, BatteryGuard sampling, communication-driven display wake, and other background work do not count as user activity. Communicator being enabled does not block shutdown.
+
+Physical VBUS suspends Auto Power-Off and unplug starts a fresh 20-minute idle window. A running Countdown or pending Countdown expiration blocks shutdown. A due shutdown is deferred while an incoming Communicator interaction owns the foreground; local input during that interaction resets the inactivity window. Shutdown always reuses the existing controlled whole-device shutdown path.
+
+DisplayLifecycle remains unchanged at 15-second Dimmed and 45-second DisplayOff behavior. Auto Power-Off is a separate whole-device policy; no sleep mode or second shutdown path is introduced.
