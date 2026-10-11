@@ -159,15 +159,16 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 
 ### settings
 
-`settings::State` owns the current boot-scoped user preference state. It now contains five real runtime preferences:
+`settings::State` owns the current runtime preference state. It now contains six real preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
 - Communicator main-message view: List / `LISTA` (default) or Single / `POJEDYNCZO`;
 - display brightness: Low / `NISKA` = 72/18, Medium / `SREDNIA` = 96/24 (default), or High / `WYSOKA` = 128/32 for Active/Dimmed;
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
-- display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
+- display orientation: Right / `PRAWA` (default) or Left / `LEWA`;
+- Auto Power-Off: enabled by default, persisted per device through the narrow storage component.
 
-The state is created by composition in `app_main`, is shared with the launcher Settings UI and the narrow consumers that need each typed value, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
+The state is created by composition in `app_main` and is shared with the launcher Settings UI and the narrow consumers that need each typed value. Sound, view, brightness, theme, and orientation remain boot-scoped. Auto Power-Off is the single persistent Settings exception in v0.1: `storage::AutoPowerOffStore` loads/saves its per-device boolean, defaulting ON for a missing/invalid key. A failed save leaves the last successfully loaded/saved value authoritative and the Settings UI is rolled back to match it. No generic preferences framework or timestamp persistence is introduced.
 
 ### ui_theme
 
@@ -204,6 +205,8 @@ No persistent contact database, chat history, or user-settings schema is introdu
 
 ### power
 
+DisplayLifecycle continues to own only LCD Active / Dimmed / DisplayOff semantics. Auto Power-Off v0.1 is a separate whole-device policy coordinated in `app_main`: when enabled, 20 minutes without local physical M5 / BOCZNY / short-POWER activity makes whole-device shutdown due. Radio traffic, received content, background work, battery sampling, and communication-driven display wake do not reset this clock. VBUS suspends the policy and unplug starts a fresh 20-minute window. A running Countdown or pending Countdown expiration blocks shutdown. If an incoming Communicator interaction currently owns the foreground when the normal 20-minute deadline expires, shutdown is deferred for at most 2 additional minutes. That grace starts once and is not restarted by later RX/background traffic; local M5/BOCZNY/short-POWER activity cancels it and starts a fresh 20-minute window. Shutdown reuses the existing `controlled_shutdown()` path.
+
 Owns the first small product-level display lifecycle policy only:
 
 - `Active`, `Dimmed`, and `DisplayOff` state;
@@ -216,9 +219,9 @@ Owns the first small product-level display lifecycle policy only:
 
 `DisplayOff` is LCD/backlight state only. It does not stop `app_main`, messaging, Communicator background reception, or the configured ESP-NOW RX schedule, and it never performs whole-device shutdown.
 
-Whole-device shutdown remains separate: the launcher emits only an explicit shutdown request, `app_main` performs orderly runtime cleanup, and the board layer owns the M5-specific `M5.Power.powerOff()` call.
+Whole-device shutdown remains separate from display lifecycle: manual Launcher shutdown and the bounded Auto Power-Off policy both converge on the existing `app_main` controlled-shutdown path, which performs orderly runtime cleanup before the board layer owns the M5-specific `M5.Power.powerOff()` call.
 
-The current messaging RX schedules remain experimental transport configuration and are unchanged by display lifecycle v0.1. No automatic device shutdown, CPU sleep, radio sleep policy, or persistent power setting is introduced.
+The current messaging RX schedules remain experimental transport configuration and are unchanged by display lifecycle v0.1. Auto Power-Off is the one explicit persistent whole-device power policy; no CPU sleep, radio sleep policy, or second shutdown mechanism is introduced.
 
 ### launcher
 

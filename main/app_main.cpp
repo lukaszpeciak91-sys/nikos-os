@@ -13,6 +13,7 @@
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
+#include "storage/auto_power_off_store.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -42,6 +43,8 @@ constexpr float kChargingFullToneHz = 3200.0F;
 constexpr std::uint32_t kChargingFullToneMs = 90;
 constexpr std::uint32_t kChargingOwnerSequenceWindowMs = 4000;
 constexpr std::uint32_t kChargingOwnerOverrideIdleMs = 120000;
+constexpr std::uint32_t kAutoPowerOffIdleMs = 20U * 60U * 1000U;
+constexpr std::uint32_t kAutoPowerOffIncomingGraceMs = 2U * 60U * 1000U;
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
@@ -952,6 +955,10 @@ extern "C" void app_main(void)
         }
     }
 
+    nikos::storage::AutoPowerOffStore auto_power_off_store;
+    settings.auto_power_off_enabled =
+        auto_power_off_store.load_enabled();
+
     nikos::radio::RadioService radio;
     nikos::messaging::Service messaging(radio);
     nikos::communicator::CommunicatorApp communicator(
@@ -980,6 +987,12 @@ extern "C" void app_main(void)
     bool battery_advisory_visible = false;
     nikos::battery_guard::AdvisoryLevel battery_advisory_level =
         nikos::battery_guard::AdvisoryLevel::None;
+    std::uint32_t auto_power_off_last_local_activity_ms = now_ms();
+    bool auto_power_off_due = false;
+    bool auto_power_off_incoming_grace_active = false;
+    std::uint32_t auto_power_off_incoming_grace_started_ms = 0;
+    bool persisted_auto_power_off_enabled =
+        settings.auto_power_off_enabled;
 
     if (charging_mode.active) {
         display_lifecycle.display_off_now();
@@ -1022,6 +1035,8 @@ extern "C" void app_main(void)
                 loop_now_ms);
 
         if (charging_cable_event == ChargingCableEvent::Connected) {
+            auto_power_off_due = false;
+            auto_power_off_incoming_grace_active = false;
             prepare_flashlight_for_foreground_takeover(
                 state,
                 flashlight);
@@ -1053,6 +1068,9 @@ extern "C" void app_main(void)
             }
         } else if (
             charging_cable_event == ChargingCableEvent::Disconnected) {
+            auto_power_off_last_local_activity_ms = loop_now_ms;
+            auto_power_off_due = false;
+            auto_power_off_incoming_grace_active = false;
             clock_glance_active = false;
             timer_alert_visible = false;
             battery_advisory_visible = false;
@@ -1157,6 +1175,18 @@ extern "C" void app_main(void)
 
         const nikos::board::InputState raw_input =
             board.poll_input();
+
+        if (any_local_button_activity(raw_input)) {
+            auto_power_off_last_local_activity_ms = loop_now_ms;
+            auto_power_off_due = false;
+            auto_power_off_incoming_grace_active = false;
+        } else if (
+            settings.auto_power_off_enabled
+            && !charging_mode.active
+            && loop_now_ms - auto_power_off_last_local_activity_ms
+                >= kAutoPowerOffIdleMs) {
+            auto_power_off_due = true;
+        }
 
         bool owner_relocked_now = false;
         if (charging_mode.active
@@ -1409,6 +1439,42 @@ extern "C" void app_main(void)
         }
 
         display_lifecycle.update();
+
+        const bool auto_power_off_incoming_active =
+            state == RuntimeState::Communicator
+            && communicator.timer_preemption_active();
+        const bool auto_power_off_blocked_by_countdown =
+            countdown.state() == nikos::countdown::State::Running
+            || countdown.expired_pending();
+
+        if (auto_power_off_due
+            && auto_power_off_incoming_active
+            && !auto_power_off_incoming_grace_active) {
+            auto_power_off_incoming_grace_active = true;
+            auto_power_off_incoming_grace_started_ms = loop_now_ms;
+        }
+
+        const bool auto_power_off_incoming_grace_expired =
+            auto_power_off_incoming_grace_active
+            && loop_now_ms - auto_power_off_incoming_grace_started_ms
+                >= kAutoPowerOffIncomingGraceMs;
+
+        if (auto_power_off_due
+            && settings.auto_power_off_enabled
+            && !charging_mode.active
+            && !auto_power_off_blocked_by_countdown
+            && (!auto_power_off_incoming_active
+                || auto_power_off_incoming_grace_expired)) {
+            prepare_flashlight_for_foreground_takeover(
+                state,
+                flashlight);
+            controlled_shutdown(
+                board,
+                signal_sound,
+                communicator,
+                messaging,
+                radio);
+        }
 
         if (power_diag_session.running()) {
             power_diag_session.observe(
@@ -1709,6 +1775,27 @@ extern "C" void app_main(void)
                         display_lifecycle,
                         settings,
                         battery_guard.low_battery_reserve_active());
+                } else if (
+                    action == nikos::launcher::Action::AutoPowerOffChanged) {
+                    const bool requested_auto_power_off_enabled =
+                        settings.auto_power_off_enabled;
+                    if (auto_power_off_store.save_enabled(
+                            requested_auto_power_off_enabled)) {
+                        persisted_auto_power_off_enabled =
+                            requested_auto_power_off_enabled;
+                        auto_power_off_due = false;
+                        auto_power_off_incoming_grace_active = false;
+                        if (requested_auto_power_off_enabled) {
+                            auto_power_off_last_local_activity_ms =
+                                loop_now_ms;
+                        }
+                    } else {
+                        ESP_LOGE(
+                            kTag,
+                            "Auto power-off preference change was not persisted; restoring previous value");
+                        launcher.restore_auto_power_off_preference(
+                            persisted_auto_power_off_enabled);
+                    }
                 } else if (action == nikos::launcher::Action::StartCommunicator) {
                     communicator.reset_session();
 
