@@ -14,6 +14,7 @@
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
 #include "storage/auto_power_off_store.hpp"
+#include "storage/rtc_date_configured_store.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -928,7 +929,8 @@ extern "C" void app_main(void)
     if (!board.initialize_rtc()) {
         ESP_LOGW(kTag, "RTC unavailable; clock will display --:--");
     }
-    nikos::clock::ClockService clock_service(board);
+    nikos::storage::RtcDateConfiguredStore rtc_date_store;
+    nikos::clock::ClockService clock_service(board, rtc_date_store);
 
     nikos::power::DisplayLifecycle display_lifecycle(board);
     display_lifecycle.begin();
@@ -972,6 +974,8 @@ extern "C" void app_main(void)
             vTaskDelay(pdMS_TO_TICKS(100));
         }
     }
+
+    clock_service.initialize_date_trust();
 
     nikos::storage::AutoPowerOffStore auto_power_off_store;
     settings.auto_power_off_enabled =
