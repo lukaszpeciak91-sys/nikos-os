@@ -83,6 +83,7 @@ private:
         ClockSetDateMonth,
         ClockSetDateYear,
         ClockDateSetFailed,
+        ClockDateNeedsTime,
         Calendar,
         Settings,
         SignalSound,
@@ -119,6 +120,7 @@ private:
     void render_clock_set_failed();
     void render_date_editor();
     void render_date_set_failed();
+    void render_date_needs_time();
     void render_calendar();
     void render_header_time_if_changed();
     void render_clock_time_if_changed();
@@ -167,6 +169,7 @@ private:
     bool calendar_initialized_ = false;
     std::uint16_t calendar_year_ = 2026;
     std::uint8_t calendar_month_ = 1;
+    std::uint8_t calendar_action_selection_ = 0;
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t brightness_selection_ = 0;
