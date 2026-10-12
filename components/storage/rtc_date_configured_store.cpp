@@ -25,6 +25,9 @@ bool RtcDateConfiguredStore::load_configured(bool& configured) const
         kNamespace,
         NVS_READONLY,
         &handle);
+    if (result == ESP_ERR_NVS_NOT_FOUND) {
+        return true;
+    }
     if (result != ESP_OK) {
         ESP_LOGW(
             kTag,
