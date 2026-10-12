@@ -195,8 +195,11 @@ bool ClockService::set_time(
 
     if (board_.rtc_voltage_low()) {
         // PCF8563 VL lives in the seconds register. setTime() replaces that
-        // register, so invalidate date trust before the time write can clear VL.
-        (void)invalidate_date_trust(true);
+        // register, so durable date invalidation must succeed before the time
+        // write is allowed to clear VL.
+        if (!invalidate_date_trust(true)) {
+            return false;
+        }
     }
 
     const board::RtcTime requested{
@@ -288,12 +291,13 @@ DateSetResult ClockService::set_date(const Date& date) const
     }
 
     board::RtcDate verified;
-    if (board_.rtc_voltage_low()
+    const bool voltage_low = board_.rtc_voltage_low();
+    if (voltage_low
         || !board_.read_rtc_date(verified)
         || verified.year != date.year
         || verified.month != date.month
         || verified.day != date.day) {
-        return board_.rtc_voltage_low()
+        return voltage_low
             ? DateSetResult::TimeUntrusted
             : DateSetResult::Failed;
     }
