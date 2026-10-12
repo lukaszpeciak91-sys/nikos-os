@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "board/board.hpp"
+#include "storage/rtc_date_configured_store.hpp"
 
 namespace nikos::clock {
 
@@ -28,15 +29,25 @@ struct DateReading {
     Date date{};
 };
 
+enum class DateSetResult : std::uint8_t {
+    Success,
+    TimeUntrusted,
+    Failed,
+};
+
 class ClockService final {
 public:
-    explicit ClockService(board::Board& board);
+    ClockService(
+        board::Board& board,
+        storage::RtcDateConfiguredStore& date_store);
+
+    void initialize_date_trust();
 
     Reading read() const;
     bool set_time(std::uint8_t hour, std::uint8_t minute) const;
 
     DateReading read_date() const;
-    bool set_date(const Date& date) const;
+    DateSetResult set_date(const Date& date) const;
 
     static bool is_leap_year(std::uint16_t year);
     static std::uint8_t days_in_month(
@@ -55,7 +66,13 @@ public:
         std::size_t output_size);
 
 private:
+    bool invalidate_date_trust(bool force_persist) const;
+
     board::Board& board_;
+    storage::RtcDateConfiguredStore& date_store_;
+    mutable bool date_trust_initialized_ = false;
+    mutable bool date_configured_ = false;
+    mutable bool marker_known_false_ = false;
 };
 
 }  // namespace nikos::clock
