@@ -43,18 +43,18 @@ Flashlight display helpers do not mutate the configured Active/Dimmed brightness
 Owns the small product-level local RTC clock/calendar capability above `board`:
 
 - trustworthy `HH:MM` read semantics;
-- independent trustworthy Gregorian date read semantics for 2000-01-01 through 2099-12-31;
-- RTC validity derived from hardware availability, successful read, valid ranges, and clear RTC voltage-low/VL indication;
+- trustworthy Gregorian date read semantics for 2000-01-01 through 2099-12-31 using the RTC hardware state plus one narrow persisted DATE-CONFIGURED trust marker;
+- time validity from the established D-025 RTC/VL/read/range rules, while date trust additionally requires the DATE-CONFIGURED marker;
 - manual `HH:MM` setting with seconds forced to `00`;
 - manual `DD.MM.YYYY` setting with exact RTC readback verification;
 - bounded Gregorian helpers for leap years, month lengths, date validity, and Monday-first weekday placement;
 - lightweight `HH:MM` and `DD.MM.YYYY` formatting with independent invalid fallbacks `--:--` and `--.--.----`.
 
-`board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Board exposes parallel `RtcTime` and `RtcDate` boundaries; date writes provide the RTC's required weekday value but product UI never treats RTC weekday as state. Date-only writes do not alter the RTC time, and time-only writes do not alter the RTC date. Initialization does not write/reset RTC fields and RTC failure does not block boot.
+`board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Board exposes parallel `RtcTime` and `RtcDate` boundaries; date writes provide the RTC's required weekday value but product UI never treats RTC weekday as state. Date-only writes do not alter the RTC time, and time-only writes do not alter the RTC date. PCF8563 VL is shared in the seconds register: an observed VL invalidates date trust, and ClockService persists DATE-CONFIGURED=false before a time write can clear VL. Initialization does not write/reset RTC fields and RTC failure does not block boot.
 
-Launcher owns the six-row ZEGAR menu through a local four-row viewport, the three-step date editor, and the read-only monthly calendar. The calendar is generated directly from year/month arithmetic with Monday-first placement and no heap-owned day model. `app_main` continues to own Clock Glance and now renders one fresh date read below the existing dominant HH:MM on each new glance.
+Launcher owns the six-row ZEGAR menu through a local four-row viewport, the three-step date editor, and the read-only monthly calendar. If RTC time/integrity is not trustworthy, date SAVE is refused with an explicit USTAW CZAS first screen; date setup never rewrites HH:MM. Calendar month browsing uses a local short-click action selector plus the existing secondary-long back shortcut. The calendar is generated directly from year/month arithmetic with Monday-first placement and no heap-owned day model. `app_main` continues to own Clock Glance and now renders one fresh date read below the existing dominant HH:MM on each new glance.
 
-The clock/calendar capability remains local RTC state only. It has no timezone, DST, NTP, Internet/system-time synchronization, Timer/Stopwatch timing ownership, alarms, reminders, events, holidays, birthdays, week numbers, or separate date persistence.
+The actual date remains stored only in the hardware RTC. Storage persists only one boolean DATE-CONFIGURED trust marker in the existing NVS namespace; no datetime value is mirrored to NVS. The clock/calendar capability has no timezone, DST, NTP, Internet/system-time synchronization, Timer/Stopwatch timing ownership, alarms, reminders, events, holidays, birthdays, week numbers, or calendar database.
 
 ### radio
 
