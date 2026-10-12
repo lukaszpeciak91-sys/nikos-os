@@ -4,6 +4,22 @@
 
 namespace {
 
+constexpr std::uint8_t kMonthOffsets[12] = {
+    0U, 3U, 2U, 5U, 0U, 3U, 5U, 1U, 4U, 6U, 2U, 4U,
+};
+
+constexpr bool date_trust_predicate(
+    bool marker_configured,
+    bool rtc_available,
+    bool voltage_low,
+    bool hardware_date_valid)
+{
+    return marker_configured
+        && rtc_available
+        && !voltage_low
+        && hardware_date_valid;
+}
+
 constexpr bool leap_year_value(std::uint16_t year)
 {
     return (year % 4U == 0U)
@@ -101,21 +117,57 @@ static_assert(clamped_day_value(2025U, 2U, 29U) == 28U);
 static_assert(weekday_monday_value(2026U, 10U, 11U) == 6U);
 static_assert(weekday_monday_value(2026U, 10U, 1U) == 3U);
 static_assert(weekday_monday_value(2000U, 1U, 1U) == 5U);
+static_assert(!date_trust_predicate(false, true, false, true));
+static_assert(date_trust_predicate(true, true, false, true));
+static_assert(!date_trust_predicate(true, true, true, true));
+static_assert(!date_trust_predicate(true, true, false, false));
 
 }  // namespace
 
 namespace nikos::clock {
 
-ClockService::ClockService(board::Board& board)
-    : board_(board)
+ClockService::ClockService(
+    board::Board& board,
+    storage::RtcDateConfiguredStore& date_store)
+    : board_(board),
+      date_store_(date_store)
 {
+}
+
+void ClockService::initialize_date_trust()
+{
+    date_trust_initialized_ = true;
+    date_configured_ = false;
+    marker_known_false_ = false;
+
+    if (!board_.rtc_available()) {
+        return;
+    }
+
+    if (board_.rtc_voltage_low()) {
+        marker_known_false_ = date_store_.save_configured(false);
+        return;
+    }
+
+    bool configured = false;
+    if (!date_store_.load_configured(configured)) {
+        return;
+    }
+
+    date_configured_ = configured;
+    marker_known_false_ = !configured;
 }
 
 Reading ClockService::read() const
 {
     Reading reading;
 
-    if (!board_.rtc_available() || board_.rtc_voltage_low()) {
+    if (!board_.rtc_available()) {
+        return reading;
+    }
+
+    if (board_.rtc_voltage_low()) {
+        (void)invalidate_date_trust(false);
         return reading;
     }
 
@@ -139,6 +191,12 @@ bool ClockService::set_time(
 {
     if (hour > 23 || minute > 59 || !board_.rtc_available()) {
         return false;
+    }
+
+    if (board_.rtc_voltage_low()) {
+        // PCF8563 VL lives in the seconds register. setTime() replaces that
+        // register, so invalidate date trust before the time write can clear VL.
+        (void)invalidate_date_trust(true);
     }
 
     const board::RtcTime requested{
@@ -166,7 +224,14 @@ DateReading ClockService::read_date() const
 {
     DateReading reading;
 
-    if (!board_.rtc_available() || board_.rtc_voltage_low()) {
+    if (!date_trust_initialized_
+        || !date_configured_
+        || !board_.rtc_available()) {
+        return reading;
+    }
+
+    if (board_.rtc_voltage_low()) {
+        (void)invalidate_date_trust(false);
         return reading;
     }
 
@@ -189,10 +254,28 @@ DateReading ClockService::read_date() const
     return reading;
 }
 
-bool ClockService::set_date(const Date& date) const
+DateSetResult ClockService::set_date(const Date& date) const
 {
-    if (!valid_date(date) || !board_.rtc_available()) {
-        return false;
+    if (!date_trust_initialized_
+        || !valid_date(date)
+        || !board_.rtc_available()) {
+        return DateSetResult::Failed;
+    }
+
+    // Date-only setDate() does not touch the shared PCF8563 VL bit.
+    // Require trustworthy time/integrity first rather than silently rewriting
+    // HH:MM:SS just to clear VL.
+    if (!read().valid) {
+        return DateSetResult::TimeUntrusted;
+    }
+
+    // Persist false first so a later partial failure cannot leave an older
+    // configured=true marker authorizing a hardware date we failed to commit
+    // as trusted.
+    date_configured_ = false;
+    marker_known_false_ = date_store_.save_configured(false);
+    if (!marker_known_false_) {
+        return DateSetResult::Failed;
     }
 
     const board::RtcDate requested{
@@ -201,18 +284,48 @@ bool ClockService::set_date(const Date& date) const
         date.day,
     };
     if (!board_.write_rtc_date(requested)) {
-        return false;
+        return DateSetResult::Failed;
     }
 
     board::RtcDate verified;
     if (board_.rtc_voltage_low()
-        || !board_.read_rtc_date(verified)) {
+        || !board_.read_rtc_date(verified)
+        || verified.year != date.year
+        || verified.month != date.month
+        || verified.day != date.day) {
+        return board_.rtc_voltage_low()
+            ? DateSetResult::TimeUntrusted
+            : DateSetResult::Failed;
+    }
+
+    if (!date_store_.save_configured(true)) {
+        // The pre-write false marker remains authoritative.
+        date_configured_ = false;
+        marker_known_false_ = true;
+        return DateSetResult::Failed;
+    }
+
+    date_configured_ = true;
+    marker_known_false_ = false;
+    return DateSetResult::Success;
+}
+
+bool ClockService::invalidate_date_trust(bool force_persist) const
+{
+    const bool was_configured = date_configured_;
+    date_configured_ = false;
+
+    if (!date_trust_initialized_) {
+        marker_known_false_ = false;
         return false;
     }
 
-    return verified.year == date.year
-        && verified.month == date.month
-        && verified.day == date.day;
+    if (!force_persist && !was_configured) {
+        return marker_known_false_;
+    }
+
+    marker_known_false_ = date_store_.save_configured(false);
+    return marker_known_false_;
 }
 
 bool ClockService::is_leap_year(std::uint16_t year)
