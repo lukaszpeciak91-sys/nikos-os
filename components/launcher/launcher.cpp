@@ -844,10 +844,14 @@ Action Launcher::update(const board::InputState& input)
                 edit_month_,
                 edit_day_,
             };
-            if (clock_service_.set_date(requested)) {
+            const clock::DateSetResult result =
+                clock_service_.set_date(requested);
+            if (result == clock::DateSetResult::Success) {
                 clock_selection_ = 1;
                 update_clock_viewport();
                 screen_ = Screen::Clock;
+            } else if (result == clock::DateSetResult::TimeUntrusted) {
+                screen_ = Screen::ClockDateNeedsTime;
             } else {
                 screen_ = Screen::ClockDateSetFailed;
             }
@@ -868,32 +872,65 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
+    if (screen_ == Screen::ClockDateNeedsTime) {
+        if (input.primary_short
+            || input.secondary_short
+            || input.secondary_long) {
+            clock_selection_ = 1;
+            update_clock_viewport();
+            screen_ = Screen::Clock;
+            render();
+        }
+        return Action::None;
+    }
+
     if (screen_ == Screen::Calendar) {
-        if (input.secondary_long) {
+        const auto return_to_clock = [this]() {
             clock_selection_ = 2;
             update_clock_viewport();
             screen_ = Screen::Clock;
             render();
+        };
+
+        if (input.secondary_long) {
+            return_to_clock();
+            return Action::None;
+        }
+
+        const std::uint8_t action_count =
+            calendar_initialized_ ? 3U : 2U;
+
+        if (input.secondary_short) {
+            calendar_action_selection_ =
+                static_cast<std::uint8_t>(
+                    (calendar_action_selection_ + 1U)
+                    % action_count);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
             return Action::None;
         }
 
         if (!calendar_initialized_) {
-            if (input.primary_short) {
+            if (calendar_action_selection_ == 0U) {
                 begin_date_editor();
                 render();
+            } else {
+                return_to_clock();
             }
             return Action::None;
         }
 
-        if (input.primary_short) {
+        if (calendar_action_selection_ == 0U) {
             move_calendar_month(false);
             render();
-            return Action::None;
-        }
-
-        if (input.secondary_short) {
+        } else if (calendar_action_selection_ == 1U) {
             move_calendar_month(true);
             render();
+        } else {
+            return_to_clock();
         }
 
         return Action::None;
@@ -1292,6 +1329,7 @@ void Launcher::clamp_edit_date_day()
 
 void Launcher::begin_calendar()
 {
+    calendar_action_selection_ = 0;
     const clock::DateReading reading = clock_service_.read_date();
     calendar_initialized_ = reading.valid;
     if (reading.valid) {
@@ -1395,6 +1433,9 @@ void Launcher::render()
             break;
         case Screen::ClockDateSetFailed:
             render_date_set_failed();
+            break;
+        case Screen::ClockDateNeedsTime:
+            render_date_needs_time();
             break;
         case Screen::Calendar:
             render_calendar();
@@ -2219,6 +2260,49 @@ void Launcher::render_date_set_failed()
         board::DisplayColor::Background);
 }
 
+
+void Launcher::render_date_needs_time()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        12,
+        212,
+        20,
+        "USTAW DATE",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        66,
+        47,
+        130,
+        20,
+        "NAJPIERW",
+        2,
+        board::DisplayColor::Attention,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        55,
+        70,
+        150,
+        20,
+        "USTAW CZAS",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        42,
+        112,
+        180,
+        14,
+        "M5 / BOCZNY = POWROT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
 void Launcher::render_calendar()
 {
     clear_shell(board_);
@@ -2226,7 +2310,7 @@ void Launcher::render_calendar()
     if (!calendar_initialized_) {
         board_.draw_text_region(
             14,
-            12,
+            10,
             212,
             20,
             "KALENDARZ",
@@ -2235,28 +2319,47 @@ void Launcher::render_calendar()
             board::DisplayColor::Background);
         board_.draw_text_region(
             48,
-            50,
+            43,
             160,
             22,
             "BRAK DATY",
             2,
             board::DisplayColor::Attention,
             board::DisplayColor::Background);
-        board_.draw_text_region(
-            66,
-            88,
-            130,
-            16,
-            "M5 USTAW DATE",
-            1,
-            board::DisplayColor::PrimaryText,
-            board::DisplayColor::Background);
+
+        constexpr const char* kActions[2] = {
+            "USTAW DATE",
+            "POWROT",
+        };
+        for (std::uint8_t index = 0; index < 2U; ++index) {
+            const bool selected =
+                calendar_action_selection_ == index;
+            const std::int16_t y =
+                static_cast<std::int16_t>(75 + index * 20);
+            board_.draw_text_region(
+                42,
+                y,
+                156,
+                18,
+                kActions[index],
+                2,
+                selected
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText,
+                selected
+                    ? board::DisplayColor::Surface
+                    : board::DisplayColor::Background);
+            if (selected) {
+                draw_selection_marker(board_, 32, y, 16);
+            }
+        }
+
         board_.draw_text_region(
             32,
-            116,
+            119,
             200,
             12,
-            "BOCZNY DLUGO = POWROT",
+            "M5 WYBIERZ | BOCZNY DALEJ",
             1,
             board::DisplayColor::SecondaryText,
             board::DisplayColor::Background);
@@ -2347,15 +2450,37 @@ void Launcher::render_calendar()
                 : board::DisplayColor::Background);
     }
 
-    board_.draw_text_region(
-        18,
-        120,
-        210,
-        12,
-        "M5 < | BOCZNY > | DLUGO POWROT",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    constexpr const char* kActions[3] = {
+        "< MIES",
+        "> MIES",
+        "POWROT",
+    };
+    constexpr std::int16_t kActionX[3] = {5, 83, 161};
+    for (std::uint8_t index = 0; index < 3U; ++index) {
+        const bool selected =
+            calendar_action_selection_ == index;
+        board_.draw_text_region(
+            kActionX[index],
+            118,
+            74,
+            16,
+            kActions[index],
+            1,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+        if (selected) {
+            board_.draw_line(
+                kActionX[index],
+                116,
+                static_cast<std::int16_t>(kActionX[index] + 70),
+                116,
+                board::DisplayColor::Accent);
+        }
+    }
 }
 
 void Launcher::render_header_time_if_changed()
