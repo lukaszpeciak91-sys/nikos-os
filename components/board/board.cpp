@@ -21,6 +21,79 @@ constexpr std::uint16_t kDangerRgb565 = 0xC2EB;         // #C65F5F
 constexpr char kPolishFontSanityText[] =
     "ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż CZEŚĆ! MOŻESZ GADAĆ?";
 
+constexpr std::uint8_t kRtcMonthOffsets[12] = {
+    0U, 3U, 2U, 5U, 0U, 3U, 5U, 1U, 4U, 6U, 2U, 4U,
+};
+
+constexpr bool rtc_leap_year(std::uint16_t year)
+{
+    return (year % 4U == 0U)
+        && ((year % 100U != 0U) || (year % 400U == 0U));
+}
+
+constexpr std::uint8_t rtc_days_in_month(
+    std::uint16_t year,
+    std::uint8_t month)
+{
+    switch (month) {
+        case 2:
+            return rtc_leap_year(year) ? 29U : 28U;
+        case 4:
+        case 6:
+        case 9:
+        case 11:
+            return 30U;
+        case 1:
+        case 3:
+        case 5:
+        case 7:
+        case 8:
+        case 10:
+        case 12:
+            return 31U;
+        default:
+            return 0U;
+    }
+}
+
+constexpr bool rtc_date_valid(
+    std::uint16_t year,
+    std::uint8_t month,
+    std::uint8_t day)
+{
+    const std::uint8_t max_day = rtc_days_in_month(year, month);
+    return year >= 1900U
+        && year <= 2099U
+        && max_day > 0U
+        && day >= 1U
+        && day <= max_day;
+}
+
+// M5Unified rtc_date_t uses 0=Sunday ... 6=Saturday.
+constexpr std::uint8_t rtc_weekday_sunday0(
+    std::uint16_t year,
+    std::uint8_t month,
+    std::uint8_t day)
+{
+    std::uint32_t adjusted_year = year;
+    if (month < 3U) {
+        --adjusted_year;
+    }
+
+    return static_cast<std::uint8_t>(
+        (adjusted_year
+            + adjusted_year / 4U
+            - adjusted_year / 100U
+            + adjusted_year / 400U
+            + kRtcMonthOffsets[month - 1U]
+            + day)
+        % 7U);
+}
+
+static_assert(rtc_weekday_sunday0(2026U, 10U, 11U) == 0U);
+static_assert(rtc_weekday_sunday0(2026U, 10U, 1U) == 4U);
+static_assert(rtc_weekday_sunday0(2000U, 1U, 1U) == 6U);
+
 std::int32_t battery_level_from_voltage_mv(std::int16_t voltage_mv)
 {
     // Match M5Unified 0.2.22 Power_Class::getBatteryLevel() voltage
@@ -151,6 +224,58 @@ bool Board::write_rtc_time(const RtcTime& time)
         static_cast<std::int8_t>(time.minute),
         static_cast<std::int8_t>(time.second));
     M5.Rtc.setTime(rtc_time);
+    return true;
+}
+
+
+bool Board::read_rtc_date(RtcDate& date) const
+{
+    if (!rtc_available()) {
+        return false;
+    }
+
+    m5::rtc_date_t rtc_date;
+    if (!M5.Rtc.getDate(&rtc_date)
+        || rtc_date.year < 0
+        || rtc_date.month < 0
+        || rtc_date.date < 0) {
+        return false;
+    }
+
+    const std::uint16_t year =
+        static_cast<std::uint16_t>(rtc_date.year);
+    const std::uint8_t month =
+        static_cast<std::uint8_t>(rtc_date.month);
+    const std::uint8_t day =
+        static_cast<std::uint8_t>(rtc_date.date);
+
+    if (!rtc_date_valid(year, month, day)) {
+        return false;
+    }
+
+    date.year = year;
+    date.month = month;
+    date.day = day;
+    return true;
+}
+
+bool Board::write_rtc_date(const RtcDate& date)
+{
+    if (!rtc_available()
+        || !rtc_date_valid(date.year, date.month, date.day)) {
+        return false;
+    }
+
+    const m5::rtc_date_t rtc_date(
+        static_cast<std::int16_t>(date.year),
+        static_cast<std::int8_t>(date.month),
+        static_cast<std::int8_t>(date.day),
+        static_cast<std::int8_t>(
+            rtc_weekday_sunday0(
+                date.year,
+                date.month,
+                date.day)));
+    M5.Rtc.setDate(rtc_date);
     return true;
 }
 

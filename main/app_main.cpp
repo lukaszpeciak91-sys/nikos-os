@@ -14,6 +14,7 @@
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
 #include "storage/auto_power_off_store.hpp"
+#include "storage/rtc_date_configured_store.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -485,22 +486,40 @@ void render_clock_glance(
     nikos::board::Board& board,
     nikos::clock::ClockService& clock_service)
 {
-    const nikos::clock::Reading reading = clock_service.read();
+    const nikos::clock::Reading time_reading =
+        clock_service.read();
+    const nikos::clock::DateReading date_reading =
+        clock_service.read_date();
+
     char time_text[6]{};
+    char date_text[11]{};
     nikos::clock::ClockService::format_hhmm(
-        reading,
+        time_reading,
         time_text,
         sizeof(time_text));
+    nikos::clock::ClockService::format_ddmmyyyy(
+        date_reading,
+        date_text,
+        sizeof(date_text));
 
     board.clear_screen();
     board.draw_text_region(
         60,
-        48,
+        34,
         120,
         40,
         time_text,
         4,
         nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+    board.draw_text_region(
+        54,
+        84,
+        132,
+        20,
+        date_text,
+        2,
+        nikos::board::DisplayColor::SecondaryText,
         nikos::board::DisplayColor::Background);
 }
 
@@ -910,7 +929,8 @@ extern "C" void app_main(void)
     if (!board.initialize_rtc()) {
         ESP_LOGW(kTag, "RTC unavailable; clock will display --:--");
     }
-    nikos::clock::ClockService clock_service(board);
+    nikos::storage::RtcDateConfiguredStore rtc_date_store;
+    nikos::clock::ClockService clock_service(board, rtc_date_store);
 
     nikos::power::DisplayLifecycle display_lifecycle(board);
     display_lifecycle.begin();
@@ -954,6 +974,8 @@ extern "C" void app_main(void)
             vTaskDelay(pdMS_TO_TICKS(100));
         }
     }
+
+    clock_service.initialize_date_trust();
 
     nikos::storage::AutoPowerOffStore auto_power_off_store;
     settings.auto_power_off_enabled =

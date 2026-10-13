@@ -688,3 +688,30 @@ The 20-minute inactivity clock is reset only by local physical M5/BOCZNY activit
 Physical VBUS suspends Auto Power-Off and unplug starts a fresh 20-minute idle window. A running Countdown or pending Countdown expiration blocks shutdown. If the normal deadline expires while an incoming Communicator interaction owns the foreground, shutdown receives one bounded 2-minute grace; radio/background traffic cannot restart that grace. Local input during the grace starts a fresh 20-minute inactivity window. If no local input occurs, controlled shutdown proceeds after the grace even if the incoming screen remains open.
 
 DisplayLifecycle remains unchanged at 15-second Dimmed and 45-second DisplayOff behavior. Auto Power-Off is a separate whole-device policy; no sleep mode or second shutdown path is introduced.
+
+
+## D-044 — RTC date/calendar extends D-025 without adding civil-time infrastructure
+
+**Status:** Accepted for hardware validation
+
+This decision supersedes only the date/calendar exclusion in D-025. D-025 remains authoritative for RTC initialization, HH:MM semantics, Clock Glance ownership, DisplayLifecycle behavior, and communication priority rules.
+
+Board adds a date boundary parallel to `RtcTime`: `RtcDate { year, month, day }`, `read_rtc_date()`, and `write_rtc_date()`. Board remains the only layer calling M5Unified RTC date APIs. M5Unified 0.2.22 represents `rtc_date_t` with a full year and weekday 0=Sunday through 6=Saturday; Board computes and supplies that hardware weekday locally. Date-only `setDate` does not alter HH:MM:SS, while the established time-only `setTime` path remains the D-025 authority for time.
+
+PCF8563 VL is one shared integrity flag stored in the seconds register. Because `setTime()` writes that register and can clear VL while `setDate()` cannot, clear VL alone is not sufficient evidence that an old RTC date is trustworthy. Date trust therefore adds one narrowly-scoped persisted boolean, `rtc_date_configured`, in the existing storage/NVS layer. The actual date is never persisted outside the RTC.
+
+After NVS initialization, ClockService initializes date trust. If RTC VL is observed at startup, runtime date trust is false and the persisted marker is cleared. Runtime observation of VL likewise invalidates date trust. Before a time write that would replace the seconds/VL register, ClockService invalidates the date marker first; setting HH:MM alone therefore never authorizes an old date after an integrity-loss event. Normal D-025 time behavior is unchanged while VL is clear. After VL is observed, the first time write additionally requires the false marker to persist successfully before it may clear VL; if that narrow NVS write fails, the time save fails rather than allowing stale date trust to resurrect after reboot.
+
+A date is trustworthy only when RTC hardware is available, VL is clear, the hardware date read succeeds, the Gregorian value is valid within 2000-01-01 through 2099-12-31, and the DATE-CONFIGURED marker is true. Visible time/date fallbacks remain independent: trusted time may be shown with `--.--.----` for an unconfigured date.
+
+Date SAVE requires trustworthy current RTC time/integrity. If time is untrustworthy, Launcher shows an explicit USTAW CZAS first outcome and does not modify HH:MM. For a normal date save, ClockService first persists DATE-CONFIGURED=false, then writes the date-only RTC registers, performs exact year/month/day readback, and finally persists DATE-CONFIGURED=true. If the initial false marker cannot be persisted, the hardware date is not written. If the final true marker cannot be persisted, the pre-written false marker remains authoritative and the operation is reported as failed rather than trusted. There is no retry loop; a later explicit user attempt may retry.
+
+ClockService owns small bounded Gregorian helpers: correct leap-year rules, month lengths, date validation, and Monday-first weekday calculation. The month view is generated directly from year/month arithmetic and does not depend on RTC weekday for rendering correctness.
+
+Launcher extends ZEGAR to USTAW CZAS, USTAW DATE, KALENDARZ, MINUTNIK, STOPER, POWROT through a local four-row viewport. The date editor progresses DAY -> MONTH -> YEAR -> SAVE, wraps each field, clamps day after month/year changes, seeds from a trustworthy RTC date or RAM-only 01.01.2026 fallback, and writes only on explicit save. KALENDARZ is read-only, Monday-first, clamps browsing at January 2000 / December 2099, highlights today's trustworthy RTC date using semantic theme colors, and exposes short-click actions `< MIESIAC / > MIESIAC / POWROT`; secondary-long remains only an optional back shortcut. When date is untrusted, BRAK DATY uses the short-click selector `USTAW DATE / POWROT`.
+
+Clock Glance remains an `app_main`-owned transient overlay with the same wake, approximately-four-second timeout, second-gesture suppression, Timer priority, Communicator priority, and DisplayLifecycle ownership. Each new glance performs one time read and one date read, renders dominant `HH:MM` plus secondary `DD.MM.YYYY`, and never renders a weekday. An unconfigured/untrusted date is `--.--.----` without invalidating otherwise trustworthy time.
+
+Countdown and Stopwatch remain monotonic and have no RTC/date coupling. Timezone, DST, NTP, Internet/system time, alarms, reminders, events, birthdays, holidays, week numbers, recurring items, and calendar/date value persistence outside the RTC remain out of scope.
+
+**Rationale:** The hardware RTC date is useful product state, but PCF8563's shared VL semantics mean date trust needs one explicit user-configuration bit that survives time writes without creating a datetime database or broader civil-time subsystem.
