@@ -529,19 +529,16 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             tools_selection_ =
-                static_cast<std::uint8_t>((tools_selection_ + 1U) % 4U);
+                static_cast<std::uint8_t>((tools_selection_ + 1U) % 3U);
             render();
             return Action::None;
         }
 
         if (input.primary_short) {
             if (tools_selection_ == 0U) {
-                return Action::OpenRadioLab;
-            }
-            if (tools_selection_ == 1U) {
                 return Action::OpenPowerDiag;
             }
-            if (tools_selection_ == 2U) {
+            if (tools_selection_ == 1U) {
                 return Action::OpenFlashlight;
             }
 
@@ -1627,14 +1624,13 @@ void Launcher::render_tools()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kTools[4] = {
-        "RadioLab",
+    constexpr const char* kTools[3] = {
         "PowerDiag",
         "Latarka",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 4; ++index) {
+    for (std::uint8_t index = 0; index < 3; ++index) {
         const bool selected = index == tools_selection_;
         const std::int16_t y =
             static_cast<std::int16_t>(31 + index * 21);
