@@ -1,0 +1,17 @@
+idf_component_register(
+    SRCS
+        "facts_app.cpp"
+        "generated/facts_data.cpp"
+        "generated/facts_data_space.cpp"
+        "generated/facts_data_animals.cpp"
+        "generated/facts_data_technology.cpp"
+        "generated/facts_data_human.cpp"
+        "generated/facts_data_history.cpp"
+        "generated/facts_data_world.cpp"
+    INCLUDE_DIRS
+        "include"
+        "."
+    REQUIRES
+        board
+        esp_hw_support
+)
