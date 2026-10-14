@@ -723,3 +723,55 @@ Countdown and Stopwatch remain monotonic and have no RTC/date coupling. Timezone
 The Facts authoring dataset contains 600 Polish records across six categories, with stable `category-NNN` IDs, a short required `title` (up to 48 Unicode characters), a `text` body (up to 180 Unicode characters), and editorial `source` plus optional `note`. Titles are needed for the approved future title-list browser. The catalogue PR is data-only: it does not implement browsing, display pagination, buttons or persistence.
 
 **Rationale:** Keep content and its validator independent of the future 240×135 LCD implementation. Reading UI is a separate integration change.
+
+
+## D-045 — Ciekawostki is an offline generated catalogue with retained foreground state
+
+**Status:** Accepted for hardware validation
+
+Ciekawostki v0.1 is implemented as a dedicated `apps/facts` application under
+Rozrywka. Launcher owns only the `Snake / Ciekawostki / Powrot` category
+navigation and `OpenFacts` action. Facts owns its local main menu, category
+title-list selection, random/category reader state, current page, and return
+behavior. No generic content engine, menu framework, history database, or
+plugin registry is introduced.
+
+The authoritative editorial dataset remains `content/facts/*.jsonl`: six
+categories with exactly 100 stable `category-NNN` records each. The source
+retains `id`, `title`, `text`, editorial `source`, and optional `note`.
+A deterministic build-time generator emits fixed C++ arrays containing only
+`id/title/text`; `source/note` are intentionally excluded from runtime
+firmware. The generated assets are committed and may be checked
+non-destructively against their JSONL source.
+
+Random mode selects over one flat 600-fact range and prevents only immediate
+self-repeat. Category title lists preserve numeric 001..100 order and append a
+selectable POWROT row. Category reader progression advances numerically and
+wraps 100 -> 001. Random and category modes use the same bounded reader.
+
+Reader pagination is allocation-free and UTF-8 boundary-safe. It prefers the
+editorial sentence boundary, then performs bounded word/codepoint splitting
+when a sentence exceeds one page. The implementation allows up to four pages,
+while the v0.1 release dataset validates to exactly two pages for all 600 facts.
+At the approved scale-1 layout all titles fit in at most two reader lines and
+all body pages fit in at most five of the six available lines. Static wrapping
+buffers live in BSS rather than the app_main task stack.
+
+Facts content is a deliberate scoped use of the existing Polish UTF-8 Board
+font path. The DejaVu Sans 9 px subset is extended only for the additional
+codepoints actually present in the approved 600-fact dataset; editorial strings
+are not transliterated or rewritten. This does not reverse D-023 for ordinary
+Launcher/Communicator UI, which remains native Font0 / ASCII-first.
+
+Facts owns no radio or lifecycle policy. Incoming Communicator traffic retains
+its existing higher priority; app_main records Facts as the return owner and
+redraws the same menu/list/reader page after the communication interaction.
+Clock Glance, Countdown alert, BatteryGuard overlays, Charging Lock, POWER,
+DisplayLifecycle and Auto Power-Off retain their existing ownership and do not
+reset Facts state. Facts has no persistence, Wi-Fi/cloud API, automatic
+scrolling, animation, read history, favorites, or source-URL screen.
+
+**Rationale:** The curated catalogue is static release content. Generating
+bounded compile-time assets keeps firmware behavior deterministic and offline,
+while a self-contained retained app state allows comfortable reading without
+expanding Launcher or system-overlay architecture.
