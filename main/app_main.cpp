@@ -1558,6 +1558,7 @@ extern "C" void app_main(void)
                 state,
                 resume_snake_after_communicator,
                 resume_flashlight_after_communicator,
+                resume_facts_after_communicator,
                 communicator,
                 flashlight);
 
