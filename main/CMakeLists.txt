@@ -7,6 +7,7 @@ idf_component_register(
         clock
         communicator
         countdown
+        facts
         flashlight
         launcher
         log
