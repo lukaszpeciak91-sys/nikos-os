@@ -20,4 +20,5 @@ idf_component_register(
         settings
         signal_sound
         snake
+        storage
 )

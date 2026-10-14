@@ -24,6 +24,27 @@ constexpr std::array<Entry, 6> kEntries = {{
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
+constexpr std::uint8_t kClockMenuItemCount = 6;
+constexpr std::uint8_t kClockVisibleRows = 4;
+constexpr std::uint8_t kClockTimerIndex = 3;
+constexpr std::int16_t kClockMenuFirstY = 56;
+constexpr std::int16_t kClockMenuRowHeight = 16;
+static_assert(((6U + 31U - 1U) / 7U) == 5U);
+
+constexpr const char* kMonthLabels[12] = {
+    "STYCZEN",
+    "LUTY",
+    "MARZEC",
+    "KWIECIEN",
+    "MAJ",
+    "CZERWIEC",
+    "LIPIEC",
+    "SIERPIEN",
+    "WRZESIEN",
+    "PAZDZIERNIK",
+    "LISTOPAD",
+    "GRUDZIEN",
+};
 
 constexpr std::uint32_t kSignalFrameMs = 110;
 constexpr std::uint32_t kSyncFrameMs = 140;
@@ -83,17 +104,6 @@ nikos::settings::Brightness brightness_from_index(std::uint8_t index)
         default:
             return nikos::settings::Brightness::Medium;
     }
-}
-
-void apply_brightness_profile(
-    nikos::board::Board& board,
-    nikos::settings::Brightness brightness)
-{
-    const nikos::settings::BrightnessProfile profile =
-        nikos::settings::brightness_profile(brightness);
-    board.set_display_brightness_profile(
-        profile.active,
-        profile.dimmed);
 }
 
 void format_mmss(
@@ -293,7 +303,6 @@ Launcher::Launcher(
       settings_(settings),
       signal_sound_(signal_sound)
 {
-    apply_brightness_profile(board_, settings_.brightness);
 }
 
 void Launcher::show_splash()
@@ -337,6 +346,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     tools_selection_ = 0;
     entertainment_selection_ = 0;
     clock_selection_ = 0;
+    clock_view_start_ = 0;
     timer_selection_ = 0;
     reset_stopwatch_session();
     settings_selection_ = 0;
@@ -344,6 +354,7 @@ void Launcher::begin(CommunicatorStatus communicator_status)
     brightness_selection_ = brightness_index(settings_.brightness);
     theme_selection_ = theme_index(settings_.theme);
     orientation_selection_ = orientation_index(settings_.orientation);
+    auto_power_off_selection_ = settings_.auto_power_off_enabled ? 0U : 1U;
     active_communicator_selection_ = 0;
 
     const std::uint32_t now = now_ms();
@@ -378,6 +389,13 @@ void Launcher::begin_entertainment(
     const std::uint32_t now = now_ms();
     update_clock_sample(now, true);
     update_battery_sample(now);
+    render();
+}
+
+void Launcher::restore_auto_power_off_preference(bool enabled)
+{
+    settings_.auto_power_off_enabled = enabled;
+    auto_power_off_selection_ = enabled ? 0U : 1U;
     render();
 }
 
@@ -511,19 +529,16 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             tools_selection_ =
-                static_cast<std::uint8_t>((tools_selection_ + 1U) % 4U);
+                static_cast<std::uint8_t>((tools_selection_ + 1U) % 3U);
             render();
             return Action::None;
         }
 
         if (input.primary_short) {
             if (tools_selection_ == 0U) {
-                return Action::OpenRadioLab;
-            }
-            if (tools_selection_ == 1U) {
                 return Action::OpenPowerDiag;
             }
-            if (tools_selection_ == 2U) {
+            if (tools_selection_ == 1U) {
                 return Action::OpenFlashlight;
             }
 
@@ -570,7 +585,9 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             clock_selection_ =
-                static_cast<std::uint8_t>((clock_selection_ + 1U) % 4U);
+                static_cast<std::uint8_t>(
+                    (clock_selection_ + 1U) % kClockMenuItemCount);
+            update_clock_viewport();
             render();
             return Action::None;
         }
@@ -582,11 +599,15 @@ Action Launcher::update(const board::InputState& input)
                 edit_minute_ = reading.valid ? reading.time.minute : 0U;
                 screen_ = Screen::ClockSetHour;
             } else if (clock_selection_ == 1U) {
+                begin_date_editor();
+            } else if (clock_selection_ == 2U) {
+                begin_calendar();
+            } else if (clock_selection_ == 3U) {
                 timer_selection_ = 0;
                 screen_ = countdown_.state() == countdown::State::Idle
                     ? Screen::TimerSetup
                     : Screen::TimerActive;
-            } else if (clock_selection_ == 2U) {
+            } else if (clock_selection_ == 4U) {
                 reset_stopwatch_session();
                 screen_ = Screen::Stopwatch;
             } else {
@@ -600,7 +621,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::TimerSetup) {
         if (input.secondary_long) {
-            clock_selection_ = 1;
+            clock_selection_ = 3;
             screen_ = Screen::Clock;
             render();
             return Action::None;
@@ -630,7 +651,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_long) {
-            clock_selection_ = 1;
+            clock_selection_ = 3;
             screen_ = Screen::Clock;
             render();
             return Action::None;
@@ -660,7 +681,7 @@ Action Launcher::update(const board::InputState& input)
             screen_ = Screen::TimerSetup;
             render();
         } else {
-            clock_selection_ = 1;
+            clock_selection_ = 3;
             screen_ = Screen::Clock;
             render();
         }
@@ -771,6 +792,147 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
+    if (screen_ == Screen::ClockSetDateDay
+        || screen_ == Screen::ClockSetDateMonth
+        || screen_ == Screen::ClockSetDateYear) {
+        if (input.secondary_long) {
+            clock_selection_ = 1;
+            update_clock_viewport();
+            screen_ = Screen::Clock;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            if (screen_ == Screen::ClockSetDateDay) {
+                const std::uint8_t max_day =
+                    clock::ClockService::days_in_month(
+                        edit_year_,
+                        edit_month_);
+                edit_day_ = edit_day_ >= max_day
+                    ? 1U
+                    : static_cast<std::uint8_t>(edit_day_ + 1U);
+            } else if (screen_ == Screen::ClockSetDateMonth) {
+                edit_month_ = edit_month_ >= 12U
+                    ? 1U
+                    : static_cast<std::uint8_t>(edit_month_ + 1U);
+                clamp_edit_date_day();
+            } else {
+                edit_year_ = edit_year_ >= 2099U
+                    ? 2000U
+                    : static_cast<std::uint16_t>(edit_year_ + 1U);
+                clamp_edit_date_day();
+            }
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (screen_ == Screen::ClockSetDateDay) {
+            screen_ = Screen::ClockSetDateMonth;
+        } else if (screen_ == Screen::ClockSetDateMonth) {
+            screen_ = Screen::ClockSetDateYear;
+        } else {
+            const clock::Date requested{
+                edit_year_,
+                edit_month_,
+                edit_day_,
+            };
+            const clock::DateSetResult result =
+                clock_service_.set_date(requested);
+            if (result == clock::DateSetResult::Success) {
+                clock_selection_ = 1;
+                update_clock_viewport();
+                screen_ = Screen::Clock;
+            } else if (result == clock::DateSetResult::TimeUntrusted) {
+                screen_ = Screen::ClockDateNeedsTime;
+            } else {
+                screen_ = Screen::ClockDateSetFailed;
+            }
+        }
+        render();
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ClockDateSetFailed) {
+        if (input.primary_short
+            || input.secondary_short
+            || input.secondary_long) {
+            clock_selection_ = 1;
+            update_clock_viewport();
+            screen_ = Screen::Clock;
+            render();
+        }
+        return Action::None;
+    }
+
+    if (screen_ == Screen::ClockDateNeedsTime) {
+        if (input.primary_short
+            || input.secondary_short
+            || input.secondary_long) {
+            clock_selection_ = 1;
+            update_clock_viewport();
+            screen_ = Screen::Clock;
+            render();
+        }
+        return Action::None;
+    }
+
+    if (screen_ == Screen::Calendar) {
+        const auto return_to_clock = [this]() {
+            clock_selection_ = 2;
+            update_clock_viewport();
+            screen_ = Screen::Clock;
+            render();
+        };
+
+        if (input.secondary_long) {
+            return_to_clock();
+            return Action::None;
+        }
+
+        const std::uint8_t action_count =
+            calendar_initialized_ ? 3U : 2U;
+
+        if (input.secondary_short) {
+            calendar_action_selection_ =
+                static_cast<std::uint8_t>(
+                    (calendar_action_selection_ + 1U)
+                    % action_count);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (!calendar_initialized_) {
+            if (calendar_action_selection_ == 0U) {
+                begin_date_editor();
+                render();
+            } else {
+                return_to_clock();
+            }
+            return Action::None;
+        }
+
+        if (calendar_action_selection_ == 0U) {
+            move_calendar_month(false);
+            render();
+        } else if (calendar_action_selection_ == 1U) {
+            move_calendar_month(true);
+            render();
+        } else {
+            return_to_clock();
+        }
+
+        return Action::None;
+    }
+
     if (screen_ == Screen::Settings) {
         if (input.secondary_long) {
             signal_sound_.stop();
@@ -781,7 +943,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             settings_selection_ =
-                static_cast<std::uint8_t>((settings_selection_ + 1U) % 5U);
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 6U);
             render();
             return Action::None;
         }
@@ -802,6 +964,10 @@ Action Launcher::update(const board::InputState& input)
                 orientation_selection_ =
                     orientation_index(settings_.orientation);
                 screen_ = Screen::Orientation;
+            } else if (settings_selection_ == 4U) {
+                auto_power_off_selection_ =
+                    settings_.auto_power_off_enabled ? 0U : 1U;
+                screen_ = Screen::AutoPowerOff;
             } else {
                 signal_sound_.stop();
                 screen_ = Screen::Main;
@@ -878,9 +1044,8 @@ Action Launcher::update(const board::InputState& input)
 
         settings_.brightness =
             brightness_from_index(brightness_selection_);
-        apply_brightness_profile(board_, settings_.brightness);
         render();
-        return Action::None;
+        return Action::BrightnessChanged;
     }
 
     if (screen_ == Screen::Theme) {
@@ -947,6 +1112,39 @@ Action Launcher::update(const board::InputState& input)
             board_orientation(settings_.orientation));
         render();
         return Action::None;
+    }
+
+    if (screen_ == Screen::AutoPowerOff) {
+        if (input.secondary_long) {
+            settings_selection_ = 4U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        if (input.secondary_short) {
+            auto_power_off_selection_ =
+                static_cast<std::uint8_t>(
+                    (auto_power_off_selection_ + 1U) % 3U);
+            render();
+            return Action::None;
+        }
+
+        if (!input.primary_short) {
+            return Action::None;
+        }
+
+        if (auto_power_off_selection_ == 2U) {
+            settings_selection_ = 4U;
+            screen_ = Screen::Settings;
+            render();
+            return Action::None;
+        }
+
+        settings_.auto_power_off_enabled =
+            auto_power_off_selection_ == 0U;
+        render();
+        return Action::AutoPowerOffChanged;
     }
 
     if (screen_ == Screen::ShutdownConfirm) {
@@ -1071,9 +1269,101 @@ void Launcher::reset_stopwatch_session()
 void Launcher::exit_stopwatch_to_clock()
 {
     reset_stopwatch_session();
-    clock_selection_ = 2;
+    clock_selection_ = 4;
+    update_clock_viewport();
     screen_ = Screen::Clock;
     render();
+}
+
+
+void Launcher::update_clock_viewport()
+{
+    if (clock_selection_ < clock_view_start_) {
+        clock_view_start_ = clock_selection_;
+    } else if (
+        clock_selection_
+        >= static_cast<std::uint8_t>(
+            clock_view_start_ + kClockVisibleRows)) {
+        clock_view_start_ = static_cast<std::uint8_t>(
+            clock_selection_ - kClockVisibleRows + 1U);
+    }
+
+    const std::uint8_t max_start =
+        kClockMenuItemCount - kClockVisibleRows;
+    if (clock_view_start_ > max_start) {
+        clock_view_start_ = max_start;
+    }
+}
+
+void Launcher::begin_date_editor()
+{
+    const clock::DateReading reading = clock_service_.read_date();
+    if (reading.valid) {
+        edit_year_ = reading.date.year;
+        edit_month_ = reading.date.month;
+        edit_day_ = reading.date.day;
+    } else {
+        edit_year_ = 2026;
+        edit_month_ = 1;
+        edit_day_ = 1;
+    }
+
+    screen_ = Screen::ClockSetDateDay;
+}
+
+void Launcher::clamp_edit_date_day()
+{
+    const std::uint8_t max_day =
+        clock::ClockService::days_in_month(
+            edit_year_,
+            edit_month_);
+    if (max_day == 0U) {
+        edit_day_ = 1U;
+    } else if (edit_day_ > max_day) {
+        edit_day_ = max_day;
+    }
+}
+
+void Launcher::begin_calendar()
+{
+    calendar_action_selection_ = 0;
+    const clock::DateReading reading = clock_service_.read_date();
+    calendar_initialized_ = reading.valid;
+    if (reading.valid) {
+        calendar_year_ = reading.date.year;
+        calendar_month_ = reading.date.month;
+    }
+    screen_ = Screen::Calendar;
+}
+
+void Launcher::move_calendar_month(bool forward)
+{
+    if (!calendar_initialized_) {
+        return;
+    }
+
+    if (forward) {
+        if (calendar_year_ == 2099U && calendar_month_ == 12U) {
+            return;
+        }
+        if (calendar_month_ == 12U) {
+            ++calendar_year_;
+            calendar_month_ = 1U;
+        } else {
+            ++calendar_month_;
+        }
+        return;
+    }
+
+    if (calendar_year_ == 2000U && calendar_month_ == 1U) {
+        return;
+    }
+    if (calendar_month_ == 1U) {
+        --calendar_year_;
+        calendar_month_ = 12U;
+    } else {
+        --calendar_month_;
+    }
 }
 
 std::uint64_t Launcher::stopwatch_elapsed_us() const
@@ -1133,6 +1423,20 @@ void Launcher::render()
         case Screen::ClockSetFailed:
             render_clock_set_failed();
             break;
+        case Screen::ClockSetDateDay:
+        case Screen::ClockSetDateMonth:
+        case Screen::ClockSetDateYear:
+            render_date_editor();
+            break;
+        case Screen::ClockDateSetFailed:
+            render_date_set_failed();
+            break;
+        case Screen::ClockDateNeedsTime:
+            render_date_needs_time();
+            break;
+        case Screen::Calendar:
+            render_calendar();
+            break;
         case Screen::Settings:
             render_settings();
             break;
@@ -1147,6 +1451,9 @@ void Launcher::render()
             break;
         case Screen::Orientation:
             render_orientation();
+            break;
+        case Screen::AutoPowerOff:
+            render_auto_power_off();
             break;
         case Screen::EnableCommunicator:
             render_enable_communicator();
@@ -1317,14 +1624,13 @@ void Launcher::render_tools()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kTools[4] = {
-        "RadioLab",
+    constexpr const char* kTools[3] = {
         "PowerDiag",
         "Latarka",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 4; ++index) {
+    for (std::uint8_t index = 0; index < 3; ++index) {
         const bool selected = index == tools_selection_;
         const std::int16_t y =
             static_cast<std::int16_t>(31 + index * 21);
@@ -1442,6 +1748,7 @@ void Launcher::render_clock()
     clear_shell(board_);
     rendered_clock_screen_text_[0] = '\0';
     rendered_clock_timer_valid_ = false;
+    update_clock_viewport();
 
     board_.draw_text_region(
         14,
@@ -1455,21 +1762,29 @@ void Launcher::render_clock()
 
     render_clock_time_if_changed();
 
-    constexpr const char* kItems[4] = {
+    constexpr const char* kItems[kClockMenuItemCount] = {
         "USTAW CZAS",
+        "USTAW DATE",
+        "KALENDARZ",
         nullptr,
         "STOPER",
         "POWROT",
     };
 
-    for (std::uint8_t index = 0; index < 4; ++index) {
-        if (index == 1U) {
+    for (std::uint8_t slot = 0; slot < kClockVisibleRows; ++slot) {
+        const std::uint8_t index =
+            static_cast<std::uint8_t>(clock_view_start_ + slot);
+        if (index >= kClockMenuItemCount) {
+            break;
+        }
+        if (index == kClockTimerIndex) {
             continue;
         }
 
         const bool selected = index == clock_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(56 + index * 16);
+            static_cast<std::int16_t>(
+                kClockMenuFirstY + slot * kClockMenuRowHeight);
 
         board_.draw_text_region(
             22,
@@ -1838,6 +2153,332 @@ void Launcher::render_clock_set_failed()
         board::DisplayColor::Background);
 }
 
+
+void Launcher::render_date_editor()
+{
+    clear_shell(board_);
+
+    char date_text[11]{};
+    std::snprintf(
+        date_text,
+        sizeof(date_text),
+        "%02u.%02u.%04u",
+        static_cast<unsigned>(edit_day_),
+        static_cast<unsigned>(edit_month_),
+        static_cast<unsigned>(edit_year_));
+
+    const char* field = "DZIEN";
+    if (screen_ == Screen::ClockSetDateMonth) {
+        field = "MIESIAC";
+    } else if (screen_ == Screen::ClockSetDateYear) {
+        field = "ROK";
+    }
+
+    board_.draw_text_region(
+        14,
+        10,
+        212,
+        20,
+        "USTAW DATE",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        30,
+        42,
+        190,
+        28,
+        date_text,
+        3,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        82,
+        76,
+        100,
+        16,
+        field,
+        1,
+        board::DisplayColor::Accent,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        14,
+        100,
+        212,
+        12,
+        screen_ == Screen::ClockSetDateYear
+            ? "BOCZNY +1 | M5 ZAPISZ"
+            : "BOCZNY +1 | M5 DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        14,
+        119,
+        212,
+        12,
+        "BOCZNY DLUGO = POWROT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_date_set_failed()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        16,
+        212,
+        20,
+        "USTAW DATE",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        44,
+        54,
+        170,
+        22,
+        "NIE ZAPISANO",
+        2,
+        board::DisplayColor::Danger,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        42,
+        108,
+        180,
+        14,
+        "M5 / BOCZNY = POWROT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+
+void Launcher::render_date_needs_time()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        12,
+        212,
+        20,
+        "USTAW DATE",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        66,
+        47,
+        130,
+        20,
+        "NAJPIERW",
+        2,
+        board::DisplayColor::Attention,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        55,
+        70,
+        150,
+        20,
+        "USTAW CZAS",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        42,
+        112,
+        180,
+        14,
+        "M5 / BOCZNY = POWROT",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_calendar()
+{
+    clear_shell(board_);
+
+    if (!calendar_initialized_) {
+        board_.draw_text_region(
+            14,
+            10,
+            212,
+            20,
+            "KALENDARZ",
+            2,
+            board::DisplayColor::PrimaryText,
+            board::DisplayColor::Background);
+        board_.draw_text_region(
+            48,
+            43,
+            160,
+            22,
+            "BRAK DATY",
+            2,
+            board::DisplayColor::Attention,
+            board::DisplayColor::Background);
+
+        constexpr const char* kActions[2] = {
+            "USTAW DATE",
+            "POWROT",
+        };
+        for (std::uint8_t index = 0; index < 2U; ++index) {
+            const bool selected =
+                calendar_action_selection_ == index;
+            const std::int16_t y =
+                static_cast<std::int16_t>(75 + index * 20);
+            board_.draw_text_region(
+                42,
+                y,
+                156,
+                18,
+                kActions[index],
+                2,
+                selected
+                    ? board::DisplayColor::PrimaryText
+                    : board::DisplayColor::SecondaryText,
+                selected
+                    ? board::DisplayColor::Surface
+                    : board::DisplayColor::Background);
+            if (selected) {
+                draw_selection_marker(board_, 32, y, 16);
+            }
+        }
+
+        board_.draw_text_region(
+            32,
+            119,
+            200,
+            12,
+            "M5 WYBIERZ | BOCZNY DALEJ",
+            1,
+            board::DisplayColor::SecondaryText,
+            board::DisplayColor::Background);
+        return;
+    }
+
+    char header[24]{};
+    std::snprintf(
+        header,
+        sizeof(header),
+        "%s %u",
+        kMonthLabels[calendar_month_ - 1U],
+        static_cast<unsigned>(calendar_year_));
+    board_.draw_text_region(
+        14,
+        2,
+        212,
+        20,
+        header,
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    constexpr const char* kWeekdays[7] = {
+        "PN", "WT", "SR", "CZ", "PT", "SO", "ND",
+    };
+    for (std::uint8_t column = 0; column < 7U; ++column) {
+        const std::int16_t x =
+            static_cast<std::int16_t>(20 + column * 30);
+        board_.draw_text_region(
+            x,
+            24,
+            20,
+            11,
+            kWeekdays[column],
+            1,
+            board::DisplayColor::SecondaryText,
+            board::DisplayColor::Background);
+    }
+
+    const clock::Date first{
+        calendar_year_,
+        calendar_month_,
+        1U,
+    };
+    const std::uint8_t first_weekday =
+        clock::ClockService::weekday_monday_index(first);
+    const std::uint8_t days =
+        clock::ClockService::days_in_month(
+            calendar_year_,
+            calendar_month_);
+    const clock::DateReading today = clock_service_.read_date();
+
+    for (std::uint8_t day = 1U; day <= days; ++day) {
+        const std::uint8_t slot =
+            static_cast<std::uint8_t>(
+                first_weekday + day - 1U);
+        const std::uint8_t row =
+            static_cast<std::uint8_t>(slot / 7U);
+        const std::uint8_t column =
+            static_cast<std::uint8_t>(slot % 7U);
+
+        char day_text[3]{};
+        std::snprintf(
+            day_text,
+            sizeof(day_text),
+            "%u",
+            static_cast<unsigned>(day));
+
+        const bool is_today =
+            today.valid
+            && today.date.year == calendar_year_
+            && today.date.month == calendar_month_
+            && today.date.day == day;
+
+        board_.draw_text_region(
+            static_cast<std::int16_t>(18 + column * 30),
+            static_cast<std::int16_t>(37 + row * 13),
+            24,
+            12,
+            day_text,
+            1,
+            is_today
+                ? board::DisplayColor::Accent
+                : board::DisplayColor::PrimaryText,
+            is_today
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+    }
+
+    constexpr const char* kActions[3] = {
+        "< MIES",
+        "> MIES",
+        "POWROT",
+    };
+    constexpr std::int16_t kActionX[3] = {5, 83, 161};
+    for (std::uint8_t index = 0; index < 3U; ++index) {
+        const bool selected =
+            calendar_action_selection_ == index;
+        board_.draw_text_region(
+            kActionX[index],
+            118,
+            74,
+            16,
+            kActions[index],
+            1,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+        if (selected) {
+            board_.draw_line(
+                kActionX[index],
+                116,
+                static_cast<std::int16_t>(kActionX[index] + 70),
+                116,
+                board::DisplayColor::Accent);
+        }
+    }
+}
+
 void Launcher::render_header_time_if_changed()
 {
     if (std::strncmp(
@@ -1905,6 +2546,17 @@ void Launcher::render_clock_timer_if_changed()
         return;
     }
 
+    rendered_clock_timer_state_ = state;
+    rendered_clock_timer_seconds_ = remaining_seconds;
+    rendered_clock_timer_valid_ = true;
+
+    if (kClockTimerIndex < clock_view_start_
+        || kClockTimerIndex
+            >= static_cast<std::uint8_t>(
+                clock_view_start_ + kClockVisibleRows)) {
+        return;
+    }
+
     char label[24] = "MINUTNIK";
     if (state == countdown::State::Running
         || state == countdown::State::Paused) {
@@ -1919,8 +2571,15 @@ void Launcher::render_clock_timer_if_changed()
         std::snprintf(label, sizeof(label), "MINUTNIK KONIEC");
     }
 
-    constexpr std::int16_t y = 72;
-    const bool selected = clock_selection_ == 1U;
+    const std::uint8_t slot =
+        static_cast<std::uint8_t>(
+            kClockTimerIndex - clock_view_start_);
+    const std::int16_t y =
+        static_cast<std::int16_t>(
+            kClockMenuFirstY + slot * kClockMenuRowHeight);
+    const bool selected =
+        clock_selection_ == kClockTimerIndex;
+
     board_.draw_text_region(
         22,
         y,
@@ -1940,12 +2599,8 @@ void Launcher::render_clock_timer_if_changed()
             board_,
             14,
             y,
-            16);
+            14);
     }
-
-    rendered_clock_timer_state_ = state;
-    rendered_clock_timer_seconds_ = remaining_seconds;
-    rendered_clock_timer_valid_ = true;
 }
 
 void Launcher::render_timer_countdown_if_changed()
@@ -2020,11 +2675,12 @@ void Launcher::render_settings()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[5] = {
+    constexpr const char* kItems[6] = {
         "Dzwiek",
         "Jasnosc",
         "Motyw",
         "Orientacja",
+        "AUTO WYLACZ.",
         "Powrot",
     };
 
@@ -2359,6 +3015,80 @@ void Launcher::render_orientation()
     board_.draw_text_region(
         14,
         116,
+        212,
+        14,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_auto_power_off()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        10,
+        212,
+        18,
+        "AUTO WYLACZANIE",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    constexpr const char* kItems[3] = {
+        "WLACZONE",
+        "WYLACZONE",
+        "POWROT",
+    };
+
+    for (std::uint8_t index = 0; index < 3U; ++index) {
+        const bool selected = index == auto_power_off_selection_;
+        const bool active =
+            index < 2U
+            && settings_.auto_power_off_enabled == (index == 0U);
+        const std::int16_t y =
+            static_cast<std::int16_t>(35 + index * 21);
+
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            19,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            draw_selection_marker(board_, 14, y, 17);
+        }
+        if (active) {
+            board_.fill_circle(
+                211,
+                static_cast<std::int16_t>(y + 8),
+                3,
+                board::DisplayColor::Accent);
+        }
+    }
+
+    board_.draw_text_region(
+        14,
+        100,
+        212,
+        12,
+        "PO 20 MIN BEZCZYNNOSCI",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        14,
+        119,
         212,
         14,
         "M5 WYBIERZ | BOCZNY DALEJ",

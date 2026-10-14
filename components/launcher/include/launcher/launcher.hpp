@@ -19,6 +19,8 @@ enum class Action : std::uint8_t {
     OpenPowerDiag,
     OpenFlashlight,
     OpenSnake,
+    BrightnessChanged,
+    AutoPowerOffChanged,
     ShutdownRequested,
 };
 
@@ -55,6 +57,7 @@ public:
     void set_communicator_delivery_status(
         CommunicatorDeliveryStatus status,
         bool render_if_changed = true);
+    void restore_auto_power_off_preference(bool enabled);
     void redraw();
     Action update(const board::InputState& input);
 
@@ -76,11 +79,18 @@ private:
         ClockSetHour,
         ClockSetMinute,
         ClockSetFailed,
+        ClockSetDateDay,
+        ClockSetDateMonth,
+        ClockSetDateYear,
+        ClockDateSetFailed,
+        ClockDateNeedsTime,
+        Calendar,
         Settings,
         SignalSound,
         Brightness,
         Theme,
         Orientation,
+        AutoPowerOff,
         EnableCommunicator,
         ActiveCommunicator,
         DisableCommunicator,
@@ -91,6 +101,11 @@ private:
     void update_clock_sample(std::uint32_t now_ms, bool force = false);
     void reset_stopwatch_session();
     void exit_stopwatch_to_clock();
+    void update_clock_viewport();
+    void begin_date_editor();
+    void clamp_edit_date_day();
+    void begin_calendar();
+    void move_calendar_month(bool forward);
     std::uint64_t stopwatch_elapsed_us() const;
     std::uint32_t stopwatch_display_seconds() const;
     void render();
@@ -103,6 +118,10 @@ private:
     void render_stopwatch();
     void render_clock_editor(bool editing_hour);
     void render_clock_set_failed();
+    void render_date_editor();
+    void render_date_set_failed();
+    void render_date_needs_time();
+    void render_calendar();
     void render_header_time_if_changed();
     void render_clock_time_if_changed();
     void render_clock_timer_if_changed();
@@ -113,6 +132,7 @@ private:
     void render_brightness();
     void render_theme();
     void render_orientation();
+    void render_auto_power_off();
     void render_enable_communicator();
     void render_active_communicator();
     void render_disable_communicator();
@@ -133,6 +153,7 @@ private:
     std::uint8_t tools_selection_ = 0;
     std::uint8_t entertainment_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
+    std::uint8_t clock_view_start_ = 0;
     std::uint8_t timer_selection_ = 0;
     StopwatchState stopwatch_state_ = StopwatchState::Idle;
     std::uint8_t stopwatch_selection_ = 0;
@@ -142,11 +163,19 @@ private:
     std::uint32_t rendered_stopwatch_seconds_ = 0;
     std::uint8_t edit_hour_ = 0;
     std::uint8_t edit_minute_ = 0;
+    std::uint8_t edit_day_ = 1;
+    std::uint8_t edit_month_ = 1;
+    std::uint16_t edit_year_ = 2026;
+    bool calendar_initialized_ = false;
+    std::uint16_t calendar_year_ = 2026;
+    std::uint8_t calendar_month_ = 1;
+    std::uint8_t calendar_action_selection_ = 0;
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t brightness_selection_ = 0;
     std::uint8_t theme_selection_ = 0;
     std::uint8_t orientation_selection_ = 0;
+    std::uint8_t auto_power_off_selection_ = 0;
     std::uint8_t active_communicator_selection_ = 0;
     std::uint8_t confirmation_selection_ = 0;
 

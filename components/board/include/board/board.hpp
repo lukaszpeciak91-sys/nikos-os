@@ -44,6 +44,12 @@ struct RtcTime {
     std::uint8_t second = 0;
 };
 
+struct RtcDate {
+    std::uint16_t year = 2000;
+    std::uint8_t month = 1;
+    std::uint8_t day = 1;
+};
+
 struct InputState {
     bool primary_pressed = false;
     bool secondary_pressed = false;
@@ -64,6 +70,8 @@ public:
     bool rtc_voltage_low() const;
     bool read_rtc_time(RtcTime& time) const;
     bool write_rtc_time(const RtcTime& time);
+    bool read_rtc_date(RtcDate& date) const;
+    bool write_rtc_date(const RtcDate& date);
 
     std::int16_t vbus_voltage_mv() const;
     PowerStatus power_status(
@@ -71,6 +79,7 @@ public:
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
     void wake_display();
+    void apply_active_display_brightness();
     void dim_display();
     void sleep_display();
     void power_off();
@@ -131,6 +140,7 @@ private:
     ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
     std::uint8_t active_brightness_ = 96;
     std::uint8_t dimmed_brightness_ = 24;
+    bool display_brightness_override_active_ = false;
     bool rtc_available_ = false;
 };
 

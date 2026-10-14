@@ -15,4 +15,12 @@ BrightnessProfile brightness_profile(Brightness brightness)
     }
 }
 
+BrightnessProfile effective_brightness_profile(
+    Brightness brightness,
+    bool low_battery_reserve_active)
+{
+    return brightness_profile(
+        low_battery_reserve_active ? Brightness::Low : brightness);
+}
+
 }  // namespace nikos::settings

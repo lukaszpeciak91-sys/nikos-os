@@ -34,6 +34,9 @@ struct BrightnessProfile {
 };
 
 BrightnessProfile brightness_profile(Brightness brightness);
+BrightnessProfile effective_brightness_profile(
+    Brightness brightness,
+    bool low_battery_reserve_active);
 
 struct State {
     Orientation orientation = Orientation::Right;
@@ -41,6 +44,7 @@ struct State {
     Brightness brightness = Brightness::Medium;
     CommunicatorView communicator_view = CommunicatorView::List;
     ui_theme::Theme theme = ui_theme::Theme::Nikos;
+    bool auto_power_off_enabled = true;
 };
 
 }  // namespace nikos::settings

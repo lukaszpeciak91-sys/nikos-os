@@ -34,6 +34,7 @@ public:
     UpdateResult update(std::uint32_t now_ms);
 
     AdvisoryLevel pending_advisory() const;
+    bool low_battery_reserve_active() const;
     void acknowledge_advisory();
 
 private:
@@ -48,6 +49,7 @@ private:
     bool low_armed_ = true;
     bool very_low_armed_ = true;
     AdvisoryLevel pending_advisory_ = AdvisoryLevel::None;
+    bool low_battery_reserve_active_ = false;
 
     std::uint8_t critical_confirm_count_ = 0;
 };

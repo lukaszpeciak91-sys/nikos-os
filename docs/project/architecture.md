@@ -14,8 +14,8 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
-- `Narzędzia` contains `RadioLab`, `PowerDiag`, `Latarka`, and visible `Powrót`; RadioLab, PowerDiag, and Flashlight remain application siblings launched through the tools category.
-- `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes the RTC-backed current `HH:MM`, `USTAW CZAS`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT`. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
+- `Narzędzia` exposes `PowerDiag`, `Latarka`, and visible `Powrót`. RadioLab remains compiled and preserved as a diagnostic application, but has no user-visible launcher entry to prevent accidental high-power field-test sessions. PowerDiag and Flashlight remain launched through the tools category.
+- `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes RTC-backed `HH:MM`, `USTAW CZAS`, `USTAW DATE`, `KALENDARZ`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT` through a local scrolling viewport. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -40,17 +40,21 @@ Flashlight display helpers do not mutate the configured Active/Dimmed brightness
 
 ### clock
 
-Owns the small product-level local wall-clock capability above `board`:
+Owns the small product-level local RTC clock/calendar capability above `board`:
 
 - trustworthy `HH:MM` read semantics;
-- RTC validity derived from hardware availability, successful read, valid ranges, and clear RTC voltage-low/VL indication;
+- trustworthy Gregorian date read semantics for 2000-01-01 through 2099-12-31 using the RTC hardware state plus one narrow persisted DATE-CONFIGURED trust marker;
+- time validity from the established D-025 RTC/VL/read/range rules, while date trust additionally requires the DATE-CONFIGURED marker;
 - manual `HH:MM` setting with seconds forced to `00`;
-- write verification through RTC readback;
-- lightweight `HH:MM` formatting with `--:--` for invalid/unavailable time.
+- manual `DD.MM.YYYY` setting with exact RTC readback verification;
+- bounded Gregorian helpers for leap years, month lengths, date validity, and Monday-first weekday placement;
+- lightweight `HH:MM` and `DD.MM.YYYY` formatting with independent invalid fallbacks `--:--` and `--.--.----`.
 
-`board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Initialization does not write/reset time registers and RTC failure does not block boot.
+`board` owns the M5Unified/PCF8563 hardware calls. RTC initialization is explicit after `M5.begin()` while `config.internal_rtc` remains false, avoiding M5Unified's automatic `setSystemTimeFromRtc()` path. Board exposes parallel `RtcTime` and `RtcDate` boundaries; date writes provide the RTC's required weekday value but product UI never treats RTC weekday as state. Date-only writes do not alter the RTC time, and time-only writes do not alter the RTC date. PCF8563 VL is shared in the seconds register: an observed VL invalidates date trust, and ClockService requires DATE-CONFIGURED=false to be durably persisted before a time write may clear VL. If that narrow NVS invalidation fails, the time write is rejected rather than risking stale date-trust resurrection after reboot. Initialization does not write/reset RTC fields and RTC failure does not block boot.
 
-The v0.1 clock service is local wall-clock time only. It has no date/calendar model, timezone, DST, NTP, system-time synchronization, Timer/Stopwatch timing ownership, alarm clock, or NVS clock-configured flag.
+Launcher owns the six-row ZEGAR menu through a local four-row viewport, the three-step date editor, and the read-only monthly calendar. If RTC time/integrity is not trustworthy, date SAVE is refused with an explicit USTAW CZAS first screen; date setup never rewrites HH:MM. Calendar month browsing uses a local short-click action selector plus the existing secondary-long back shortcut. The calendar is generated directly from year/month arithmetic with Monday-first placement and no heap-owned day model. `app_main` continues to own Clock Glance and now renders one fresh date read below the existing dominant HH:MM on each new glance.
+
+The actual date remains stored only in the hardware RTC. Storage persists only one boolean DATE-CONFIGURED trust marker in the existing NVS namespace; no datetime value is mirrored to NVS. The clock/calendar capability has no timezone, DST, NTP, Internet/system-time synchronization, Timer/Stopwatch timing ownership, alarms, reminders, events, holidays, birthdays, week numbers, or calendar database.
 
 ### radio
 
@@ -159,15 +163,16 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 
 ### settings
 
-`settings::State` owns the current boot-scoped user preference state. It now contains five real runtime preferences:
+`settings::State` owns the current runtime preference state. It now contains six real preferences:
 
 - Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
 - Communicator main-message view: List / `LISTA` (default) or Single / `POJEDYNCZO`;
 - display brightness: Low / `NISKA` = 72/18, Medium / `SREDNIA` = 96/24 (default), or High / `WYSOKA` = 128/32 for Active/Dimmed;
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
-- display orientation: Right / `PRAWA` (default) or Left / `LEWA`.
+- display orientation: Right / `PRAWA` (default) or Left / `LEWA`;
+- Auto Power-Off: enabled by default, persisted per device through the narrow storage component.
 
-The state is created by composition in `app_main`, is shared with the launcher Settings UI and the narrow consumers that need each typed value, and is intentionally volatile across reboot. No NVS or persistent settings schema is introduced yet.
+The state is created by composition in `app_main` and is shared with the launcher Settings UI and the narrow consumers that need each typed value. Sound, view, brightness, theme, and orientation remain boot-scoped. Auto Power-Off is the single persistent Settings exception in v0.1: `storage::AutoPowerOffStore` loads/saves its per-device boolean, defaulting ON for a missing/invalid key. A failed save leaves the last successfully loaded/saved value authoritative and the Settings UI is rolled back to match it. No generic preferences framework or timestamp persistence is introduced.
 
 ### ui_theme
 
@@ -204,6 +209,8 @@ No persistent contact database, chat history, or user-settings schema is introdu
 
 ### power
 
+DisplayLifecycle continues to own only LCD Active / Dimmed / DisplayOff semantics. Auto Power-Off v0.1 is a separate whole-device policy coordinated in `app_main`: when enabled, 20 minutes without local physical M5 / BOCZNY / short-POWER activity makes whole-device shutdown due. Radio traffic, received content, background work, battery sampling, and communication-driven display wake do not reset this clock. VBUS suspends the policy and unplug starts a fresh 20-minute window. A running Countdown or pending Countdown expiration blocks shutdown. If an incoming Communicator interaction currently owns the foreground when the normal 20-minute deadline expires, shutdown is deferred for at most 2 additional minutes. That grace starts once and is not restarted by later RX/background traffic; local M5/BOCZNY/short-POWER activity cancels it and starts a fresh 20-minute window. Shutdown reuses the existing `controlled_shutdown()` path.
+
 Owns the first small product-level display lifecycle policy only:
 
 - `Active`, `Dimmed`, and `DisplayOff` state;
@@ -212,13 +219,13 @@ Owns the first small product-level display lifecycle policy only:
 - full wake-gesture consumption after `DisplayOff`;
 - a one-shot `WakeReason::UserButton` result when a physical user button wakes `DisplayOff`, exposed with the centrally filtered input for `app_main`.
 
-`board` remains the hardware owner for the currently applied Active/Dimmed numeric backlight levels, LCD sleep, wake, and RTC hardware access. The authoritative Low/Medium/High mapping is centralized in `settings`; Board stores the selected numeric profile and applies it immediately when changed. `power::DisplayLifecycle` remains semantic-only and knows only Active, Dimmed, and DisplayOff, never brightness numbers. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton` and take priority over Clock Glance. A physical `DisplayOff` user wake now enters the top-level Clock Glance transient UI in `app_main`; no second application action leaks from either the first wake gesture or the second glance-dismiss gesture.
+`board` remains the hardware owner for the configured Active/Dimmed numeric backlight levels, LCD sleep, wake, and RTC hardware access. The authoritative Low/Medium/High mapping is centralized in `settings`; Board stores the configured numeric profile but does not infer the current display lifecycle state. `power::DisplayLifecycle` remains the sole owner of Active, Dimmed, and DisplayOff semantics and reapplies the appropriate physical brightness for its current state when the effective profile changes. `app_main` coordinates the single filtered user input with the current foreground application. Accepted user-visible Communicator messages and received SYGNAL wake through the product lifecycle at Communicator semantic acceptance points, not from radio/protocol callbacks. These semantic communication wakes do not produce `WakeReason::UserButton` and take priority over Clock Glance. A physical `DisplayOff` user wake now enters the top-level Clock Glance transient UI in `app_main`; no second application action leaks from either the first wake gesture or the second glance-dismiss gesture.
 
 `DisplayOff` is LCD/backlight state only. It does not stop `app_main`, messaging, Communicator background reception, or the configured ESP-NOW RX schedule, and it never performs whole-device shutdown.
 
-Whole-device shutdown remains separate: the launcher emits only an explicit shutdown request, `app_main` performs orderly runtime cleanup, and the board layer owns the M5-specific `M5.Power.powerOff()` call.
+Whole-device shutdown remains separate from display lifecycle: manual Launcher shutdown and the bounded Auto Power-Off policy both converge on the existing `app_main` controlled-shutdown path, which performs orderly runtime cleanup before the board layer owns the M5-specific `M5.Power.powerOff()` call.
 
-The current messaging RX schedules remain experimental transport configuration and are unchanged by display lifecycle v0.1. No automatic device shutdown, CPU sleep, radio sleep policy, or persistent power setting is introduced.
+The current messaging RX schedules remain experimental transport configuration and are unchanged by display lifecycle v0.1. Auto Power-Off is the one explicit persistent whole-device power policy; no CPU sleep, radio sleep policy, or second shutdown mechanism is introduced.
 
 ### launcher
 
@@ -284,6 +291,8 @@ Flashlight has no radio ownership, persistence, timeout, battery telemetry, stro
 
 
 ### BatteryGuard
+
+Low Battery Reserve v0.1 reuses BatteryGuard's existing 20% low threshold and >25% recovery hysteresis as a temporary display policy. BatteryGuard owns only the Reserve state; Launcher continues to edit only `settings::State::brightness`. `app_main` resolves the effective profile from the selected preference plus Reserve and passes it through DisplayLifecycle, which reapplies the physical brightness appropriate to its existing Active / Dimmed / DisplayOff state. While Reserve is active, the effective normal profile is the existing Low 72/18 values without changing the selected preference. Charging clears Reserve. A Settings change made during Reserve is retained and becomes effective after recovery. Reserve does not alter Communicator state, radio RX schedules, critical shutdown, advisories, percentage mapping, persistence, Charging Mode ownership, or Flashlight behavior.
 
 BatteryGuard is a small system policy component above `Board::power_status()`. It performs one safety sample approximately every 10 seconds, including while DisplayOff, independently from Launcher UI telemetry. `Board::power_status()` normalizes a non-positive AXP192 battery-voltage read to an invalid sample (`voltage_mv=-1`, `level_percent=-1`, `ChargeState::Unknown`) so a failed PMU/I2C read cannot look like deep discharge. Percentage is used only for advisory LOW/VERY_LOW thresholds; automatic shutdown uses confirmed valid battery voltage while not charging.
 

@@ -129,6 +129,26 @@ void DisplayLifecycle::note_visible_activity()
     last_activity_ms_ = now;
 }
 
+void DisplayLifecycle::apply_brightness_profile(
+    std::uint8_t active,
+    std::uint8_t dimmed)
+{
+    board_.set_display_brightness_profile(active, dimmed);
+
+    switch (state_) {
+        case DisplayState::Dimmed:
+            board_.dim_display();
+            break;
+        case DisplayState::DisplayOff:
+            board_.sleep_display();
+            break;
+        case DisplayState::Active:
+        default:
+            board_.apply_active_display_brightness();
+            break;
+    }
+}
+
 void DisplayLifecycle::display_off_now()
 {
     enter_display_off();
