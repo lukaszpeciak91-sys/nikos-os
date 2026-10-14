@@ -18,15 +18,13 @@ Bundled core coverage is intentionally limited to:
 Facts v0.1 keeps its approved UTF-8 strings unchanged and uses the same scoped
 Board font path. The dataset also contains a small number of foreign accented
 letters and typographic punctuation not present in the original Polish subset.
-Those exact codepoints are mapped to readable existing base glyphs in the font
-metadata (for example accented Latin letters to their base letter and typographic
-dashes/quotes to the ASCII dash/quote). This adds no general Unicode framework
-and no duplicate bitmap payload.
+Those exact codepoints are bundled as additional DejaVu Sans 9 px glyphs using
+the same deterministic GFXfont representation. This adds no general Unicode
+framework and leaves the editorial strings unchanged.
 
 The firmware does **not** bundle the original TTF. It contains only the generated 1-bit glyph subset used by the board rendering layer.
 
-The subset contains 113 original bitmap-backed glyphs plus 15 Facts-only alias
-glyph entries and 602 bytes of bitmap payload. With M5GFX glyph/range metadata, the expected raw font resource footprint on ESP32 is approximately **2.0 KiB** before normal linker/section overhead.
+The subset contains 128 bitmap-backed glyphs and 678 bytes of bitmap payload. With M5GFX glyph/range metadata, the expected raw font resource footprint on ESP32 is approximately **2.0 KiB** before normal linker/section overhead.
 
 This is deliberately limited Polish UI support for Nikoś OS / Communicator v0.1. It is not a general Unicode, font-loading, localization-asset, or text-layout framework.
 
