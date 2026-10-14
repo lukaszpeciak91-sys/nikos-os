@@ -19,7 +19,6 @@ FACTS_PER_CATEGORY = 100
 
 
 def cpp_string(value: str) -> str:
-    # JSON string escaping is compatible with the C++ UTF-8 literals used here.
     return "u8" + json.dumps(value, ensure_ascii=False)
 
 
@@ -158,14 +157,7 @@ const Fact k{symbol}Facts[kFactsPerCategory] = {{
 """
 
 
-def write_if_changed(path: Path, content: str) -> None:
-    current = path.read_text(encoding="utf-8") if path.exists() else None
-    if current != content:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8", newline="\n")
-
-
-def generate(repo_root: Path) -> None:
+def build_assets(repo_root: Path) -> dict[Path, str]:
     data_dir = repo_root / "content" / "facts"
     output_dir = repo_root / "apps" / "facts" / "generated"
 
@@ -176,14 +168,34 @@ def generate(repo_root: Path) -> None:
     if sum(len(records) for records in loaded.values()) != 600:
         raise ValueError("release Facts generation requires exactly 600 facts")
 
-    write_if_changed(output_dir / "facts_data.hpp", generated_header())
-    write_if_changed(output_dir / "facts_data.cpp", generated_core())
-
+    assets = {
+        output_dir / "facts_data.hpp": generated_header(),
+        output_dir / "facts_data.cpp": generated_core(),
+    }
     for slug, _, symbol, _ in CATEGORIES:
-        write_if_changed(
-            output_dir / f"facts_data_{slug}.cpp",
-            generated_category(slug, symbol, loaded[slug]),
+        assets[output_dir / f"facts_data_{slug}.cpp"] = generated_category(
+            slug,
+            symbol,
+            loaded[slug],
         )
+    return assets
+
+
+def write_assets(assets: dict[Path, str]) -> None:
+    for path, content in assets.items():
+        current = path.read_text(encoding="utf-8") if path.exists() else None
+        if current == content:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8", newline="\n")
+
+
+def check_assets(assets: dict[Path, str]) -> list[Path]:
+    stale: list[Path] = []
+    for path, expected in assets.items():
+        if not path.exists() or path.read_text(encoding="utf-8") != expected:
+            stale.append(path)
+    return stale
 
 
 def main() -> int:
@@ -191,30 +203,23 @@ def main() -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="fail if committed generated assets differ from regenerated output",
+        help="fail without modifying files if committed generated assets are stale",
     )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent
+    assets = build_assets(repo_root)
 
-    if not args.check:
-        generate(repo_root)
+    if args.check:
+        stale = check_assets(assets)
+        if stale:
+            for path in stale:
+                print(f"stale generated Facts asset: {path}")
+            return 1
+        print("Facts generated assets OK")
         return 0
 
-    output_dir = repo_root / "apps" / "facts" / "generated"
-    before = {
-        path: path.read_bytes()
-        for path in output_dir.glob("facts_data*")
-        if path.is_file()
-    }
-    generate(repo_root)
-    after = {
-        path: path.read_bytes()
-        for path in output_dir.glob("facts_data*")
-        if path.is_file()
-    }
-    if before != after:
-        raise SystemExit("generated Facts assets are stale")
+    write_assets(assets)
     return 0
 
 
