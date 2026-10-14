@@ -691,11 +691,23 @@ void FactsApp::render_reader()
     }
 
     char fact_progress[12]{};
-    std::snprintf(
-        fact_progress,
-        sizeof(fact_progress),
-        "%03u/100",
-        static_cast<unsigned>(current_fact_index_ + 1U));
+    if (random_mode_) {
+        const std::uint16_t flat_index =
+            static_cast<std::uint16_t>(
+                category_number(category_) * data::kFactsPerCategory
+                + current_fact_index_);
+        std::snprintf(
+            fact_progress,
+            sizeof(fact_progress),
+            "%03u/600",
+            static_cast<unsigned>(flat_index + 1U));
+    } else {
+        std::snprintf(
+            fact_progress,
+            sizeof(fact_progress),
+            "%03u/100",
+            static_cast<unsigned>(current_fact_index_ + 1U));
+    }
 
     board_.draw_polish_ui_text_region(
         4,
