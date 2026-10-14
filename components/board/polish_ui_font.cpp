@@ -7,8 +7,8 @@ namespace {
 
 // Generated from DejaVuSans.ttf at 9px.
 // Core coverage is ASCII plus Polish letters used by Nikoś OS. Facts v0.1
-// adds glyph aliases for the small set of extra UTF-8 codepoints present in
-// the approved offline dataset; source strings remain byte-for-byte unchanged.
+// adds exact 9 px DejaVu Sans glyphs for the small set of extra UTF-8
+// codepoints present in the approved offline dataset.
 const std::uint8_t kPolishUiBitmaps[] PROGMEM = {
     0x44, 0x44, 0x40, 0x40, 0x55, 0x00, 0x00, 0x00, 0x14, 0x14, 0x7E, 0x14, 0x7E, 0x28, 0x28, 0x21,
     0xEA, 0x38, 0x38, 0xAF, 0x08, 0xE4, 0x52, 0x2A, 0x1F, 0xE1, 0x51, 0x28, 0x9C, 0x18, 0x48, 0x81,
@@ -48,6 +48,36 @@ const std::uint8_t kPolishUiBitmaps[] PROGMEM = {
     0x44, 0x20, 0x07, 0x92, 0x49, 0x24, 0x80, 0x20, 0x03, 0x91, 0x40, 0xE0, 0x51, 0x38, 0x20, 0x1C,
     0x83, 0x09, 0xC0, 0x20, 0x0F, 0x82, 0x10, 0x84, 0x20, 0xF8, 0x20, 0x1E, 0x11, 0x11, 0xE0, 0x20,
     0x0F, 0x82, 0x10, 0x84, 0x20, 0xF8, 0x20, 0x1E, 0x11, 0x11, 0xE0,
+    // U+00B0
+    0x72, 0x9C, 0x00, 0x00, 0x00,
+    // U+00C1
+    0x20, 0x00, 0xC1, 0x84, 0x89, 0x1E, 0x42, 0x84,
+    // U+00C7
+    0x39, 0x94, 0x10, 0x41, 0x83, 0xC4, 0x30,
+    // U+00E0
+    0x20, 0x03, 0x82, 0x79, 0x27, 0x80,
+    // U+00E1
+    0x20, 0x03, 0x82, 0x79, 0x27, 0x80,
+    // U+00E9
+    0x10, 0x03, 0x12, 0x79, 0x03, 0x80,
+    // U+00ED
+    0x41, 0x24, 0x90,
+    // U+00F5
+    0x58, 0x03, 0x12, 0x49, 0x23, 0x00,
+    // U+00F6
+    0x48, 0x03, 0x12, 0x49, 0x23, 0x00,
+    // U+00FC
+    0x48, 0x04, 0x92, 0x49, 0x27, 0x80,
+    // U+2013
+    0xF0, 0x00,
+    // U+2014
+    0xFF, 0x00, 0x00, 0x00,
+    // U+2019
+    0x48, 0x00, 0x00,
+    // U+201D
+    0x52, 0x80, 0x00, 0x00, 0x00,
+    // U+201E
+    0x52, 0x80,
 };
 
 const lgfx::GFXglyph kPolishUiGlyphs[] PROGMEM = {
@@ -164,21 +194,21 @@ const lgfx::GFXglyph kPolishUiGlyphs[] PROGMEM = {
     {  585,  5,  7,  5,   0,  -7 },
     {  590,  6,  9,  6,   0,  -9 },
     {  597,  5,  7,  5,   0,  -7 },
-    {  415,  6,  5,  6,   0,  -5 }, // U+00B0 -> "o"
-    {  157,  7,  7,  6,   0,  -7 }, // U+00C1 -> "A"
-    {  170,  6,  7,  6,   0,  -7 }, // U+00C7 -> "C"
-    {  348,  6,  5,  6,   0,  -5 }, // U+00E0 -> "a"
-    {  348,  6,  5,  6,   0,  -5 }, // U+00E1 -> "a"
-    {  368,  6,  5,  6,   0,  -5 }, // U+00E9 -> "e"
-    {  388,  3,  7,  2,   0,  -7 }, // U+00ED -> "i"
-    {  415,  6,  5,  6,   0,  -5 }, // U+00F5 -> "o"
-    {  415,  6,  5,  6,   0,  -5 }, // U+00F6 -> "o"
-    {  441,  6,  5,  6,   0,  -5 }, // U+00FC -> "u"
-    {   57,  3,  3,  3,   0,  -3 }, // U+2013 -> "-"
-    {   57,  3,  3,  3,   0,  -3 }, // U+2014 -> "-"
-    {   36,  2,  7,  2,   0,  -7 }, // U+2019 -> "'"
-    {    4,  4,  7,  4,   0,  -7 }, // U+201D -> "\""
-    {    4,  4,  7,  4,   0,  -7 }, // U+201E -> "\""
+    {  603,  5,  7,  5,   0,  -7 }, // U+00B0
+    {  608,  7,  9,  6,   0,  -9 }, // U+00C1
+    {  616,  6,  9,  6,   0,  -7 }, // U+00C7
+    {  623,  6,  7,  6,   0,  -7 }, // U+00E0
+    {  629,  6,  7,  6,   0,  -7 }, // U+00E1
+    {  635,  6,  7,  6,   0,  -7 }, // U+00E9
+    {  641,  3,  7,  3,   0,  -7 }, // U+00ED
+    {  644,  6,  7,  6,   0,  -7 }, // U+00F5
+    {  650,  6,  7,  6,   0,  -7 }, // U+00F6
+    {  656,  6,  7,  6,   0,  -7 }, // U+00FC
+    {  662,  5,  3,  5,   0,  -3 }, // U+2013
+    {  664,  9,  3,  9,   0,  -3 }, // U+2014
+    {  668,  3,  7,  3,   0,  -7 }, // U+2019
+    {  671,  5,  7,  5,   0,  -7 }, // U+201D
+    {  676,  5,  2,  5,   0,  -1 }, // U+201E
 };
 
 const lgfx::EncodeRange kPolishUiRanges[] PROGMEM = {
