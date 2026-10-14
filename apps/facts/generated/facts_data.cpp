@@ -26,17 +26,17 @@ const char* category_label(Category category)
 {
     switch (category) {
         case Category::Space:
-            return u8"KOSMOS";
+            return "KOSMOS";
         case Category::Animals:
-            return u8"ZWIERZĘTA";
+            return "ZWIERZĘTA";
         case Category::Technology:
-            return u8"TECHNOLOGIA";
+            return "TECHNOLOGIA";
         case Category::Human:
-            return u8"CZŁOWIEK";
+            return "CZŁOWIEK";
         case Category::History:
-            return u8"HISTORIA";
+            return "HISTORIA";
         case Category::World:
-            return u8"ŚWIAT";
+            return "ŚWIAT";
         default:
             return "KOSMOS";
     }
