@@ -339,6 +339,12 @@ void SnakeApp::render_game()
 
 void SnakeApp::render_hud()
 {
+    // Clear the entire HUD, including pixels outside the text regions.
+    // Otherwise stale pixels from the previous foreground screen can remain
+    // visible because draw_text_region only clears its own rectangle.
+    board_.fill_rect(
+        0, 0, 240, kHudHeightPx, board::DisplayColor::Background);
+
     char score_text[20]{};
     char record_text[20]{};
 
