@@ -19,7 +19,9 @@ FACTS_PER_CATEGORY = 100
 
 
 def cpp_string(value: str) -> str:
-    return "u8" + json.dumps(value, ensure_ascii=False)
+    # The generated .cpp files are UTF-8. Ordinary string literals remain
+    # const char[] under both pre-C++20 and C++20+ language modes.
+    return json.dumps(value, ensure_ascii=False)
 
 
 def load_category(data_dir: Path, slug: str) -> list[dict[str, str]]:
