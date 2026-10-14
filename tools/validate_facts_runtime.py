@@ -12,7 +12,10 @@ import validate_facts
 
 PAGE_MAX_CODEPOINTS = 120
 MAX_PAGES = 4
-TITLE_READER_CAPACITY = 22 * 2
+TITLE_CODEPOINTS_PER_LINE = 22
+TITLE_MAX_LINES = 2
+BODY_CODEPOINTS_PER_LINE = 24
+BODY_MAX_LINES = 6
 CATEGORY_COUNT = 6
 FACTS_PER_CATEGORY = 100
 TITLE_LIST_ITEM_COUNT = 101
@@ -105,6 +108,24 @@ def paginate(text: str) -> list[str]:
     return pages or [text]
 
 
+def wrapped_lines(text: str, width: int) -> list[str]:
+    lines: list[str] = []
+    cursor = 0
+    while cursor < len(text):
+        while cursor < len(text) and text[cursor] == " ":
+            cursor += 1
+        if cursor >= len(text):
+            break
+        line_end = bounded_word_split(text, cursor, len(text), width)
+        if line_end <= cursor:
+            raise AssertionError("wrap made no progress")
+        lines.append(text[cursor:line_end].rstrip())
+        cursor = line_end
+        while cursor < len(text) and text[cursor] == " ":
+            cursor += 1
+    return lines
+
+
 def choose_random(candidate: int, previous: int | None) -> int:
     if not 0 <= candidate < 600:
         raise AssertionError("random candidate out of range")
@@ -164,11 +185,19 @@ def main() -> int:
     all_codepoints: set[int] = set()
     max_title = 0
     max_page = 0
+    max_title_lines = 0
+    max_body_lines = 0
 
     for record in rows:
         title = record["title"]
         text = record["text"]
         max_title = max(max_title, len(title))
+        title_lines = wrapped_lines(title, TITLE_CODEPOINTS_PER_LINE)
+        max_title_lines = max(max_title_lines, len(title_lines))
+        if len(title_lines) > TITLE_MAX_LINES:
+            raise AssertionError(
+                f"{record['id']}: title requires {len(title_lines)} lines"
+            )
         all_codepoints.update(map(ord, title))
         all_codepoints.update(map(ord, text))
 
@@ -183,18 +212,19 @@ def main() -> int:
             raise AssertionError(f"{record['id']}: invalid page count {len(pages)}")
         for page in pages:
             max_page = max(max_page, len(page))
+            body_lines = wrapped_lines(page, BODY_CODEPOINTS_PER_LINE)
+            max_body_lines = max(max_body_lines, len(body_lines))
+            if len(body_lines) > BODY_MAX_LINES:
+                raise AssertionError(
+                    f"{record['id']}: reader page requires "
+                    f"{len(body_lines)} lines"
+                )
             if len(page) > PAGE_MAX_CODEPOINTS:
                 raise AssertionError(
                     f"{record['id']}: page exceeds {PAGE_MAX_CODEPOINTS} codepoints"
                 )
         if " ".join(pages) != text:
             raise AssertionError(f"{record['id']}: pagination changed source text")
-
-    if max_title > TITLE_READER_CAPACITY:
-        raise AssertionError(
-            f"longest title {max_title} exceeds reader title capacity "
-            f"{TITLE_READER_CAPACITY}"
-        )
 
     unsupported = sorted(all_codepoints - SUPPORTED_FONT_CODEPOINTS)
     if unsupported:
@@ -205,7 +235,9 @@ def main() -> int:
     print("counts:", counts)
     print("pages:", dict(sorted(page_counts.items())))
     print("max title codepoints:", max_title)
+    print("max title lines:", max_title_lines)
     print("max page codepoints:", max_page)
+    print("max body lines:", max_body_lines)
     return 0
 
 
