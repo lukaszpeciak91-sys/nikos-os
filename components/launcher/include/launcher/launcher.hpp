@@ -19,6 +19,7 @@ enum class Action : std::uint8_t {
     OpenPowerDiag,
     OpenFlashlight,
     OpenSnake,
+    OpenFacts,
     BrightnessChanged,
     AutoPowerOffChanged,
     ShutdownRequested,
