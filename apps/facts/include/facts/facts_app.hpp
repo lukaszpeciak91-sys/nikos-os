@@ -109,8 +109,11 @@ private:
     std::uint8_t page_count_ = 0;
     std::uint8_t page_index_ = 0;
 
-    std::array<char, 128> wrapped_title_{};
-    std::array<char, 320> wrapped_body_{};
+    // Reader wrapping buffers are fixed and shared by the single composed
+    // FactsApp instance, so they live in static/BSS storage rather than the
+    // constrained ESP-IDF main-task stack.
+    static std::array<char, 128> wrapped_title_;
+    static std::array<char, 320> wrapped_body_;
 };
 
 }  // namespace nikos::facts
