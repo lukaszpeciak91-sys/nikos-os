@@ -14,7 +14,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
-- `Narzędzia` contains `RadioLab`, `PowerDiag`, `Latarka`, and visible `Powrót`; RadioLab, PowerDiag, and Flashlight remain application siblings launched through the tools category.
+- `Narzędzia` exposes `PowerDiag`, `Latarka`, and visible `Powrót`. RadioLab remains compiled and preserved as a diagnostic application, but has no user-visible launcher entry to prevent accidental high-power field-test sessions. PowerDiag and Flashlight remain launched through the tools category.
 - `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes RTC-backed `HH:MM`, `USTAW CZAS`, `USTAW DATE`, `KALENDARZ`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT` through a local scrolling viewport. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
