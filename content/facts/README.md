@@ -1,8 +1,9 @@
 # Facts source dataset
 
-This directory contains the editorial source dataset for the future offline
-`Ciekawostki` / Facts application. It is authoring-time content only; firmware
-generation and runtime integration are intentionally outside this foundation.
+This directory contains the authoritative editorial source dataset for the
+offline `Ciekawostki` / Facts application. Runtime firmware assets are
+generated deterministically from these JSONL files; the JSONL remains the source
+of truth and is not loaded by the device at runtime.
 
 ## Categories and release target
 
@@ -42,13 +43,12 @@ set for every category.
 `title` is required short Polish editorial metadata (1–48 Unicode characters,
 nonblank, trimmed, without control characters). It is stored separately from
 the two fact sentences and does not count toward the 180-character `text` limit.
-Whether titles will be displayed on the M5Stick is deliberately undecided;
-adding titles now does not add a screen or change the existing two-panel design.
+Titles are displayed by Ciekawostki in the category browser and reader.
 
 `source` is required editorial provenance for verification. `source` and
-`note` are editorial metadata and may be stripped from generated firmware data
-later. Unlike `source` and `note`, `title` is preserved in the authoring dataset
-for a possible future browsing / read-history UI, without committing to one.
+`note` remain authoring-only metadata and are deliberately stripped from
+generated firmware assets. Runtime data contains only stable `id`, `title`,
+and `text`.
 
 Fact `text` must be natural Polish with correct Polish diacritics and is limited
 to 180 Unicode characters.
@@ -69,6 +69,22 @@ python tools/validate_facts.py --release
 
 Development mode accepts 0..100 facts in each category. Release mode requires
 exactly 100 facts in every category and exactly 600 total.
+
+Generate firmware assets:
+
+```text
+python tools/generate_facts.py
+```
+
+Verify that committed generated assets are reproducible without modifying them:
+
+```text
+python tools/generate_facts.py --check
+python tools/validate_facts_runtime.py
+```
+
+The runtime generator preserves UTF-8 `id/title/text` and never copies
+editorial `source/note`.
 
 ## Contribution flow
 

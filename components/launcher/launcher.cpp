@@ -559,7 +559,7 @@ Action Launcher::update(const board::InputState& input)
         if (input.secondary_short) {
             entertainment_selection_ =
                 static_cast<std::uint8_t>(
-                    (entertainment_selection_ + 1U) % 2U);
+                    (entertainment_selection_ + 1U) % 3U);
             render();
             return Action::None;
         }
@@ -567,6 +567,9 @@ Action Launcher::update(const board::InputState& input)
         if (input.primary_short) {
             if (entertainment_selection_ == 0U) {
                 return Action::OpenSnake;
+            }
+            if (entertainment_selection_ == 1U) {
+                return Action::OpenFacts;
             }
 
             screen_ = Screen::Main;
@@ -1675,7 +1678,7 @@ void Launcher::render_entertainment()
 
     board_.draw_text_region(
         14,
-        14,
+        10,
         212,
         20,
         "ROZRYWKA",
@@ -1683,45 +1686,30 @@ void Launcher::render_entertainment()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[2] = {
+    constexpr const char* kItems[3] = {
         "Snake",
+        "Ciekawostki",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 2; ++index) {
+    for (std::uint8_t index = 0; index < 3U; ++index) {
         const bool selected = index == entertainment_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(48 + index * 25);
+            static_cast<std::int16_t>(39 + index * 24);
 
-        if (index == 0U) {
-            board_.draw_text_region(
-                22,
-                y,
-                196,
-                21,
-                kItems[index],
-                2,
-                selected
-                    ? board::DisplayColor::PrimaryText
-                    : board::DisplayColor::SecondaryText,
-                selected
-                    ? board::DisplayColor::Surface
-                    : board::DisplayColor::Background);
-        } else {
-            board_.draw_text_region(
-                22,
-                y,
-                196,
-                21,
-                kItems[index],
-                2,
-                selected
-                    ? board::DisplayColor::PrimaryText
-                    : board::DisplayColor::SecondaryText,
-                selected
-                    ? board::DisplayColor::Surface
-                    : board::DisplayColor::Background);
-        }
+        board_.draw_text_region(
+            22,
+            y,
+            196,
+            21,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
 
         if (selected) {
             draw_selection_marker(
