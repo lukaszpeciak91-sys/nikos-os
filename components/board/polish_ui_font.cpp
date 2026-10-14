@@ -6,7 +6,9 @@ namespace nikos::board::detail {
 namespace {
 
 // Generated from DejaVuSans.ttf at 9px.
-// Coverage is intentionally limited to ASCII plus Polish letters used by Nikoś OS.
+// Core coverage is ASCII plus Polish letters used by Nikoś OS. Facts v0.1
+// adds glyph aliases for the small set of extra UTF-8 codepoints present in
+// the approved offline dataset; source strings remain byte-for-byte unchanged.
 const std::uint8_t kPolishUiBitmaps[] PROGMEM = {
     0x44, 0x44, 0x40, 0x40, 0x55, 0x00, 0x00, 0x00, 0x14, 0x14, 0x7E, 0x14, 0x7E, 0x28, 0x28, 0x21,
     0xEA, 0x38, 0x38, 0xAF, 0x08, 0xE4, 0x52, 0x2A, 0x1F, 0xE1, 0x51, 0x28, 0x9C, 0x18, 0x48, 0x81,
@@ -162,17 +164,44 @@ const lgfx::GFXglyph kPolishUiGlyphs[] PROGMEM = {
     {  585,  5,  7,  5,   0,  -7 },
     {  590,  6,  9,  6,   0,  -9 },
     {  597,  5,  7,  5,   0,  -7 },
+    {  415,  6,  5,  6,   0,  -5 }, // U+00B0 -> "o"
+    {  157,  7,  7,  6,   0,  -7 }, // U+00C1 -> "A"
+    {  170,  6,  7,  6,   0,  -7 }, // U+00C7 -> "C"
+    {  348,  6,  5,  6,   0,  -5 }, // U+00E0 -> "a"
+    {  348,  6,  5,  6,   0,  -5 }, // U+00E1 -> "a"
+    {  368,  6,  5,  6,   0,  -5 }, // U+00E9 -> "e"
+    {  388,  3,  7,  2,   0,  -7 }, // U+00ED -> "i"
+    {  415,  6,  5,  6,   0,  -5 }, // U+00F5 -> "o"
+    {  415,  6,  5,  6,   0,  -5 }, // U+00F6 -> "o"
+    {  441,  6,  5,  6,   0,  -5 }, // U+00FC -> "u"
+    {   57,  3,  3,  3,   0,  -3 }, // U+2013 -> "-"
+    {   57,  3,  3,  3,   0,  -3 }, // U+2014 -> "-"
+    {   36,  2,  7,  2,   0,  -7 }, // U+2019 -> "'"
+    {    4,  4,  7,  4,   0,  -7 }, // U+201D -> "\""
+    {    4,  4,  7,  4,   0,  -7 }, // U+201E -> "\""
 };
 
 const lgfx::EncodeRange kPolishUiRanges[] PROGMEM = {
     { 0x0020, 0x007E, 0 },
+    { 0x00B0, 0x00B0, 113 },
+    { 0x00C1, 0x00C1, 114 },
+    { 0x00C7, 0x00C7, 115 },
     { 0x00D3, 0x00D3, 95 },
+    { 0x00E0, 0x00E1, 116 },
+    { 0x00E9, 0x00E9, 118 },
+    { 0x00ED, 0x00ED, 119 },
     { 0x00F3, 0x00F3, 96 },
+    { 0x00F5, 0x00F6, 120 },
+    { 0x00FC, 0x00FC, 122 },
     { 0x0104, 0x0107, 97 },
     { 0x0118, 0x0119, 101 },
     { 0x0141, 0x0144, 103 },
     { 0x015A, 0x015B, 107 },
     { 0x0179, 0x017C, 109 },
+    { 0x2013, 0x2014, 123 },
+    { 0x2019, 0x2019, 125 },
+    { 0x201D, 0x201E, 126 },
+
 };
 
 }  // namespace
@@ -181,7 +210,7 @@ const lgfx::GFXfont kPolishUiFont PROGMEM = {
     const_cast<std::uint8_t*>(kPolishUiBitmaps),
     const_cast<lgfx::GFXglyph*>(kPolishUiGlyphs),
     0x0020,
-    0x017C,
+    0x201E,
     12,
     static_cast<std::uint16_t>(sizeof(kPolishUiRanges) / sizeof(kPolishUiRanges[0])),
     const_cast<lgfx::EncodeRange*>(kPolishUiRanges),
