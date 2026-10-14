@@ -3,6 +3,7 @@
 #include "clock/clock_service.hpp"
 #include "communicator/communicator_app.hpp"
 #include "countdown/countdown_service.hpp"
+#include "facts/facts_app.hpp"
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
 #include "power/display_lifecycle.hpp"
@@ -52,6 +53,7 @@ enum class RuntimeState : std::uint8_t {
     Communicator,
     PowerDiag,
     Flashlight,
+    Facts,
     Snake,
     RadioLab,
 };
@@ -691,6 +693,7 @@ void redraw_runtime_ui(
     nikos::power_diag::PowerDiagApp& power_diag,
     nikos::power_diag::PowerDiagSession& power_diag_session,
     nikos::flashlight::FlashlightApp& flashlight,
+    nikos::facts::FactsApp& facts,
     nikos::snake::SnakeApp& snake,
     nikos::radiolab::RadioLabApp& radiolab)
 {
@@ -703,6 +706,9 @@ void redraw_runtime_ui(
             break;
         case RuntimeState::Flashlight:
             flashlight.redraw();
+            break;
+        case RuntimeState::Facts:
+            facts.redraw();
             break;
         case RuntimeState::Snake:
             snake.redraw();
@@ -730,6 +736,7 @@ void enter_communicator_for_incoming(
     RuntimeState& state,
     bool& resume_snake_after_communicator,
     bool& resume_flashlight_after_communicator,
+    bool& resume_facts_after_communicator,
     nikos::communicator::CommunicatorApp& communicator,
     nikos::flashlight::FlashlightApp& flashlight)
 {
@@ -738,11 +745,14 @@ void enter_communicator_for_incoming(
     } else if (state == RuntimeState::Flashlight) {
         flashlight.prepare_for_foreground_takeover();
         resume_flashlight_after_communicator = true;
+    } else if (state == RuntimeState::Facts) {
+        resume_facts_after_communicator = true;
     }
 
     if (state == RuntimeState::Launcher
         || state == RuntimeState::PowerDiag
         || state == RuntimeState::Flashlight
+        || state == RuntimeState::Facts
         || state == RuntimeState::Snake) {
         communicator.begin();
         state = RuntimeState::Communicator;
@@ -994,12 +1004,14 @@ extern "C" void app_main(void)
     nikos::power_diag::PowerDiagSession power_diag_session;
     nikos::power_diag::PowerDiagApp power_diag(board);
     nikos::flashlight::FlashlightApp flashlight(board, display_lifecycle);
+    nikos::facts::FactsApp facts(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
 
     bool communicator_enabled = false;
     bool resume_messaging_after_radiolab = false;
     bool resume_snake_after_communicator = false;
     bool resume_flashlight_after_communicator = false;
+    bool resume_facts_after_communicator = false;
 
     RuntimeState state = RuntimeState::Launcher;
     bool clock_glance_active = false;
@@ -1080,6 +1092,9 @@ extern "C" void app_main(void)
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
+                } else if (resume_facts_after_communicator) {
+                    resume_facts_after_communicator = false;
+                    state = RuntimeState::Facts;
                 }
 
                 charging_mode.communication_active = true;
@@ -1108,6 +1123,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator = true;
                 } else if (state == RuntimeState::Flashlight) {
                     resume_flashlight_after_communicator = true;
+                } else if (state == RuntimeState::Facts) {
+                    resume_facts_after_communicator = true;
                 }
                 state = RuntimeState::Communicator;
             } else if (
@@ -1130,6 +1147,7 @@ extern "C" void app_main(void)
                 power_diag,
                 power_diag_session,
                 flashlight,
+                facts,
                 snake,
                 radiolab);
         }
@@ -1190,6 +1208,7 @@ extern "C" void app_main(void)
                     power_diag,
                     power_diag_session,
                     flashlight,
+                    facts,
                     snake,
                     radiolab);
             }
@@ -1381,6 +1400,7 @@ extern "C" void app_main(void)
                     power_diag,
                     power_diag_session,
                     flashlight,
+                    facts,
                     snake,
                     radiolab);
 
@@ -1595,6 +1615,7 @@ extern "C" void app_main(void)
                 power_diag,
                 power_diag_session,
                 flashlight,
+                facts,
                 snake,
                 radiolab);
             }
@@ -1627,6 +1648,7 @@ extern "C" void app_main(void)
                 state,
                 resume_snake_after_communicator,
                 resume_flashlight_after_communicator,
+                resume_facts_after_communicator,
                 communicator,
                 flashlight);
 
@@ -1662,6 +1684,7 @@ extern "C" void app_main(void)
                 power_diag,
                 power_diag_session,
                 flashlight,
+                facts,
                 snake,
                 radiolab);
 
@@ -1729,6 +1752,7 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
                     communicator,
                     flashlight);
             }
@@ -1757,6 +1781,7 @@ extern "C" void app_main(void)
                 power_diag,
                 power_diag_session,
                 flashlight,
+                facts,
                 snake,
                 radiolab);
             } else if (
@@ -1783,6 +1808,7 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
                     communicator,
                     flashlight);
             } else if (launcher_visible) {
@@ -1871,6 +1897,11 @@ extern "C" void app_main(void)
                     snake.begin();
                     state = RuntimeState::Snake;
                 } else if (
+                    action == nikos::launcher::Action::OpenFacts) {
+                    display_lifecycle.note_visible_activity();
+                    facts.begin();
+                    state = RuntimeState::Facts;
+                } else if (
                     action == nikos::launcher::Action::OpenFlashlight) {
                     display_lifecycle.note_visible_activity();
                     flashlight.begin();
@@ -1931,7 +1962,8 @@ extern "C" void app_main(void)
                 communicator_result = communicator.update(input);
 
             if ((resume_snake_after_communicator
-                    || resume_flashlight_after_communicator)
+                    || resume_flashlight_after_communicator
+                    || resume_facts_after_communicator)
                 && (communicator_result
                         == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested
                     || !communicator.timer_preemption_active())) {
@@ -1942,10 +1974,14 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator = false;
                     state = RuntimeState::Snake;
                     snake.redraw();
-                } else {
+                } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
                     flashlight.redraw();
+                } else {
+                    resume_facts_after_communicator = false;
+                    state = RuntimeState::Facts;
+                    facts.redraw();
                 }
             } else if (
                 communicator_result
@@ -1970,6 +2006,7 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
                     communicator,
                     flashlight);
             } else if (
@@ -2009,6 +2046,7 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
                     communicator,
                     flashlight);
             } else if (
@@ -2022,6 +2060,27 @@ extern "C" void app_main(void)
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
+        } else if (state == RuntimeState::Facts) {
+            if (communicator_enabled
+                && communicator.process_incoming()) {
+                enter_communicator_for_incoming(
+                    state,
+                    resume_snake_after_communicator,
+                    resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
+                    communicator,
+                    flashlight);
+            } else if (
+                display_lifecycle.state()
+                    != nikos::power::DisplayState::DisplayOff
+                && facts.update(input)
+                    == nikos::facts::FactsApp::UpdateResult::ExitRequested) {
+                facts.end();
+                display_lifecycle.note_visible_activity();
+                launcher.begin_entertainment(
+                    communicator_status(communicator_enabled, messaging));
+                state = RuntimeState::Launcher;
+            }
         } else if (state == RuntimeState::Snake) {
             if (communicator_enabled
                 && communicator.process_incoming()) {
@@ -2029,6 +2088,7 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
                     communicator,
                     flashlight);
             } else if (
