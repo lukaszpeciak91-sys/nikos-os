@@ -715,3 +715,11 @@ Clock Glance remains an `app_main`-owned transient overlay with the same wake, a
 Countdown and Stopwatch remain monotonic and have no RTC/date coupling. Timezone, DST, NTP, Internet/system time, alarms, reminders, events, birthdays, holidays, week numbers, recurring items, and calendar/date value persistence outside the RTC remain out of scope.
 
 **Rationale:** The hardware RTC date is useful product state, but PCF8563's shared VL semantics mean date trust needs one explicit user-configuration bit that survives time writes without creating a datetime database or broader civil-time subsystem.
+
+## D-042 — Facts titles and content-only catalogue
+
+**Status:** Accepted
+
+The Facts authoring dataset contains 600 Polish records across six categories, with stable `category-NNN` IDs, a short required `title` (up to 48 Unicode characters), a `text` body (up to 180 Unicode characters), and editorial `source` plus optional `note`. Titles are needed for the approved future title-list browser. The catalogue PR is data-only: it does not implement browsing, display pagination, buttons or persistence.
+
+**Rationale:** Keep content and its validator independent of the future 240×135 LCD implementation. Reading UI is a separate integration change.
