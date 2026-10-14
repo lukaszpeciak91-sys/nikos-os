@@ -44,6 +44,9 @@ void draw_selection_marker(
 
 namespace nikos::facts {
 
+std::array<char, 128> FactsApp::wrapped_title_{};
+std::array<char, 320> FactsApp::wrapped_body_{};
+
 FactsApp::FactsApp(board::Board& board)
     : board_(board)
 {
