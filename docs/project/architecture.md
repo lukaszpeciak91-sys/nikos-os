@@ -15,7 +15,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
 - `Narzędzia` exposes `PowerDiag`, `Latarka`, and visible `Powrót`. RadioLab remains compiled and preserved as a diagnostic application, but has no user-visible launcher entry to prevent accidental high-power field-test sessions. PowerDiag and Flashlight remain launched through the tools category.
-- `Rozrywka` contains `Snake` and visible `Powrót`. Snake is a dedicated lightweight application runtime, not Launcher-owned game logic. `Zegar` exposes RTC-backed `HH:MM`, `USTAW CZAS`, `USTAW DATE`, `KALENDARZ`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT` through a local scrolling viewport. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
+- `Rozrywka` contains `Snake`, `Ciekawostki`, and visible `Powrót`. Snake and Facts are dedicated application runtimes; Launcher owns only category entry/actions. `Zegar` exposes RTC-backed `HH:MM`, `USTAW CZAS`, `USTAW DATE`, `KALENDARZ`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT` through a local scrolling viewport. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -37,6 +37,44 @@ Owns M5-specific hardware integration:
 - M5-specific hardware integration
 
 Flashlight display helpers do not mutate the configured Active/Dimmed brightness profile and do not change display rotation.
+
+### facts
+
+Owns the offline Ciekawostki runtime and its generated read-only catalogue.
+
+The authoring source remains the six UTF-8 JSONL files under `content/facts`.
+`tools/generate_facts.py` deterministically emits compile-time C++ assets with
+only stable ID, title, and text; editorial `source` and `note` never enter
+runtime firmware data. The release catalogue is fixed at six categories × 100
+facts = 600 facts. Runtime lookup is direct over fixed arrays; there is no
+filesystem, network fetch, persistence, content database, dynamic registry, or
+heap-owned page model.
+
+`FactsApp` owns three local views: main menu, one category title list, and
+reader. Random mode maps one flat 0..599 index across all categories and avoids
+only the immediately previous random fact. Category mode preserves numeric
+001..100 order and adds one selectable POWROT row. Reader state, current fact,
+page and list selection live in the app object, so DisplayLifecycle/system
+overlays and Communicator preemption can redraw the exact retained state.
+
+Reader pagination is deterministic and UTF-8 boundary-safe. It prefers the last
+sentence boundary between the two editorial sentences, then uses bounded
+word/codepoint splitting only when needed. Current release data validates to
+exactly two pages for every fact; the runtime supports up to four pages without
+allocation. The two reusable wrap buffers are static/BSS storage rather than
+the main-task stack.
+
+Facts is the scoped exception to normal ASCII-first product copy: its approved
+editorial content uses `Board::draw_polish_ui_text_region()` at scale 1.
+The existing compact DejaVu Sans subset is extended only with the exact extra
+codepoints occurring in the release dataset. Normal Launcher/Communicator
+typography remains on the D-023 Font0 path.
+
+`app_main` composes Facts like Snake: incoming Communicator traffic can
+preempt it, a resume flag preserves its exact reading/list state, and ordinary
+Timer/Battery/Clock Glance/Charging presentation ownership remains unchanged.
+Facts does not own radio, PMU, DisplayLifecycle, Auto Power-Off, Countdown,
+Stopwatch, Charging Lock, or persistence.
 
 ### clock
 
