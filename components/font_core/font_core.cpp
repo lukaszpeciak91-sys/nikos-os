@@ -77,6 +77,10 @@ std::uint8_t width_of(Mode mode, std::uint32_t cp, bool& supported) {
         if (cp > 0x7E || cp < 0x20) supported = false;
         return 6;
     }
+    if (mode == Mode::Composed && cp > 0x7E) {
+        const Accent translated = composed(cp);
+        if (translated.mark == 0) supported = false;
+    }
     const auto* g = glyph(mode == Mode::Composed
         ? static_cast<std::uint32_t>(
             static_cast<std::uint8_t>(composed(cp).base)) : cp);
@@ -102,6 +106,7 @@ Layout prepare(Mode mode, const char* text, std::int16_t max_width,
     bool supported = true;
     while (true) {
         const auto item = decode(cursor);
+        if (!item.valid) supported = false;
         const bool done = *cursor == '\0';
         const bool newline = *cursor == '\n';
         const bool separator = *cursor == ' ';
@@ -177,7 +182,9 @@ void draw_mark(board::Board& board, std::uint8_t mark, int x, int y,
     else if (mark == 2) { plot(5,0); plot(6,0); }
     else if (mark == 3) { plot(5,12); plot(4,13); plot(4,14); }
     else if (mark == 4) {
-        for (int k = 0; k < 7; ++k) plot(1+k, 9 - k/2);
+        // Lowercase l advances only four pixels. Keep the stroke inside
+        // that cell; uppercase L has sufficient room for the same mark.
+        for (int k = 0; k < 3; ++k) plot(1+k, 9-k);
     }
 }
 }
