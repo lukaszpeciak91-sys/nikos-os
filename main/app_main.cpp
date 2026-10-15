@@ -14,6 +14,7 @@
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
+#include "mini_racer/mini_racer_app.hpp"
 #include "storage/auto_power_off_store.hpp"
 #include "storage/signal_volume_store.hpp"
 #include "storage/rtc_date_configured_store.hpp"
@@ -58,6 +59,7 @@ enum class RuntimeState : std::uint8_t {
     SoundMeter,
     Facts,
     Snake,
+    MiniRacer,
     RadioLab,
 };
 
@@ -698,6 +700,7 @@ void redraw_runtime_ui(
     nikos::flashlight::FlashlightApp& flashlight,
     nikos::facts::FactsApp& facts,
     nikos::snake::SnakeApp& snake,
+    nikos::mini_racer::MiniRacerApp& mini_racer,
     nikos::radiolab::RadioLabApp& radiolab,
     nikos::sound_meter::SoundMeterApp& sound_meter)
 {
@@ -719,6 +722,9 @@ void redraw_runtime_ui(
             break;
         case RuntimeState::Snake:
             snake.redraw();
+            break;
+        case RuntimeState::MiniRacer:
+            mini_racer.redraw();
             break;
         case RuntimeState::RadioLab:
             radiolab.redraw();
@@ -742,6 +748,8 @@ void prepare_flashlight_for_foreground_takeover(
 void enter_communicator_for_incoming(
     RuntimeState& state,
     bool& resume_snake_after_communicator,
+    bool& resume_mini_racer_after_communicator,
+    nikos::mini_racer::MiniRacerApp& mini_racer,
     bool& resume_flashlight_after_communicator,
     bool& resume_facts_after_communicator,
     nikos::communicator::CommunicatorApp& communicator,
@@ -749,6 +757,9 @@ void enter_communicator_for_incoming(
 {
     if (state == RuntimeState::Snake) {
         resume_snake_after_communicator = true;
+    } else if (state == RuntimeState::MiniRacer) {
+        mini_racer.suspend();
+        resume_mini_racer_after_communicator = true;
     } else if (state == RuntimeState::Flashlight) {
         flashlight.prepare_for_foreground_takeover();
         resume_flashlight_after_communicator = true;
@@ -760,7 +771,8 @@ void enter_communicator_for_incoming(
         || state == RuntimeState::PowerDiag
         || state == RuntimeState::Flashlight
         || state == RuntimeState::Facts
-        || state == RuntimeState::Snake) {
+        || state == RuntimeState::Snake
+        || state == RuntimeState::MiniRacer) {
         communicator.begin();
         state = RuntimeState::Communicator;
     }
@@ -1049,12 +1061,14 @@ extern "C" void app_main(void)
     nikos::sound_meter::SoundMeterApp sound_meter(board);
     nikos::facts::FactsApp facts(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
+    nikos::mini_racer::MiniRacerApp mini_racer(board, display_lifecycle);
 
     bool communicator_enabled = false;
     bool resume_messaging_after_radiolab = false;
     bool resume_messaging_after_meter = false;
     bool resume_countdown_after_meter = false;
     bool resume_snake_after_communicator = false;
+    bool resume_mini_racer_after_communicator = false;
     bool resume_flashlight_after_communicator = false;
     bool resume_facts_after_communicator = false;
 
@@ -1212,6 +1226,7 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
+                mini_racer,
                 radiolab,
                 sound_meter);
         }
@@ -1275,6 +1290,7 @@ extern "C" void app_main(void)
                     flashlight,
                     facts,
                     snake,
+                    mini_racer,
                     radiolab,
                     sound_meter);
             }
@@ -1471,6 +1487,7 @@ extern "C" void app_main(void)
                     flashlight,
                     facts,
                     snake,
+                    mini_racer,
                     radiolab,
 
                     sound_meter);
@@ -1643,6 +1660,8 @@ extern "C" void app_main(void)
             enter_communicator_for_incoming(
                 state,
                 resume_snake_after_communicator,
+                resume_mini_racer_after_communicator,
+                mini_racer,
                 resume_flashlight_after_communicator,
                 resume_facts_after_communicator,
                 communicator,
@@ -1704,6 +1723,7 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
+                mini_racer,
                 radiolab,
 
                 sound_meter);
@@ -1736,6 +1756,8 @@ extern "C" void app_main(void)
             enter_communicator_for_incoming(
                 state,
                 resume_snake_after_communicator,
+                resume_mini_racer_after_communicator,
+                mini_racer,
                 resume_flashlight_after_communicator,
                 resume_facts_after_communicator,
                 communicator,
@@ -1775,6 +1797,7 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
+                mini_racer,
                 radiolab,
 
                 sound_meter);
@@ -1843,6 +1866,8 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state,
                     resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    mini_racer,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -1875,6 +1900,7 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
+                mini_racer,
                 radiolab,
 
                 sound_meter);
@@ -1902,6 +1928,8 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state,
                     resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    mini_racer,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -1998,6 +2026,11 @@ extern "C" void app_main(void)
                         communicator,
                         messaging,
                         radio);
+                } else if (
+                    action == nikos::launcher::Action::OpenMiniRacer) {
+                    display_lifecycle.note_visible_activity();
+                    mini_racer.begin();
+                    state = RuntimeState::MiniRacer;
                 } else if (
                     action == nikos::launcher::Action::OpenSnake) {
                     display_lifecycle.note_visible_activity();
@@ -2108,6 +2141,7 @@ extern "C" void app_main(void)
                 communicator_result = communicator.update(input);
 
             if ((resume_snake_after_communicator
+                    || resume_mini_racer_after_communicator
                     || resume_flashlight_after_communicator
                     || resume_facts_after_communicator)
                 && (communicator_result
@@ -2120,6 +2154,10 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator = false;
                     state = RuntimeState::Snake;
                     snake.redraw();
+                } else if (resume_mini_racer_after_communicator) {
+                    resume_mini_racer_after_communicator = false;
+                    state = RuntimeState::MiniRacer;
+                    mini_racer.resume();
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
@@ -2152,6 +2190,8 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state,
                     resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    mini_racer,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2214,6 +2254,8 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state,
                     resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    mini_racer,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2236,6 +2278,8 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state,
                     resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    mini_racer,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2251,6 +2295,26 @@ extern "C" void app_main(void)
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
+        } else if (state == RuntimeState::MiniRacer) {
+            if (communicator_enabled && communicator.process_incoming()) {
+                enter_communicator_for_incoming(
+                    state,
+                    resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    mini_racer,
+                    resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
+                    communicator,
+                    flashlight);
+            } else if (display_lifecycle.state()
+                       != nikos::power::DisplayState::DisplayOff
+                       && mini_racer.update(input)
+                          == nikos::mini_racer::MiniRacerApp::UpdateResult::ExitRequested) {
+                mini_racer.end();
+                launcher.begin_entertainment(
+                    communicator_status(communicator_enabled, messaging));
+                state = RuntimeState::Launcher;
+            }
         } else if (state == RuntimeState::Snake) {
             if (communicator_enabled
                 && state != RuntimeState::SoundMeter
@@ -2258,6 +2322,8 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state,
                     resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    mini_racer,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
