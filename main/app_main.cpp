@@ -1069,7 +1069,7 @@ extern "C" void app_main(void)
     nikos::power_diag::PowerDiagApp power_diag(board);
     nikos::flashlight::FlashlightApp flashlight(board, display_lifecycle);
     nikos::sound_meter::SoundMeterApp sound_meter(board);
-    nikos::facts::FactsApp facts(board);
+    nikos::facts::FactsApp facts(board, settings);
     nikos::font_lab::FontLabApp font_lab(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
     nikos::mini_racer::MiniRacerApp mini_racer(board, display_lifecycle);

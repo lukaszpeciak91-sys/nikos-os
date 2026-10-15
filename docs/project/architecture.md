@@ -525,3 +525,33 @@ No NVS, theme, orientation, radio or power policy is changed.
 ### Font selector UI pilot (stacked PR A)
 
 Boot-scoped `settings::State::font_mode` defaults to STANDARD. The Launcher owns `USTAWIENIA > CZCIONKA` and pilots three font modes on its Main, Tools, Entertainment and Settings selectable rows plus the selector screen. STANDARD routes these rows through the unchanged Font0 Board API at their existing scale 2. Experimental modes use a per-Launcher `font_core::Renderer` and explicit fit rejection; they do not intercept normal Board draw calls or affect other applications. No NVS, orientation, radio, lifecycle or redraw scheduling changes.
+
+### Facts reader and Quiz font pilot (stacked PR B)
+FactsApp receives the same boot-scoped font preference as Launcher without
+intercepting Board's global text path. The Facts main menu uses a three-row
+viewport and places QUIZ immediately before return. Category titles are
+shown individually at readable size with the preserved 0..100 SIDE/M5
+selection model, rather than clipping long names inside five small rows.
+
+All 600 facts preserve their original data. Reader pagination builds bounded
+byte spans on whole-word boundaries, measured against the active font at
+232 px, with up to two full lines per page and twelve fixed page descriptors.
+STANDARD intentionally retains the project's Polish GFXfont at scale 2
+inside Facts, rather than Font0 (which cannot represent Polish UTF-8).
+COMPOSED and PRE-RENDERED use the shared font core. Every failed fit is
+reported visibly, never silently truncated. The prior two-sentence split
+remains a preference, with more pages when needed. The page index remains
+part of the existing FactsApp state through overlays.
+
+Quiz keeps ten-question scoring and answer selection unchanged. When a
+question or explanation needs multiple font-width-derived parts, M5
+explicitly advances text first and only then confirms/advances gameplay.
+Readable answers and feedback follow the active font; selection and progress
+are preserved during Communicator preemption. A small on-screen page
+indicator identifies this additional M5 action.
+
+The raster font corpus is extended by fifteen verified Unicode symbols
+actually used by the immutable 600 Facts (degree sign, typographic quotes,
+dashes and accented foreign names). COMPOSED falls back to the same
+documented pre-rasterized glyphs for those non-Polish characters; for Polish
+letters it retains diacritic composition. No general font-framework expansion.
