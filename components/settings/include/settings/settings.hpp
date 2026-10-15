@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "ui_theme/ui_theme.hpp"
+#include "font_core/font_core.hpp"
 
 namespace nikos::settings {
 
@@ -46,6 +47,7 @@ struct State {
     CommunicatorView communicator_view = CommunicatorView::List;
     ui_theme::Theme theme = ui_theme::Theme::Nikos;
     bool auto_power_off_enabled = true;
+    font_core::Mode font_mode = font_core::Mode::Standard;
 };
 
 }  // namespace nikos::settings
