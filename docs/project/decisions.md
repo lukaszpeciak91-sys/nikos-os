@@ -807,3 +807,7 @@ over 120 IDs; no within-round repeats or backtracking. Feedback is manually
 advanced, and the final score ranges 0–10. Preserve approved dataset wording,
 answers, explanations and source IDs without editorial auto-shortening.
 Retain state across Communicator and system overlays via FactsApp redraw.
+
+### Quiz R1 layout validation
+
+Do not truncate quiz strings or approximate glyph width by Unicode codepoint count. Keep the original approved 120 records and validate wrapping against the project's actual compiled Polish UI font. Reuse an isolated Board text-width accessor instead of modifying the existing global text style or introducing a generic layout framework.
