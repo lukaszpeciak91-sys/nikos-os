@@ -826,3 +826,15 @@ but excluded from v0.1 because it adds a new rendering/dependency stack on
 the existing LovyanGFX LCD ownership path; neither adapter compatibility nor
 ESP32 flash impact has been proven. The tool should only be used to compare
 appearance on real hardware before choosing an OS-wide typography change.
+
+### Font rendering core v0.1 — validation before global integration
+
+Keep a small, stateless rendering contract near Board rather than migrating
+fixed-layout application screens prematurely. STANDARD invokes the existing
+Font0 Board path, while COMPOSED uses positioned diacritic overlays on
+independent raster bases and PRE-RENDERED dynamically composes offline
+glyph rasters. A failed fit must not draw partial content. Mode selection
+is scoped to the Font Lab instance and defaults to STANDARD after every
+entry; no persistent selection or global UI migration is authorized yet.
+Physical legibility, speed and accented character placement will determine
+whether the renderer can be piloted on ordinary application screens.
