@@ -71,35 +71,45 @@ void Quiz::redraw() {
 }
 void Quiz::draw_wrapped(const char* text, std::int16_t y,
                         std::uint8_t max_lines) {
-    // UTF-8 boundary-safe word wrapping, with fixed storage and no allocation.
-    char line[160]{};
+    // Break only at full UTF-8 word boundaries using the installed Polish
+    // font's actual horizontal advances. The asset validator guarantees fit.
+    constexpr std::size_t kBufferSize = 160;
+    constexpr std::int32_t kMaxWidth = 226;
+    char line[kBufferSize]{};
     std::size_t offset = 0;
-    std::uint8_t line_no = 0;
     const std::size_t length = std::strlen(text);
-    while (offset < length && line_no < max_lines) {
+    std::uint8_t line_no = 0;
+    while (offset < length) {
         while (offset < length && text[offset] == ' ') ++offset;
-        std::size_t end = offset;
-        std::size_t previous_space = offset;
-        std::uint8_t cps = 0;
-        while (end < length && cps < 24U) {
-            if (text[end] == ' ') previous_space = end;
-            const unsigned char first = static_cast<unsigned char>(text[end]);
-            const std::size_t bytes = first < 0x80 ? 1U
-                : (first < 0xE0 ? 2U : (first < 0xF0 ? 3U : 4U));
-            if (end + bytes > length) break;
-            end += bytes;
-            ++cps;
+        if (offset == length) break;
+        std::size_t cursor = offset;
+        std::size_t accepted_end = offset;
+        while (cursor < length) {
+            std::size_t end = cursor;
+            while (end < length && text[end] != ' ') ++end;
+            const std::size_t bytes = end - offset;
+            if (bytes >= kBufferSize) break;
+            std::memcpy(line, text + offset, bytes);
+            line[bytes] = '\\0';
+            if (board_.polish_ui_text_width(line) > kMaxWidth) break;
+            accepted_end = end;
+            cursor = end;
+            while (cursor < length && text[cursor] == ' ') ++cursor;
         }
-        if (end < length && previous_space > offset) end = previous_space;
-        if (end <= offset) break;
-        const std::size_t bytes = end - offset;
-        if (bytes >= sizeof(line)) break;
+        if (accepted_end == offset || line_no >= max_lines) {
+            // Fail visibly rather than silently dropping the remainder.
+            board_.draw_text_region(7, y, 226, 17,
+                "QUIZ TEXT FIT ERROR", 1, board::DisplayColor::Danger);
+            return;
+        }
+        const std::size_t bytes = accepted_end - offset;
         std::memcpy(line, text + offset, bytes);
         line[bytes] = '\0';
-        board_.draw_polish_ui_text_region(7, static_cast<std::int16_t>(y + line_no * 15),
+        board_.draw_polish_ui_text_region(
+            7, static_cast<std::int16_t>(y + line_no * 15),
             226, 15, line, 1);
-        offset = end;
         ++line_no;
+        offset = accepted_end;
     }
 }
 void Quiz::render_question() {
