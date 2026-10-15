@@ -520,17 +520,20 @@ bool FactsApp::wrap_pixels(const char* text, std::size_t start,
 }
 
 void FactsApp::render_readable(const char* text, std::int16_t x,
-    std::int16_t y, std::int16_t width, std::int16_t height)
+    std::int16_t y, std::int16_t width, std::int16_t height,
+    board::DisplayColor foreground, board::DisplayColor background)
 {
     if (settings_.font_mode == font_core::Mode::Standard) {
-        board_.draw_polish_ui_text_region(x, y, width, height, text, 2);
+        board_.draw_polish_ui_text_region(
+            x, y, width, height, text, 2, foreground, background);
         return;
     }
     renderer_.select(settings_.font_mode);
-    const auto result = renderer_.draw(text, {x, y, width, height});
+    const auto result = renderer_.draw(
+        text, {x, y, width, height}, foreground, background);
     if (!result.fits || !result.supported) {
         board_.draw_text_region(x, y, width, height,
-            "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
+            "TEXT FIT ERROR", 1, board::DisplayColor::Danger, background);
     }
 }
 
@@ -636,13 +639,14 @@ void FactsApp::render_main_menu()
         if (wrap_pixels(kMainLabels[index], 0,
                 range_length(kMainLabels[index]), 194, 1,
                 wrapped_title_.data(), wrapped_title_.size())) {
-            render_readable(wrapped_title_.data(), 26, y, 194, 26);
+            render_readable(wrapped_title_.data(), 26, y, 194, 26,
+                color, selected ? board::DisplayColor::Surface
+                                : board::DisplayColor::Background);
         } else {
             board_.draw_text_region(26, y, 194, 22,
                 "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
         }
         if (selected) draw_selection_marker(board_, 16, y, 24);
-        (void)color;
     }
     board_.draw_text_region(14, 121, 212, 12,
         "M5 WYBIERZ | BOCZNY DALEJ", 1);
