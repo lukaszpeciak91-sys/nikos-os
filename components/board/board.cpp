@@ -521,6 +521,19 @@ void Board::draw_text_region(
     display.print(text);
 }
 
+std::int32_t Board::polish_ui_text_width(const char* utf8_text) const
+{
+    auto& display = M5.Display;
+    const lgfx::IFont* previous_font = display.getFont();
+    const lgfx::TextStyle previous_style = display.getTextStyle();
+    display.setFont(&detail::kPolishUiFont);
+    display.setTextSize(1);
+    const std::int32_t width = display.textWidth(utf8_text == nullptr ? "" : utf8_text);
+    display.setFont(previous_font);
+    display.setTextStyle(previous_style);
+    return width;
+}
+
 void Board::draw_polish_ui_text_region(
     std::int16_t x,
     std::int16_t y,
