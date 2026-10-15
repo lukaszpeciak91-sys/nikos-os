@@ -815,3 +815,14 @@ Do not truncate quiz strings or approximate glyph width by Unicode codepoint cou
 ### Mini Racer v0.1 — bounded two-lane arcade
 
 Implement a small dedicated game parallel to Snake, reusing Board graphics and existing Entertainment/runtime lifecycle. One obstacle at a time provides a conservative avoidability guarantee at all bounded speeds; adding concurrent enemies would require a separate reachability proof. Pause preserves exact game state, the wall-clock session remains capped at ten minutes (including pauses), and the maximum score remains volatile across rounds within the current boot. Communicator, POWER and charging policy retain system-level priority.
+
+### Font Lab diagnostic candidates
+The previous DejaVu subset and Unicode mapping revisions (`c84798d4`,
+`1ad8ea32`, `2ae2f763`) share one GFXfont/EncodeRange strategy; Font Lab
+does not count that as a new candidate. Three distinct display mechanisms
+are included: locally dotted Polish glyphs, independently composed accents,
+and separately generated complete sentence bitmaps. U8g2 was considered
+but excluded from v0.1 because it adds a new rendering/dependency stack on
+the existing LovyanGFX LCD ownership path; neither adapter compatibility nor
+ESP32 flash impact has been proven. The tool should only be used to compare
+appearance on real hardware before choosing an OS-wide typography change.
