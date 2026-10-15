@@ -128,6 +128,7 @@ public:
         std::uint8_t text_size,
         DisplayColor foreground = DisplayColor::PrimaryText,
         DisplayColor background = DisplayColor::Background);
+    std::int32_t polish_ui_text_width(const char* utf8_text) const;
     void draw_polish_ui_text_region(
         std::int16_t x,
         std::int16_t y,
