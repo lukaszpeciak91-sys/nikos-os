@@ -13,6 +13,11 @@ constexpr std::int32_t kRoadLeft = 5;
 constexpr std::int32_t kPlayerLeft = 33;
 constexpr std::int32_t kPlayerRight = 59;
 
+enum class State : std::uint8_t { Playing, Paused, GameOver, TimeLimit };
+inline State pause(State state) { return state == State::Playing ? State::Paused : state; }
+inline State resume(State state) { return state == State::Paused ? State::Playing : state; }
+inline State hit(State state) { return state == State::Playing ? State::GameOver : state; }
+
 struct Enemy {
     std::int32_t x_q8 = 0;
     std::uint8_t lane = 0;
