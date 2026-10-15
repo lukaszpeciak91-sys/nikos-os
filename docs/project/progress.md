@@ -249,3 +249,19 @@ and device validation are not yet confirmed. Per-pixel `Board::fill_rect`
 remains a performance concern: up to 192 inspected bits and one drawing call
 per set bit per glyph (plus region clearing), to be profiled on target.
 `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` remains unchanged.
+
+
+### 2026-10-15 — Font selector / Facts / Quiz integration candidate (PR #76)
+
+Recovered the actual stacked PR #72 and #73 changes onto main without resetting
+later Mini Racer or charging fixes. Launcher now exposes boot-scoped USTAWIENIA >
+CZCIONKA with STANDARD / COMPOSED / PRE-RENDERED. The optional Board text
+delegate applies experimental fonts to measured, supported, sufficiently
+sized text regions across applications; tight HUD and unsupported layouts
+retain native drawing. STANDARD remains unchanged. Facts/Quiz use their
+dedicated readable Unicode-aware pagination and keep original content.
+
+This is a source-level integration candidate, not a verified release.
+Hardware performance, fit/fallback coverage, complete runtime glyph
+correctness, stack watermarks, ESP-IDF image/partition size and the first
+physical-stick retest are pending. No merge or flash is authorized.
