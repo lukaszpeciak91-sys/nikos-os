@@ -392,6 +392,13 @@ void Launcher::begin_entertainment(
     render();
 }
 
+void Launcher::restore_signal_volume_preference(std::uint8_t level)
+{
+    settings_.signal_volume_level = level;
+    signal_volume_selection_ = level;
+    render();
+}
+
 void Launcher::restore_auto_power_off_preference(bool enabled)
 {
     settings_.auto_power_off_enabled = enabled;
@@ -958,7 +965,8 @@ Action Launcher::update(const board::InputState& input)
             if (settings_selection_ == 0U) {
                 signal_sound_selection_ =
                     signal_sound_index(settings_.signal_sound);
-                screen_ = Screen::SignalSound;
+                sound_menu_selection_ = 0;
+                screen_ = Screen::SoundMenu;
             } else if (settings_selection_ == 1U) {
                 brightness_selection_ =
                     brightness_index(settings_.brightness);
@@ -985,10 +993,59 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
-    if (screen_ == Screen::SignalSound) {
+    if (screen_ == Screen::SoundMenu) {
         if (input.secondary_long) {
             signal_sound_.stop();
             screen_ = Screen::Settings;
+        } else if (input.secondary_short) {
+            sound_menu_selection_ =
+                static_cast<std::uint8_t>((sound_menu_selection_ + 1U) % 3U);
+        } else if (input.primary_short) {
+            if (sound_menu_selection_ == 0U) {
+                signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
+                screen_ = Screen::SignalSound;
+            } else if (sound_menu_selection_ == 1U) {
+                signal_volume_selection_ = settings_.signal_volume_level;
+                screen_ = Screen::SignalVolume;
+            } else {
+                signal_sound_.stop();
+                screen_ = Screen::Settings;
+            }
+        }
+        render();
+        return Action::None;
+    }
+
+    if (screen_ == Screen::SignalVolume) {
+        if (input.secondary_long) {
+            signal_sound_.stop();
+            screen_ = Screen::SoundMenu;
+            render();
+            return Action::None;
+        }
+        if (input.secondary_short) {
+            signal_volume_selection_ =
+                static_cast<std::uint8_t>((signal_volume_selection_ + 1U) % 6U);
+            render();
+            return Action::None;
+        }
+        if (!input.primary_short) return Action::None;
+        if (signal_volume_selection_ == 5U) {
+            signal_sound_.stop();
+            screen_ = Screen::SoundMenu;
+            render();
+            return Action::None;
+        }
+        settings_.signal_volume_level = signal_volume_selection_;
+        signal_sound_.stop();
+        render();
+        return Action::SignalVolumeChanged;
+    }
+
+    if (screen_ == Screen::SignalSound) {
+        if (input.secondary_long) {
+            signal_sound_.stop();
+            screen_ = Screen::SoundMenu;
             render();
             return Action::None;
         }
@@ -1007,8 +1064,8 @@ Action Launcher::update(const board::InputState& input)
 
         if (signal_sound_selection_ == 3U) {
             signal_sound_.stop();
-            settings_selection_ = 0;
-            screen_ = Screen::Settings;
+            sound_menu_selection_ = 0;
+            screen_ = Screen::SoundMenu;
             render();
             return Action::None;
         }
@@ -1445,6 +1502,12 @@ void Launcher::render()
             break;
         case Screen::Settings:
             render_settings();
+            break;
+        case Screen::SoundMenu:
+            render_sound_menu();
+            break;
+        case Screen::SignalVolume:
+            render_signal_volume();
             break;
         case Screen::SignalSound:
             render_signal_sound();
@@ -2721,6 +2784,50 @@ void Launcher::render_settings()
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
+}
+
+void Launcher::render_sound_menu()
+{
+    clear_shell(board_);
+    board_.draw_text_region(14, 12, 212, 20, "DZWIEK", 2);
+    constexpr const char* kItems[3] = {"Melodia", "Glosnosc", "Powrot"};
+    for (std::uint8_t i = 0; i < 3; ++i) {
+        const std::int16_t y = static_cast<std::int16_t>(39 + i * 23);
+        const bool selected = i == sound_menu_selection_;
+        board_.draw_text_region(22, y, 194, 20, kItems[i], 2,
+            selected ? board::DisplayColor::PrimaryText
+                     : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface
+                     : board::DisplayColor::Background);
+        if (selected) draw_selection_marker(board_, 14, y, 18);
+    }
+    board_.draw_text_region(14, 116, 212, 14, "M5 WYBIERZ | BOCZNY DALEJ",
+        1, board::DisplayColor::SecondaryText);
+}
+
+void Launcher::render_signal_volume()
+{
+    clear_shell(board_);
+    board_.draw_text_region(14, 7, 212, 20, "GLOSNOSC", 2);
+    constexpr const char* kItems[6] = {"0%", "25%", "50%", "75%", "100%", "Powrot"};
+    std::uint8_t first = signal_volume_selection_ >= 4U
+        ? static_cast<std::uint8_t>(signal_volume_selection_ - 3U) : 0U;
+    for (std::uint8_t slot = 0; slot < 4U; ++slot) {
+        const std::uint8_t i = static_cast<std::uint8_t>(first + slot);
+        const std::int16_t y = static_cast<std::int16_t>(31 + slot * 20);
+        const bool selected = i == signal_volume_selection_;
+        board_.draw_text_region(22, y, 184, 18, kItems[i], 2,
+            selected ? board::DisplayColor::PrimaryText
+                     : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface
+                     : board::DisplayColor::Background);
+        if (selected) draw_selection_marker(board_, 14, y, 16);
+        if (i == settings_.signal_volume_level)
+            board_.fill_circle(211, static_cast<std::int16_t>(y + 7), 3,
+                board::DisplayColor::Accent);
+    }
+    board_.draw_text_region(14, 116, 212, 14, "M5 WYBIERZ | BOCZNY DALEJ",
+        1, board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_signal_sound()
