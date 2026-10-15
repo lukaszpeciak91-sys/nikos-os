@@ -215,3 +215,16 @@ images. U8g2 is recorded as a researched-but-excluded candidate. The compact
 assets are fixed and compiled into firmware. ESP-IDF 5.5.5 compile,
 flash/RAM deltas and physical LCD readability/diacritic alignment still
 require verification; the application is not a production-wide font change.
+
+### Font rendering core v0.1 — implementation candidate
+
+A focused unmerged PR introduces a reusable, bounded UTF-8 rendering core
+for Font Lab only: unchanged STANDARD fallback, dynamically composed Polish
+letters, and offline-generated per-glyph PRE-RENDERED raster text. Removed
+obsolete pre-rasterized complete sentence images while preserving six Font
+Lab samples and their navigation. Added native C++ host-test source using
+a stub Board for glyph metrics, line wrapping, invalid UTF-8, text-fit,
+display clipping and default STANDARD behavior. ESP-IDF 5.5.5 compilation,
+firmware size delta, stack high-water and LCD visual validation remain
+mandatory prior to merge. Main-task stack configuration is untouched
+(`CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` already exists on main).
