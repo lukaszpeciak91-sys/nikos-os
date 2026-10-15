@@ -25,6 +25,7 @@
 #include "nvs_flash.h"
 
 #include "flashlight/flashlight_app.hpp"
+#include "sound_meter/sound_meter_app.hpp"
 
 namespace {
 
@@ -53,6 +54,7 @@ enum class RuntimeState : std::uint8_t {
     Communicator,
     PowerDiag,
     Flashlight,
+    SoundMeter,
     Facts,
     Snake,
     RadioLab,
@@ -695,7 +697,8 @@ void redraw_runtime_ui(
     nikos::flashlight::FlashlightApp& flashlight,
     nikos::facts::FactsApp& facts,
     nikos::snake::SnakeApp& snake,
-    nikos::radiolab::RadioLabApp& radiolab)
+    nikos::radiolab::RadioLabApp& radiolab,
+    nikos::sound_meter::SoundMeterApp& sound_meter)
 {
     switch (state) {
         case RuntimeState::Communicator:
@@ -706,6 +709,9 @@ void redraw_runtime_ui(
             break;
         case RuntimeState::Flashlight:
             flashlight.redraw();
+            break;
+        case RuntimeState::SoundMeter:
+            sound_meter.redraw();
             break;
         case RuntimeState::Facts:
             facts.redraw();
@@ -1004,11 +1010,14 @@ extern "C" void app_main(void)
     nikos::power_diag::PowerDiagSession power_diag_session;
     nikos::power_diag::PowerDiagApp power_diag(board);
     nikos::flashlight::FlashlightApp flashlight(board, display_lifecycle);
+    nikos::sound_meter::SoundMeterApp sound_meter(board);
     nikos::facts::FactsApp facts(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
 
     bool communicator_enabled = false;
     bool resume_messaging_after_radiolab = false;
+    bool resume_messaging_after_meter = false;
+    bool resume_countdown_after_meter = false;
     bool resume_snake_after_communicator = false;
     bool resume_flashlight_after_communicator = false;
     bool resume_facts_after_communicator = false;
@@ -1149,7 +1158,9 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
-                radiolab);
+                radiolab,
+
+                sound_meter);
         }
 
         const nikos::battery_guard::UpdateResult battery_update =
@@ -1210,7 +1221,9 @@ extern "C" void app_main(void)
                     flashlight,
                     facts,
                     snake,
-                    radiolab);
+                    radiolab,
+
+                    sound_meter);
             }
         }
 
@@ -1402,7 +1415,9 @@ extern "C" void app_main(void)
                     flashlight,
                     facts,
                     snake,
-                    radiolab);
+                    radiolab,
+
+                    sound_meter);
 
                 vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
                 continue;
@@ -1544,6 +1559,7 @@ extern "C" void app_main(void)
             && !timer_deferred_for_communication
             && state != RuntimeState::RadioLab
             && communicator_enabled
+            && state != RuntimeState::SoundMeter
             && communicator.process_incoming()) {
             timer_alert_visible = false;
             timer_deferred_for_communication = true;
@@ -1618,7 +1634,9 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
-                radiolab);
+                radiolab,
+
+                sound_meter);
             }
 
             vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
@@ -1687,7 +1705,9 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
-                radiolab);
+                radiolab,
+
+                sound_meter);
 
                     vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
                     continue;
@@ -1739,6 +1759,7 @@ extern "C" void app_main(void)
 
             if (state != RuntimeState::RadioLab
                 && communicator_enabled
+                && state != RuntimeState::SoundMeter
                 && communicator.process_incoming()) {
                 communication_accepted = true;
                 clock_glance_active = false;
@@ -1784,7 +1805,9 @@ extern "C" void app_main(void)
                 flashlight,
                 facts,
                 snake,
-                radiolab);
+                radiolab,
+
+                sound_meter);
             } else if (
                 now_ms() - clock_glance_started_ms
                     >= kClockGlanceDurationMs) {
@@ -1804,6 +1827,7 @@ extern "C" void app_main(void)
                 communicator_status(communicator_enabled, messaging),
                 launcher_visible);
             if (communicator_enabled
+                && state != RuntimeState::SoundMeter
                 && communicator.process_incoming()) {
                 enter_communicator_for_incoming(
                     state,
@@ -1902,6 +1926,40 @@ extern "C" void app_main(void)
                     display_lifecycle.note_visible_activity();
                     facts.begin();
                     state = RuntimeState::Facts;
+                } else if (
+                    action == nikos::launcher::Action::OpenSoundMeter) {
+                    // Exclusive short-lived diagnostic tool. Preserve previous
+                    // session state and never start a previously OFF radio.
+                    resume_messaging_after_meter = communicator_enabled;
+                    resume_countdown_after_meter =
+                        countdown.state() == nikos::countdown::State::Running;
+                    bool audio_ownership_ready = true;
+                    if (resume_messaging_after_meter
+                        && !messaging.pause_transport()) {
+                        ESP_LOGE(kTag, "Cannot pause messaging for sound meter");
+                        audio_ownership_ready = false;
+                    }
+                    if (audio_ownership_ready) {
+                        if (resume_countdown_after_meter) countdown.pause();
+                        signal_sound.stop();
+                        board.stop_tone();
+                        display_lifecycle.note_visible_activity();
+                        sound_meter.begin();
+                        state = RuntimeState::SoundMeter;
+                    } else {
+                        // Failed pause must never leave a half-owned radio.
+                        if (resume_messaging_after_meter
+                            && !messaging.transport_active()
+                            && !messaging.resume_transport()) {
+                            communicator.reset_session();
+                            (void)messaging.stop();
+                            communicator_enabled = false;
+                        }
+                        resume_messaging_after_meter = false;
+                        resume_countdown_after_meter = false;
+                        launcher.begin_tools(
+                            communicator_status(communicator_enabled, messaging));
+                    }
                 } else if (
                     action == nikos::launcher::Action::OpenFlashlight) {
                     display_lifecycle.note_visible_activity();
@@ -2002,6 +2060,7 @@ extern "C" void app_main(void)
             }
         } else if (state == RuntimeState::PowerDiag) {
             if (communicator_enabled
+                && state != RuntimeState::SoundMeter
                 && communicator.process_incoming()) {
                 enter_communicator_for_incoming(
                     state,
@@ -2040,8 +2099,30 @@ extern "C" void app_main(void)
                     state = RuntimeState::Launcher;
                 }
             }
+        } else if (state == RuntimeState::SoundMeter) {
+            if (display_lifecycle.state()
+                    != nikos::power::DisplayState::DisplayOff
+                && sound_meter.update(input, loop_now_ms)
+                    == nikos::sound_meter::SoundMeterApp::Result::ExitRequested) {
+                sound_meter.end();
+                if (resume_countdown_after_meter) countdown.resume();
+                resume_countdown_after_meter = false;
+                if (resume_messaging_after_meter
+                    && !messaging.resume_transport()) {
+                    ESP_LOGE(kTag, "Messaging resume after sound meter failed");
+                    communicator.reset_session();
+                    (void)messaging.stop();
+                    communicator_enabled = false;
+                }
+                resume_messaging_after_meter = false;
+                display_lifecycle.note_visible_activity();
+                launcher.begin_tools(
+                    communicator_status(communicator_enabled, messaging));
+                state = RuntimeState::Launcher;
+            }
         } else if (state == RuntimeState::Flashlight) {
             if (communicator_enabled
+                && state != RuntimeState::SoundMeter
                 && communicator.process_incoming()) {
                 enter_communicator_for_incoming(
                     state,
@@ -2063,6 +2144,7 @@ extern "C" void app_main(void)
             }
         } else if (state == RuntimeState::Facts) {
             if (communicator_enabled
+                && state != RuntimeState::SoundMeter
                 && communicator.process_incoming()) {
                 enter_communicator_for_incoming(
                     state,
@@ -2084,6 +2166,7 @@ extern "C" void app_main(void)
             }
         } else if (state == RuntimeState::Snake) {
             if (communicator_enabled
+                && state != RuntimeState::SoundMeter
                 && communicator.process_incoming()) {
                 enter_communicator_for_incoming(
                     state,
