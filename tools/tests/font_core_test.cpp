@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdio>
 #include <initializer_list>
+#include "../../components/font_core/glyph_assets.hpp"
 using namespace nikos::font_core;
 int main() {
     nikos::board::Board board;
@@ -41,9 +42,26 @@ int main() {
         assert(invalid_result.fits && !invalid_result.supported);
         const auto unknown = renderer.measure(u8"ABC €", 90, 40);
         assert(unknown.fits && !unknown.supported);
+        assert(renderer.draw(u8"ABC €", {2, 2, 90, 40}).supported == false);
+        assert(renderer.draw(invalid, {2, 2, 90, 40}).supported == false);
+        for (const char* word : {u8"łl", u8"ła", u8"łó", u8"małe"}) {
+            const auto tested = renderer.measure(word, 100, 40);
+            assert(tested.fits && tested.supported);
+            assert(renderer.draw(word, {0, 0, 100, 40}).fits);
+        }
         assert(renderer.draw("OK", {0,0,10,19}).fits == false);
         assert(renderer.draw("OK", {0,0,40,18}).fits == false);
     }
+    // Independently validate the dot vs acute upper-case raster.
+    const nikos::font_core::detail::GlyphAsset* acute = nullptr;
+    const nikos::font_core::detail::GlyphAsset* dot = nullptr;
+    for (const auto& glyph : nikos::font_core::detail::kGlyphAssets) {
+        if (glyph.codepoint == 0x0179) acute = &glyph;
+        if (glyph.codepoint == 0x017B) dot = &glyph;
+    }
+    assert(acute && dot && std::strcmp(acute->rows, dot->rows) != 0);
+    // Both glyphs retain the identical Latin Z body after the first row.
+    assert(std::strcmp(acute->rows + 3, dot->rows + 3) == 0);
     assert(board.bounds_ok);
     std::puts("Font core host tests passed");
 }
