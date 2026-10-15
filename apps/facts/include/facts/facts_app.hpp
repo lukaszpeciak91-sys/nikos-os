@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "board/board.hpp"
-#include "facts/generated/facts_data.hpp"
+#include "generated/facts_data.hpp"
 #include "facts/quiz.hpp"
 
 namespace nikos::facts {
