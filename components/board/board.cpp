@@ -506,6 +506,11 @@ void Board::draw_text_region(
     DisplayColor foreground,
     DisplayColor background)
 {
+    if (text_delegate_ != nullptr && text_size >= 2
+        && text_delegate_(text_context_, x, y, width, height, text,
+                          text_size, foreground, background)) {
+        return;
+    }
     auto& display = M5.Display;
     const std::uint16_t foreground_color = resolve_display_color(foreground);
     const std::uint16_t background_color = resolve_display_color(background);
