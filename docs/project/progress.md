@@ -139,6 +139,8 @@ Append concise entries here when the authoritative project state changes.
 
 - 2026-10-11 — Added Auto Power-Off v0.1: a per-device NVS boolean defaults ON and drives controlled whole-device shutdown after 20 minutes without local M5/BOCZNY/short-POWER activity, with VBUS suspension, fresh timing after unplug, Countdown blocking, and incoming-Communicator deferral without changing DisplayLifecycle or radio policy.
 
+- 2026-10-15 — Hardened Charging Full detection from real-device evidence: the existing observed-Charging completion path remains primary, while sessions that miss that historical sample may confirm Full only after three consecutive VBUS-present samples at >=4150 mV with PMIC Discharging and supported 0 mA battery current. No duplicate PMU polling or charging-lock ownership change was introduced.
+
 - 2026-10-11 — Extended the local RTC clock to date/calendar v0.2: Board exposes date-only RTC read/write, ClockService validates 2000-2099 Gregorian dates plus a single persisted rtc_date_configured trust marker required because PCF8563 VL is shared with the seconds register, ZEGAR adds USTAW DATE / KALENDARZ with short-click Calendar actions, and Clock Glance shows DD.MM.YYYY below HH:MM without weekday text or timezone/NTP/Countdown/Stopwatch coupling.
 
 - 2026-10-14 — Completed the authoring-time Facts catalogue with six categories of 100 titled Polish facts each (600 total), refined the content validator, and accepted editorial corrections. The firmware/UI reader, title list, random selection, pagination and input navigation remain a separate implementation iteration.

@@ -42,6 +42,7 @@ constexpr std::uint32_t kCriticalShutdownMessageMs = 1750;
 constexpr std::uint32_t kChargingVbusPollIntervalMs = 1000;
 constexpr std::int16_t kChargingVbusPresentMv = 4000;
 constexpr std::int16_t kChargingFullBatteryMv = 4100;
+constexpr std::int16_t kChargingFullFallbackBatteryMv = 4150;
 constexpr std::uint8_t kChargingFullConfirmSamples = 3;
 constexpr std::uint32_t kChargingPresentationMs = 5000;
 constexpr std::uint32_t kChargingAnimationStepMs = 400;
@@ -449,11 +450,29 @@ bool update_charging_full_confirmation(
         return false;
     }
 
-    const bool completion_candidate =
+    const bool discharging =
+        status.charge_state
+            == nikos::board::ChargeState::Discharging;
+    const bool observed_charge_completion_candidate =
         state.charging_observed
         && status.voltage_mv >= kChargingFullBatteryMv
-        && status.charge_state
-            == nikos::board::ChargeState::Discharging;
+        && discharging;
+
+    // Real M5StickC Plus SE hardware can reach charge termination before
+    // BatteryGuard observes a Charging sample for the current VBUS session.
+    // Keep that historical evidence as the primary path, but allow a stricter
+    // fallback only when the battery is already very high, the PMIC reports
+    // not charging, and the measured battery current is exactly neutral.
+    const bool quiet_high_voltage_completion_candidate =
+        !state.charging_observed
+        && status.voltage_mv >= kChargingFullFallbackBatteryMv
+        && discharging
+        && status.current_supported
+        && status.current_ma == 0;
+
+    const bool completion_candidate =
+        observed_charge_completion_candidate
+        || quiet_high_voltage_completion_candidate;
 
     if (!completion_candidate) {
         state.full_confirm_count = 0;
