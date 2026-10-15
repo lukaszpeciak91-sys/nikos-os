@@ -1497,7 +1497,7 @@ extern "C" void app_main(void)
             && display_lifecycle.state()
                 != nikos::power::DisplayState::DisplayOff
             && !display_input.power_display_off
-            && !sound_meter.microphone_active()) {
+            && sound_meter.suspended()) {
             sound_meter.resume();
         }
 
