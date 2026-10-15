@@ -484,3 +484,16 @@ glyph placement remains mandatory.
 ### Mini Racer v0.1
 
 `Rozrywka > Mini Racer` launches a dedicated, fixed-memory, two-lane game composed alongside Snake. Launcher owns only the entry and navigation. Mini Racer owns the lane selection, one oncoming vehicle, bounded acceleration, elapsed-time score, RAM-only session record, pause/result menus and 10-minute wall-clock session limit (including pauses). The one-opponent generator leaves at least 200 px of warning distance at the 70 px/s maximum speed, and movement uses swept horizontal overlap checks. Gameplay uses monotonic milliseconds rather than loop counts, with a capped frame update and roughly 13 fps rendering. System overlays preserve its retained state; incoming Communicator and charging-time ownership suspend play and foreground return resets the movement timestamp. It shares the Board 240×135 logical display and global orientation/power policy; no network or new rendering engine is added.
+
+### Font Lab v0.1 (temporary diagnostic)
+Tools hosts a temporary Font Lab runtime with a candidate-selection menu and
+six identical UTF-8 test samples. It does not modify the global Board text
+configuration or other application fonts. The small module renders Polish
+characters through: (a) local 5×8 dot patterns for Polish characters alongside
+native ASCII; (b) native Latin glyphs plus drawn accents/ogonek/crossbar;
+(c) complete 160×18 one-bit text rasters prepared offline and stored as packed
+firmware assets. Each candidate is explicitly independent of the existing
+`polish_ui_font.cpp` Unicode mapper. Incoming Communicator preempts the
+diagnostic and its list/page selection is retained for return, including
+Charging Lock handoffs. POWER, DisplayLifecycle, and BatteryGuard remain
+system-owned. No background task, heap framebuffer, network, or persistence.
