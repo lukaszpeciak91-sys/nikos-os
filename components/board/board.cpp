@@ -330,6 +330,7 @@ PowerStatus Board::power_status(
 
 void Board::tone(float frequency_hz, std::uint32_t duration_ms)
 {
+    if (notification_volume_level_ == 0) return;
     if (!M5.Speaker.tone(frequency_hz, duration_ms)) {
         ESP_LOGW(kTag, "Buzzer tone request was not accepted");
     }
@@ -340,7 +341,9 @@ void Board::set_notification_volume_level(std::uint8_t level)
     // 100% retains the previous M5Unified master volume of 64.
     // Presets are relative UI steps, not calibrated acoustic percentages.
     constexpr std::uint8_t kVolumes[5] = {0, 16, 32, 48, 64};
-    if (level <= 4) M5.Speaker.setVolume(kVolumes[level]);
+    if (level > 4) return;
+    notification_volume_level_ = level;
+    M5.Speaker.setVolume(kVolumes[level]);
 }
 
 void Board::stop_tone()
@@ -363,6 +366,7 @@ bool Board::begin_microphone()
     ESP_LOGE(kTag, "Microphone initialization failed");
     M5.Mic.end();
     if (!M5.Speaker.begin()) ESP_LOGE(kTag, "Speaker recovery failed");
+    set_notification_volume_level(notification_volume_level_);
     return false;
 }
 
@@ -382,6 +386,7 @@ void Board::end_microphone()
     if (!M5.Speaker.begin()) {
         ESP_LOGE(kTag, "Speaker recovery after mic failed");
     }
+    set_notification_volume_level(notification_volume_level_);
 }
 
 void Board::wake_display()
