@@ -35,12 +35,26 @@ void SoundMeterApp::begin()
 
 void SoundMeterApp::end()
 {
-    if (active_) {
-        board_.end_microphone();
-    }
+    if (active_) suspend();
     active_ = false;
     capture_pending_ = false;
     microphone_ok_ = false;
+}
+
+void SoundMeterApp::suspend()
+{
+    if (microphone_ok_) board_.end_microphone();
+    microphone_ok_ = false;
+    capture_pending_ = false;
+}
+
+void SoundMeterApp::resume()
+{
+    if (!active_ || microphone_ok_) return;
+    microphone_ok_ = board_.begin_microphone();
+    capture_pending_ = false;
+    last_capture_ms_ = 0;
+    render(true);
 }
 
 void SoundMeterApp::redraw()
