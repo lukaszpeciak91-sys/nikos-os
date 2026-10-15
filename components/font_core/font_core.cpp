@@ -95,9 +95,7 @@ Layout prepare(Mode mode, const char* text, std::int16_t max_width,
     const std::uint8_t height = mode == Mode::Standard ? 16 : kRasterLineHeight;
     const char* cursor = text;
     const char* line_begin = cursor;
-    const char* word_begin = cursor;
     std::int32_t width = 0;
-    std::int32_t word_width = 0;
     std::int32_t last_space_width = 0;
     const char* break_point = nullptr;
     bool supported = true;
@@ -115,12 +113,13 @@ Layout prepare(Mode mode, const char* text, std::int16_t max_width,
             if (done) break;
             cursor = item.next;
             line_begin = cursor;
-            word_begin = cursor;
-            width = word_width = 0;
+            width = 0;
             break_point = nullptr;
             continue;
         }
-        const std::uint8_t advance = width_of(mode, item.codepoint, supported);
+        const std::uint8_t advance = static_cast<std::uint8_t>(
+            width_of(mode, item.codepoint, supported)
+            * (mode == Mode::Standard ? item.next - cursor : 1));
         if (separator) {
             break_point = cursor;
             last_space_width = width;
@@ -135,18 +134,12 @@ Layout prepare(Mode mode, const char* text, std::int16_t max_width,
                 layout.result.width_px, static_cast<std::uint16_t>(last_space_width));
             cursor = break_point + 1;
             while (*cursor == ' ') ++cursor;
-            line_begin = word_begin = cursor;
-            width = word_width = 0;
+            line_begin = cursor;
+            width = 0;
             break_point = nullptr;
             continue;
         }
         width += advance;
-        if (separator) {
-            word_begin = item.next;
-            word_width = 0;
-        } else {
-            word_width += advance;
-        }
         cursor = item.next;
     }
     layout.result.height_px = static_cast<std::uint16_t>(layout.result.lines * height);
