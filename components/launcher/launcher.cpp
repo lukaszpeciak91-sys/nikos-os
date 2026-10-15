@@ -529,7 +529,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             tools_selection_ =
-                static_cast<std::uint8_t>((tools_selection_ + 1U) % 3U);
+                static_cast<std::uint8_t>((tools_selection_ + 1U) % 4U);
             render();
             return Action::None;
         }
@@ -540,6 +540,9 @@ Action Launcher::update(const board::InputState& input)
             }
             if (tools_selection_ == 1U) {
                 return Action::OpenFlashlight;
+            }
+            if (tools_selection_ == 2U) {
+                return Action::OpenSoundMeter;
             }
 
             screen_ = Screen::Main;
@@ -1627,16 +1630,17 @@ void Launcher::render_tools()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kTools[3] = {
+    constexpr const char* kTools[4] = {
         "PowerDiag",
         "Latarka",
+        "Miernik halasu",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 3; ++index) {
+    for (std::uint8_t index = 0; index < 4; ++index) {
         const bool selected = index == tools_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(31 + index * 21);
+            static_cast<std::int16_t>(30 + index * 20);
 
         board_.draw_text_region(
             22,

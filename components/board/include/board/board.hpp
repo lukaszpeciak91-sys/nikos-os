@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 #include "ui_theme/ui_theme.hpp"
 
@@ -78,6 +79,12 @@ public:
         bool include_battery_current = false) const;
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
+    // Microphone is exclusive with M5Unified Speaker on StickC Plus SE.
+    bool begin_microphone();
+    bool record_microphone(std::int16_t* buffer, std::size_t count, std::uint32_t hz);
+    bool microphone_recording() const;
+    void end_microphone();
+
     void wake_display();
     void apply_active_display_brightness();
     void dim_display();

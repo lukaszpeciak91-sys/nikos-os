@@ -417,3 +417,29 @@ PowerDiag is an ordinary foreground runtime for display purposes. DisplayOff sup
 - Theme accent is distinct from semantic status/attention/danger roles; Noir deliberately resolves those semantic roles to monochrome white/gray presentation.
 - Experimental RX and recent-RX timing values are configuration, not send-permission invariants. The current foreground profile uses an approximately 7 s recent-RX timeout and the background profile approximately 20 s; after that age the UI may show a neutral known-peer state, but peer identity is retained and bounded delivery remains allowed.
 - Persistent schemas and wire protocols must be versioned once introduced.
+
+
+### sound_meter
+
+Sound Level Meter v0.1 is a dedicated Narzędzia application with no calibrated
+acoustic units. Board exclusively owns the M5Unified microphone/speaker switch:
+the SPM1423 PDM microphone uses the M5StickC Plus SE's built-in microphone
+configuration (CLK GPIO0, DATA GPIO34, powered through the board PMU).
+M5Unified Mic captures 256 signed 16-bit samples at 17 kHz. The app checks
+completion from the ordinary runtime loop; no additional high-priority task,
+dynamic capture buffer, network processing, or generic app framework is added.
+
+The relative level processor subtracts a block's DC mean, computes its RMS,
+applies a fixed experimental noise gate and logarithmic compressor, then clamps
+the result to 0–100. Attack and release are asymmetric; a separate temporary
+peak marker is held then decayed. Values and classifications are relative to
+the device's observed microphone signal, NOT sound-pressure dB or dB(A).
+Calibration and physical safety thresholds are explicitly out of scope.
+
+The runtime treats Sound Meter as an intentionally exclusive short-lived
+tool: the existing messaging transport is paused only if the Communicator
+session was previously enabled, the running Countdown is paused, and sound
+output is stopped before microphone ownership. On exit or charging takeover
+the mic is released before the speaker returns and previously running
+services are restored. A stopped session remains stopped. Critical battery
+shutdown frees the mic. Board still owns display/PMU/system power policy.

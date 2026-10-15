@@ -144,3 +144,32 @@ Append concise entries here when the authoritative project state changes.
 - 2026-10-14 — Completed the authoring-time Facts catalogue with six categories of 100 titled Polish facts each (600 total), refined the content validator, and accepted editorial corrections. The firmware/UI reader, title list, random selection, pagination and input navigation remain a separate implementation iteration.
 
 - 2026-10-14 — Implemented Ciekawostki v0.1 from the merged 600-record Facts catalogue: deterministic source→firmware generation strips source/note, category lists preserve 001..100 plus POWROT, LOSUJ spans all 600 without immediate repeat, the retained reader paginates UTF-8 without heap allocation, and Communicator/system overlays preserve the active Facts state.
+
+
+## Sound Level Meter v0.1 — implementation candidate
+
+A focused Sound Meter module, relative RMS/peak processor, Board microphone
+ownership boundary and Narzędzia runtime entry have been added on an
+unmerged feature branch. The existing messaging pause/resume and Countdown
+pause/resume contracts are reused, including charging takeover cleanup.
+Hardware microphone sampling, display quality, speaker recovery and repeated
+enter/exit cycles still require physical validation on M5StickC Plus SE.
+No acoustic calibration or dB presentation is included.
+
+### Pre-implementation audit addendum (GO with conditions)
+
+The default Board startup continues to disable the microphone while enabling
+its speaker. The optional meter acquires the SPM1423 PDM path only in the
+foreground, configures GPIO34 data / GPIO0 clock at tool entry, and releases
+the microphone before restoring the speaker. DisplayOff suspends microphone
+capture and subsequent visible wake resumes it. Sampling is bounded to 256
+16-bit PCM samples at 17 kHz, requested about every 80 ms; the UI has at most
+approximately 12.5 updates/sec when values change. The existing display
+lifecycle remains authoritative. An already-expired timer blocks entry.
+
+**Unverified for merge:** compile against pinned M5Unified 0.2.22 and ESP-IDF
+5.5.5, PDM waveform quality on SE, I2S/audio handoff recovery, long-press
+and screen-off interactions, radio reception before and after exclusive mode,
+charging interruption and repeated enter/exit. Static review or published
+library examples do not constitute hardware confirmation. Do not merge until
+CI and physical device checks provide evidence.
