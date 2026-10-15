@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
+#include <initializer_list>
 using namespace nikos::font_core;
 int main() {
     nikos::board::Board board;
