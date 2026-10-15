@@ -29,10 +29,17 @@ assert "new_x <= kPlayerRight" in CODE
 assert "player_lane_ ^= 1U" in CODE
 assert "last_tick_ms_ = now;" in CODE
 assert "now - session_started_ms_ >= kSessionLimitMs" in CODE
-# Simulate a swept crossing at maximum speed with a single delayed update.
-for lane in (0, 1):
-    for enemy_start in range(60, 95):
-        enemy_end = enemy_start - maximum * 0.2
-        if enemy_start + 26 >= 33 and enemy_end <= player_right:
-            assert lane == lane
-print("Mini Racer host safety invariants OK")
+# Test swept horizontal overlap for both lanes, including maximal steps.
+for obstacle_lane in (0, 1):
+    for player_lane in (0, 1):
+        for old_x in range(-32, 241):
+            new_x = old_x - maximum * 0.2
+            overlap = (old_x + 26 >= 33) and (new_x <= player_right)
+            detection = obstacle_lane == player_lane and overlap
+            if obstacle_lane != player_lane:
+                assert not detection
+            elif old_x >= player_right and new_x <= player_right:
+                assert detection
+# No round may exceed the wall-clock session cap, including pauses.
+assert get_constant("kSessionLimitMs", HEADER) == 600000
+print("Mini Racer host obstacle, collision and session invariants OK")
