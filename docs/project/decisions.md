@@ -775,3 +775,15 @@ scrolling, animation, read history, favorites, or source-URL screen.
 bounded compile-time assets keeps firmware behavior deterministic and offline,
 while a self-contained retained app state allows comfortable reading without
 expanding Launcher or system-overlay architecture.
+
+
+## Sound Level Meter v0.1 — exclusive short-lived diagnostic ownership
+
+Accept the limited loss of incoming Communicator reachability during use:
+this optional tool temporarily pauses the existing ESP-NOW transport rather
+than adding mic/audio preemption, concurrent I2S ownership or new scheduling
+machinery. Restore only an originally active Communicator session and only a
+previously running Countdown on exit. This is deliberately different from the
+normal priority policy of ordinary applications. Speaker and microphone may
+not be enabled together on this device. Keep BatteryGuard and POWER active.
+The 0–100 indicator is uncalibrated and must not display acoustic dB units.
