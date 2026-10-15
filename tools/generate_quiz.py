@@ -11,20 +11,58 @@ CATS = ("space", "animals", "technology", "human", "history", "world")
 def cpp(value):
     return json.dumps(value, ensure_ascii=False)
 
-def wrap(text, width):
-    lines = [""]
+def font_advances():
+    """Read exact xAdvance and Unicode range mapping from the firmware font."""
+    import re
+    source = (ROOT / "components/board/polish_ui_font.cpp").read_text(
+        encoding="utf-8"
+    )
+    glyphs = source.split("const lgfx::GFXglyph kPolishUiGlyphs[] PROGMEM = {", 1)[1].split("};", 1)[0]
+    ranges = source.split("const lgfx::EncodeRange kPolishUiRanges[] PROGMEM = {", 1)[1].split("};", 1)[0]
+    advances = [
+        int(x) for x in re.findall(
+            r"\\{\\s*\\d+,\\s*\\d+,\\s*\\d+,\\s*(\\d+),\\s*-?\\d+,\\s*-?\\d+\\s*\\}",
+            glyphs,
+        )
+    ]
+    mapping = {}
+    for low, high, base in re.findall(
+        r"\\{\\s*0x([0-9A-F]+),\\s*0x([0-9A-F]+),\\s*(\\d+)\\s*\\}", ranges
+    ):
+        a, b, index = int(low, 16), int(high, 16), int(base)
+        for cp in range(a, b + 1):
+            mapping[chr(cp)] = advances[index + cp - a]
+    return mapping
+
+
+def wrap(text, width, glyphs=None):
+    glyphs = glyphs if glyphs is not None else font_advances()
+    lines = []
+    line = ""
     for word in text.split():
-        if len(lines[-1]) + len(word) + (1 if lines[-1] else 0) <= width:
-            lines[-1] += (" " if lines[-1] else "") + word
+        if any(char not in glyphs for char in word):
+            raise ValueError(f"Unsupported glyph in: {word!r}")
+        candidate = (line + " " + word) if line else word
+        if sum(glyphs[char] for char in candidate) <= width:
+            line = candidate
         else:
-            lines.append(word)
+            if not line or sum(glyphs[char] for char in word) > width:
+                raise ValueError(f"Word exceeds available glyph width: {word!r}")
+            lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
     return lines
+
 
 def generate():
     data = json.loads(SOURCE.read_text(encoding="utf-8"))
     if not isinstance(data, list) or len(data) != 120:
         raise ValueError("Expected exactly 120 records")
     seen = set()
+    glyphs = font_advances()
+    if sum(record['correct'] is True for record in data) != 60 or sum(record['correct'] is False for record in data) != 60:
+        raise ValueError('Expected 60 true and 60 false answers')
     for cat in CATS:
         records = [r for r in data if r.get("category") == cat]
         if len(records) != 20:
@@ -41,9 +79,9 @@ def generate():
             raise ValueError(f"{ident}: invalid fields")
         if type(r.get("correct")) is not bool:
             raise ValueError(f"{ident}: expected boolean answer")
-        if len(wrap(r["statement"], 24)) > 5:
+        if len(wrap(r["statement"], 226, glyphs)) > 5:
             raise ValueError(f"{ident}: question does not fit five lines")
-        if len(wrap(r["explanation"], 24)) > 4:
+        if len(wrap(r["explanation"], 226, glyphs)) > 4:
             raise ValueError(f"{ident}: explanation does not fit four lines")
         r["statement"].encode("utf-8", errors="strict")
         r["explanation"].encode("utf-8", errors="strict")
