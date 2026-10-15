@@ -79,6 +79,7 @@ public:
         bool include_battery_current = false) const;
     void tone(float frequency_hz, std::uint32_t duration_ms);
     void stop_tone();
+    void set_notification_volume_level(std::uint8_t level);
     // Microphone is exclusive with M5Unified Speaker on StickC Plus SE.
     bool begin_microphone();
     bool record_microphone(std::int16_t* buffer, std::size_t count, std::uint32_t hz);
@@ -149,6 +150,7 @@ private:
     std::uint8_t dimmed_brightness_ = 24;
     bool display_brightness_override_active_ = false;
     bool rtc_available_ = false;
+    std::uint8_t notification_volume_level_ = 4;
 };
 
 const char* charge_state_name(ChargeState state);

@@ -443,3 +443,20 @@ output is stopped before microphone ownership. On exit or charging takeover
 the mic is released before the speaker returns and previously running
 services are restored. A stopped session remains stopped. Critical battery
 shutdown frees the mic. Board still owns display/PMU/system power policy.
+
+### notification volume
+
+Settings now stores a five-step per-device notification volume preset in the
+existing `nikos` NVS namespace. The user-visible labels 0/25/50/75/100%
+map to M5Unified speaker master volume 0/16/32/48/64. The 100% preset
+deliberately preserves the library's previous effective default of 64 rather
+than using the maximum hardware API value of 255. These values are
+relative electrical/output settings, not linear acoustic loudness percentages.
+Board alone owns speaker volume and reapplies it following the optional
+Sound Meter microphone handoff. The selected preset applies to every call
+through Board::tone(), including incoming messages, SYGNAŁ, countdown and
+charging completion; at 0% Board suppresses ordinary tones while preserving
+all radio, UI and timer processing. The brief startup beep occurs before NVS
+initialization and remains an intentionally excluded boot diagnostic sound.
+The three existing sound patterns are unchanged. The existing signal-sound
+selector remains a melody submenu under Settings > Sound, alongside volume.

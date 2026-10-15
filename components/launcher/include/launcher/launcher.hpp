@@ -22,6 +22,7 @@ enum class Action : std::uint8_t {
     OpenSnake,
     OpenFacts,
     BrightnessChanged,
+    SignalVolumeChanged,
     AutoPowerOffChanged,
     ShutdownRequested,
 };
@@ -60,6 +61,7 @@ public:
         CommunicatorDeliveryStatus status,
         bool render_if_changed = true);
     void restore_auto_power_off_preference(bool enabled);
+    void restore_signal_volume_preference(std::uint8_t level);
     void redraw();
     Action update(const board::InputState& input);
 
@@ -88,7 +90,9 @@ private:
         ClockDateNeedsTime,
         Calendar,
         Settings,
+        SoundMenu,
         SignalSound,
+        SignalVolume,
         Brightness,
         Theme,
         Orientation,
@@ -131,6 +135,8 @@ private:
     void render_stopwatch_time_if_changed();
     void render_settings();
     void render_signal_sound();
+    void render_sound_menu();
+    void render_signal_volume();
     void render_brightness();
     void render_theme();
     void render_orientation();
@@ -174,6 +180,8 @@ private:
     std::uint8_t calendar_action_selection_ = 0;
     std::uint8_t settings_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
+    std::uint8_t sound_menu_selection_ = 0;
+    std::uint8_t signal_volume_selection_ = 4;
     std::uint8_t brightness_selection_ = 0;
     std::uint8_t theme_selection_ = 0;
     std::uint8_t orientation_selection_ = 0;

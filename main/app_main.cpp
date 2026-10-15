@@ -15,6 +15,7 @@
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
 #include "storage/auto_power_off_store.hpp"
+#include "storage/signal_volume_store.hpp"
 #include "storage/rtc_date_configured_store.hpp"
 
 #include "esp_err.h"
@@ -993,9 +994,15 @@ extern "C" void app_main(void)
 
     clock_service.initialize_date_trust();
 
+    nikos::storage::SignalVolumeStore signal_volume_store;
+    settings.signal_volume_level = signal_volume_store.load_level();
+    board.set_notification_volume_level(settings.signal_volume_level);
+
     nikos::storage::AutoPowerOffStore auto_power_off_store;
     settings.auto_power_off_enabled =
         auto_power_off_store.load_enabled();
+
+    std::uint8_t persisted_signal_volume_level = settings.signal_volume_level;
 
     nikos::radio::RadioService radio;
     nikos::messaging::Service messaging(radio);
@@ -1874,7 +1881,19 @@ extern "C" void app_main(void)
 
                 const nikos::launcher::Action action = launcher.update(input);
 
-                if (action == nikos::launcher::Action::BrightnessChanged) {
+                if (action == nikos::launcher::Action::SignalVolumeChanged) {
+                    const std::uint8_t requested = settings.signal_volume_level;
+                    if (!signal_volume_store.save_level(requested)) {
+                        settings.signal_volume_level = persisted_signal_volume_level;
+                        board.set_notification_volume_level(persisted_signal_volume_level);
+                        launcher.restore_signal_volume_preference(persisted_signal_volume_level);
+                    } else {
+                        persisted_signal_volume_level = requested;
+                        board.set_notification_volume_level(requested);
+                        signal_sound.stop();
+                        if (requested != 0) signal_sound.play_selected();
+                    }
+                } else if (action == nikos::launcher::Action::BrightnessChanged) {
                     apply_effective_brightness_profile(
                         display_lifecycle,
                         settings,

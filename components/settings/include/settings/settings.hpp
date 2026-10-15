@@ -41,6 +41,7 @@ BrightnessProfile effective_brightness_profile(
 struct State {
     Orientation orientation = Orientation::Right;
     SignalSound signal_sound = SignalSound::Gentle;
+    std::uint8_t signal_volume_level = 4; // 100% preset is legacy M5Unified volume 64.
     Brightness brightness = Brightness::Medium;
     CommunicatorView communicator_view = CommunicatorView::List;
     ui_theme::Theme theme = ui_theme::Theme::Nikos;

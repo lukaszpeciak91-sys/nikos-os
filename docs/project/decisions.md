@@ -787,3 +787,14 @@ previously running Countdown on exit. This is deliberately different from the
 normal priority policy of ordinary applications. Speaker and microphone may
 not be enabled together on this device. Keep BatteryGuard and POWER active.
 The 0–100 indicator is uncalibrated and must not display acoustic dB units.
+
+## Signal Volume v0.1 — bounded legacy-preserving presets
+
+Use the M5Unified Speaker_Class master-volume control rather than introducing
+a new audio driver. Five product presets map to 0/16/32/48/64 (API accepts
+0..255). Default is 100% = 64, matching the library's prior effective level.
+The percentages are labels, not linear acoustic percentage or calibrated SPL.
+The sound settings menu groups the existing three melodies and volume. Persist
+one bounded u8 key in existing NVS namespace. Speaker master volume is reapplied
+after the microphone exclusive-resource handoff. The startup beep remains
+outside persisted preference because it runs before NVS initialization.
