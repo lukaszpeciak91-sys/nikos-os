@@ -1202,7 +1202,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::AutoPowerOff) {
         if (input.secondary_long) {
-            settings_selection_ = 4U;
+            settings_selection_ = 5U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -1221,7 +1221,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (auto_power_off_selection_ == 2U) {
-            settings_selection_ = 4U;
+            settings_selection_ = 5U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
