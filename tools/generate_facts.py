@@ -104,7 +104,7 @@ def generated_core() -> str:
         f"            return {cpp_string(label)};"
         for _, enum_name, _, label in CATEGORIES
     )
-    return f"""#include "facts/generated/facts_data.hpp"
+    return f"""#include "facts_data.hpp"
 
 namespace nikos::facts::data {{
 
@@ -147,7 +147,7 @@ def generated_category(
             + "},"
         )
     body = "\n".join(rows)
-    return f"""#include "facts/generated/facts_data.hpp"
+    return f"""#include "facts_data.hpp"
 
 namespace nikos::facts::data {{
 

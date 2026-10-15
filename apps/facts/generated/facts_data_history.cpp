@@ -1,4 +1,4 @@
-#include "facts/generated/facts_data.hpp"
+#include "facts_data.hpp"
 
 namespace nikos::facts::data {
 
