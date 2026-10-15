@@ -1077,6 +1077,24 @@ extern "C" void app_main(void)
                 charging_mode,
                 loop_now_ms);
 
+        if (charging_cable_event == ChargingCableEvent::Connected
+            && state == RuntimeState::SoundMeter) {
+            sound_meter.end();
+            if (resume_countdown_after_meter) countdown.resume();
+            resume_countdown_after_meter = false;
+            if (resume_messaging_after_meter
+                && !messaging.resume_transport()) {
+                ESP_LOGE(kTag, "Messaging resume on charging failed");
+                communicator.reset_session();
+                (void)messaging.stop();
+                communicator_enabled = false;
+            }
+            resume_messaging_after_meter = false;
+            state = RuntimeState::Launcher;
+            launcher.begin_tools(
+                communicator_status(communicator_enabled, messaging));
+        }
+
         if (charging_cable_event == ChargingCableEvent::Connected) {
             auto_power_off_due = false;
             auto_power_off_incoming_grace_active = false;
@@ -1159,7 +1177,6 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 radiolab,
-
                 sound_meter);
         }
 
@@ -1175,6 +1192,7 @@ extern "C" void app_main(void)
         }
 
         if (battery_update.critical_confirmed) {
+            if (state == RuntimeState::SoundMeter) sound_meter.end();
             prepare_flashlight_for_foreground_takeover(
                 state,
                 flashlight);
@@ -1222,7 +1240,6 @@ extern "C" void app_main(void)
                     facts,
                     snake,
                     radiolab,
-
                     sound_meter);
             }
         }
