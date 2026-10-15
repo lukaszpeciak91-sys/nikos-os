@@ -21,13 +21,13 @@ def font_advances():
     ranges = source.split("const lgfx::EncodeRange kPolishUiRanges[] PROGMEM = {", 1)[1].split("};", 1)[0]
     advances = [
         int(x) for x in re.findall(
-            r"\\{\\s*\\d+,\\s*\\d+,\\s*\\d+,\\s*(\\d+),\\s*-?\\d+,\\s*-?\\d+\\s*\\}",
+            r"\{\s*\d+,\s*\d+,\s*\d+,\s*(\d+),\s*-?\d+,\s*-?\d+\s*\}",
             glyphs,
         )
     ]
     mapping = {}
     for low, high, base in re.findall(
-        r"\\{\\s*0x([0-9A-F]+),\\s*0x([0-9A-F]+),\\s*(\\d+)\\s*\\}", ranges
+        r"\{\s*0x([0-9A-F]+),\s*0x([0-9A-F]+),\s*(\d+)\s*\}", ranges
     ):
         a, b, index = int(low, 16), int(high, 16), int(base)
         for cp in range(a, b + 1):
