@@ -63,6 +63,13 @@ struct InputState {
 
 class Board final {
 public:
+    using TextDelegate = bool (*)(void*, std::int16_t, std::int16_t,
+        std::int16_t, std::int16_t, const char*, std::uint8_t,
+        DisplayColor, DisplayColor);
+    void set_text_delegate(void* context, TextDelegate delegate) {
+        text_context_ = context;
+        text_delegate_ = delegate;
+    }
     bool begin();
     InputState poll_input();
 
@@ -144,6 +151,8 @@ public:
     const char* detected_board_name() const;
 
 private:
+    void* text_context_ = nullptr;
+    TextDelegate text_delegate_ = nullptr;
     std::uint16_t resolve_display_color(DisplayColor color) const;
 
     ui_theme::Theme theme_ = ui_theme::Theme::Nikos;
