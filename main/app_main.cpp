@@ -1146,6 +1146,7 @@ extern "C" void app_main(void)
         }
 
         if (charging_cable_event == ChargingCableEvent::Connected) {
+            if (state == RuntimeState::MiniRacer) mini_racer.suspend();
             auto_power_off_due = false;
             auto_power_off_incoming_grace_active = false;
             prepare_flashlight_for_foreground_takeover(
@@ -1166,6 +1167,9 @@ extern "C" void app_main(void)
                 if (resume_snake_after_communicator) {
                     resume_snake_after_communicator = false;
                     state = RuntimeState::Snake;
+                } else if (resume_mini_racer_after_communicator) {
+                    resume_mini_racer_after_communicator = false;
+                    state = RuntimeState::MiniRacer;
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
@@ -1182,6 +1186,7 @@ extern "C" void app_main(void)
             }
         } else if (
             charging_cable_event == ChargingCableEvent::Disconnected) {
+            if (state == RuntimeState::MiniRacer) mini_racer.resume();
             auto_power_off_last_local_activity_ms = loop_now_ms;
             auto_power_off_due = false;
             auto_power_off_incoming_grace_active = false;
@@ -1198,6 +1203,8 @@ extern "C" void app_main(void)
                 communicator.end_charging_incoming(true);
                 if (state == RuntimeState::Snake) {
                     resume_snake_after_communicator = true;
+                } else if (state == RuntimeState::MiniRacer) {
+                    resume_mini_racer_after_communicator = true;
                 } else if (state == RuntimeState::Flashlight) {
                     resume_flashlight_after_communicator = true;
                 } else if (state == RuntimeState::Facts) {
@@ -1345,6 +1352,9 @@ extern "C" void app_main(void)
                     if (resume_snake_after_communicator) {
                         resume_snake_after_communicator = false;
                         state = RuntimeState::Snake;
+                    } else if (resume_mini_racer_after_communicator) {
+                        resume_mini_racer_after_communicator = false;
+                        state = RuntimeState::MiniRacer;
                     } else if (resume_flashlight_after_communicator) {
                         resume_flashlight_after_communicator = false;
                         state = RuntimeState::Flashlight;
@@ -1489,7 +1499,6 @@ extern "C" void app_main(void)
                     snake,
                     mini_racer,
                     radiolab,
-
                     sound_meter);
 
                 vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
@@ -1542,6 +1551,19 @@ extern "C" void app_main(void)
         const nikos::power::FilteredInput display_input =
             display_lifecycle.filter_input(raw_input);
         const nikos::board::InputState& input = display_input.input;
+
+        if (state == RuntimeState::MiniRacer
+            && (display_input.power_display_off
+                || display_lifecycle.state()
+                    == nikos::power::DisplayState::DisplayOff)) {
+            mini_racer.suspend();
+        }
+        if (state == RuntimeState::MiniRacer
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+            && !display_input.power_display_off) {
+            mini_racer.resume_if_suspended();
+        }
 
         if (state == RuntimeState::SoundMeter
             && (display_input.power_display_off
@@ -1725,7 +1747,6 @@ extern "C" void app_main(void)
                 snake,
                 mini_racer,
                 radiolab,
-
                 sound_meter);
             }
 
@@ -1799,7 +1820,6 @@ extern "C" void app_main(void)
                 snake,
                 mini_racer,
                 radiolab,
-
                 sound_meter);
 
                     vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
@@ -1902,7 +1922,6 @@ extern "C" void app_main(void)
                 snake,
                 mini_racer,
                 radiolab,
-
                 sound_meter);
             } else if (
                 now_ms() - clock_glance_started_ms
