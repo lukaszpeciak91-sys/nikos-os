@@ -497,3 +497,27 @@ firmware assets. Each candidate is explicitly independent of the existing
 diagnostic and its list/page selection is retained for return, including
 Charging Lock handoffs. POWER, DisplayLifecycle, and BatteryGuard remain
 system-owned. No background task, heap framebuffer, network, or persistence.
+
+### Font rendering core v0.1 — experimental, Font Lab only
+
+The `font_core` component offers one small per-client `Renderer` with
+`Standard`, `Composed`, and `PreRendered` modes, UTF-8 decoding, glyph
+advances, line height, width/height measurement, wrapping on spaces/newlines,
+and explicit `Result{fits, supported, width_px, height_px, lines}` reporting.
+Rendering is rejected before drawing if the supplied region cannot fit the
+text or lies outside the 240×135 logical display. Unsupported/invalid Unicode
+maps to a visible '?' with `supported=false`; overlong words fail explicitly.
+There is no heap allocation, background task, navigation, or redraw ownership.
+The maximum layout cache is seven line spans on the calling stack.
+
+`Standard` uses the existing Board Font0 drawing call unchanged.
+`Composed` draws precomputed Latin bitmap bases and overlays tiny
+diacritics/ogonek/strokes for Polish letters. `PreRendered` composes
+offline-rasterized per-glyph 12×16 monochrome bitmaps of printable ASCII plus
+18 Polish letters at runtime, rather than storing entire sentences. Both
+experimental modes use a 19 px line-height and a one-pixel letter gap.
+The approved Font Lab text samples remain available, but their obsolete
+full-sentence bitmap assets have been removed. Font Lab is the ONLY runtime
+consumer of this shared core in v0.1; existing Launcher, Settings,
+Communicator, Facts and Quiz continue to use their previous renderers.
+No NVS, theme, orientation, radio or power policy is changed.
