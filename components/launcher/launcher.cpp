@@ -1708,10 +1708,13 @@ void Launcher::render_main()
 void Launcher::render_tools()
 {
     clear_shell(board_);
+    // Five rows need 19 px each for experimental fonts. Reclaim 6 px
+    // from the heading and move the footer; keep STANDARD unchanged.
+    const bool experimental_font = settings_.font_mode != font_core::Mode::Standard;
 
     board_.draw_text_region(
         14,
-        8,
+        experimental_font ? 2 : 8,
         212,
         20,
         "NARZEDZIA",
@@ -1730,7 +1733,8 @@ void Launcher::render_tools()
     for (std::uint8_t index = 0; index < 5; ++index) {
         const bool selected = index == tools_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(29 + index * 18);
+            static_cast<std::int16_t>(experimental_font
+                ? 23 + index * 19 : 29 + index * 18);
 
         draw_pilot_text(
             22,
@@ -1757,9 +1761,9 @@ void Launcher::render_tools()
 
     board_.draw_text_region(
         14,
-        116,
+        experimental_font ? 121 : 116,
         212,
-        14,
+        experimental_font ? 12 : 14,
         "M5 WYBIERZ | BOCZNY DALEJ",
         1,
         board::DisplayColor::SecondaryText,
@@ -1796,7 +1800,7 @@ void Launcher::render_entertainment()
             22,
             y,
             196,
-            21,
+            settings_.font_mode == font_core::Mode::Standard ? 21 : 20,
             kItems[index],
             2,
             selected
