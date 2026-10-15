@@ -1,0 +1,962 @@
+[
+  {
+    "id": "space-001",
+    "category": "space",
+    "source_id": "space-001",
+    "statement": "Obrót Wenus wokół osi trwa krócej niż jej obieg wokół Słońca.",
+    "correct": false,
+    "explanation": "Wenus: obrót 243 dni, obieg 225 dni."
+  },
+  {
+    "id": "space-002",
+    "category": "space",
+    "source_id": "space-002",
+    "statement": "Księżyc oddala się od Ziemi średnio o około 3,8 cm rocznie.",
+    "correct": true,
+    "explanation": "Księżyc oddala się o około 3,8 cm rocznie."
+  },
+  {
+    "id": "space-003",
+    "category": "space",
+    "source_id": "space-003",
+    "statement": "Saturn ma większą średnią gęstość niż woda.",
+    "correct": false,
+    "explanation": "Saturn ma średnią gęstość mniejszą od wody."
+  },
+  {
+    "id": "space-004",
+    "category": "space",
+    "source_id": "space-004",
+    "statement": "Na Marsie zachód Słońca może mieć niebieskawy odcień.",
+    "correct": true,
+    "explanation": "Pył marsjański może barwić okolice Słońca na niebiesko."
+  },
+  {
+    "id": "space-005",
+    "category": "space",
+    "source_id": "space-005",
+    "statement": "Neptuna najpierw zobaczono przez teleskop, a potem obliczono jego położenie.",
+    "correct": false,
+    "explanation": "Neptuna najpierw przewidziano obliczeniami."
+  },
+  {
+    "id": "space-006",
+    "category": "space",
+    "source_id": "space-006",
+    "statement": "Światło Słońca dociera do Ziemi po około ośmiu minutach.",
+    "correct": true,
+    "explanation": "Światło leci ze Słońca około 8 min 20 s."
+  },
+  {
+    "id": "space-007",
+    "category": "space",
+    "source_id": "space-007",
+    "statement": "Ocean Enceladusa znajduje się na jego powierzchni, bez pokrywy lodowej.",
+    "correct": false,
+    "explanation": "Ocean Enceladusa kryje się pod lodową skorupą."
+  },
+  {
+    "id": "space-008",
+    "category": "space",
+    "source_id": "space-008",
+    "statement": "Pulsary to wirujące gwiazdy neutronowe.",
+    "correct": true,
+    "explanation": "Pulsary są wirującymi gwiazdami neutronowymi."
+  },
+  {
+    "id": "space-009",
+    "category": "space",
+    "source_id": "space-009",
+    "statement": "Tranzyt planety powoduje chwilowe rozjaśnienie jej gwiazdy.",
+    "correct": false,
+    "explanation": "Tranzyt powoduje przyciemnienie gwiazdy."
+  },
+  {
+    "id": "space-010",
+    "category": "space",
+    "source_id": "space-010",
+    "statement": "Voyager 1 dotarł do przestrzeni międzygwiazdowej w 2012 roku.",
+    "correct": true,
+    "explanation": "Voyager 1 osiągnął przestrzeń międzygwiazdową w 2012 r."
+  },
+  {
+    "id": "space-011",
+    "category": "space",
+    "source_id": "space-011",
+    "statement": "Na Merkurym nie może istnieć lód wodny, bo leży blisko Słońca.",
+    "correct": false,
+    "explanation": "W stale zacienionych kraterach Merkurego jest lód."
+  },
+  {
+    "id": "space-012",
+    "category": "space",
+    "source_id": "space-012",
+    "statement": "Zima przy biegunie Urana może trwać około 21 ziemskich lat.",
+    "correct": true,
+    "explanation": "Zima przy biegunie Urana trwa około 21 lat."
+  },
+  {
+    "id": "space-013",
+    "category": "space",
+    "source_id": "space-013",
+    "statement": "Jowisz potrzebuje ponad 24 godzin na jeden obrót wokół osi.",
+    "correct": false,
+    "explanation": "Jowisz obraca się w niecałe 10 godzin."
+  },
+  {
+    "id": "space-014",
+    "category": "space",
+    "source_id": "space-014",
+    "statement": "Na Io, księżycu Jowisza, zaobserwowano erupcje wulkaniczne.",
+    "correct": true,
+    "explanation": "Na Io obserwowano erupcje wulkanów."
+  },
+  {
+    "id": "space-015",
+    "category": "space",
+    "source_id": "space-015",
+    "statement": "Ganimedes jest mniejszy od planety Merkury.",
+    "correct": false,
+    "explanation": "Ganimedes jest większy od Merkurego."
+  },
+  {
+    "id": "space-016",
+    "category": "space",
+    "source_id": "space-016",
+    "statement": "Europa, księżyc Jowisza, prawdopodobnie kryje ocean pod lodem.",
+    "correct": true,
+    "explanation": "Europa może skrywać ocean pod lodową skorupą."
+  },
+  {
+    "id": "space-017",
+    "category": "space",
+    "source_id": "space-017",
+    "statement": "Na Tytanie występują deszcze ciekłej wody.",
+    "correct": false,
+    "explanation": "Na Tytanie pada metanowy deszcz."
+  },
+  {
+    "id": "space-018",
+    "category": "space",
+    "source_id": "space-018",
+    "statement": "Na Plutonie są góry z lodu wodnego.",
+    "correct": true,
+    "explanation": "Na Plutonie istnieją góry z lodu wodnego."
+  },
+  {
+    "id": "space-019",
+    "category": "space",
+    "source_id": "space-019",
+    "statement": "Słońce zawiera mniej niż połowę masy Układu Słonecznego.",
+    "correct": false,
+    "explanation": "Słońce skupia około 99,8% masy Układu Słonecznego."
+  },
+  {
+    "id": "space-020",
+    "category": "space",
+    "source_id": "space-020",
+    "statement": "Z pokładu ISS można zobaczyć około 16 wschodów Słońca na dobę.",
+    "correct": true,
+    "explanation": "ISS obiega Ziemię co około 90 minut."
+  },
+  {
+    "id": "animals-001",
+    "category": "animals",
+    "source_id": "animals-001",
+    "statement": "Podczas snu delfina może odpoczywać tylko jedna połowa mózgu.",
+    "correct": true,
+    "explanation": "Delfiny potrafią spać jedną półkulą mózgu."
+  },
+  {
+    "id": "animals-002",
+    "category": "animals",
+    "source_id": "animals-002",
+    "statement": "Taniec pszczół nie przekazuje informacji o kierunku do pokarmu.",
+    "correct": false,
+    "explanation": "Taniec wskazuje kierunek i odległość do pożywienia."
+  },
+  {
+    "id": "animals-003",
+    "category": "animals",
+    "source_id": "animals-003",
+    "statement": "Wrony potrafią zapamiętać twarz człowieka na wiele lat.",
+    "correct": true,
+    "explanation": "Wrony rozpoznają ludzi nawet po latach."
+  },
+  {
+    "id": "animals-004",
+    "category": "animals",
+    "source_id": "animals-004",
+    "statement": "Strzelczyk łapie owady, wyskakując na gałęzie.",
+    "correct": false,
+    "explanation": "Strzelczyk strąca owady strumieniem wody."
+  },
+  {
+    "id": "animals-005",
+    "category": "animals",
+    "source_id": "animals-005",
+    "statement": "Słonie mogą wyczuwać stopami drgania gruntu.",
+    "correct": true,
+    "explanation": "Słonie odbierają drgania gruntu stopami."
+  },
+  {
+    "id": "animals-006",
+    "category": "animals",
+    "source_id": "animals-006",
+    "statement": "Kolibry mogą zawisnąć w miejscu, ale nie potrafią latać do tyłu.",
+    "correct": false,
+    "explanation": "Kolibry potrafią również latać do tyłu."
+  },
+  {
+    "id": "animals-007",
+    "category": "animals",
+    "source_id": "animals-007",
+    "statement": "Żółwie morskie korzystają z ziemskiego pola magnetycznego podczas wędrówek.",
+    "correct": true,
+    "explanation": "Żółwiom pomaga pole magnetyczne Ziemi."
+  },
+  {
+    "id": "animals-008",
+    "category": "animals",
+    "source_id": "animals-008",
+    "statement": "Nietoperze potrafią lokalizować zdobycz wyłącznie za pomocą wzroku.",
+    "correct": false,
+    "explanation": "Nietoperze wykorzystują echo swoich pisków."
+  },
+  {
+    "id": "animals-009",
+    "category": "animals",
+    "source_id": "animals-009",
+    "statement": "Dziobak potrafi wykrywać impulsy elektryczne dziobem.",
+    "correct": true,
+    "explanation": "Dziobak wyczuwa impulsy elektryczne dziobem."
+  },
+  {
+    "id": "animals-010",
+    "category": "animals",
+    "source_id": "animals-010",
+    "statement": "Motyle mogą smakować liście wyłącznie czułkami.",
+    "correct": false,
+    "explanation": "Motyle potrafią smakować stopami."
+  },
+  {
+    "id": "animals-011",
+    "category": "animals",
+    "source_id": "animals-011",
+    "statement": "Ośmiornica ma trzy serca.",
+    "correct": true,
+    "explanation": "Dwa serca tłoczą krew do skrzeli, trzecie do ciała."
+  },
+  {
+    "id": "animals-012",
+    "category": "animals",
+    "source_id": "animals-012",
+    "statement": "Gekony trzymają się sufitu dzięki warstwie naturalnego kleju.",
+    "correct": false,
+    "explanation": "Pomagają im miliony mikroskopijnych włosków."
+  },
+  {
+    "id": "animals-013",
+    "category": "animals",
+    "source_id": "animals-013",
+    "statement": "Odchody wombatów mogą mieć kształt kostek.",
+    "correct": true,
+    "explanation": "Wombaty rzeczywiście pozostawiają takie odchody."
+  },
+  {
+    "id": "animals-014",
+    "category": "animals",
+    "source_id": "animals-014",
+    "statement": "Aksolotl nie potrafi odtworzyć utraconej nogi.",
+    "correct": false,
+    "explanation": "Aksolotl może odtworzyć nogę."
+  },
+  {
+    "id": "animals-015",
+    "category": "animals",
+    "source_id": "animals-015",
+    "statement": "Rozgwiazda może wysunąć żołądek poza ciało podczas jedzenia.",
+    "correct": true,
+    "explanation": "Rozgwiazda wysuwa żołądek na zdobycz."
+  },
+  {
+    "id": "animals-016",
+    "category": "animals",
+    "source_id": "animals-016",
+    "statement": "U koników morskich zarodki nosi w torbie lęgowej samica.",
+    "correct": false,
+    "explanation": "To samiec nosi zarodki w torbie lęgowej."
+  },
+  {
+    "id": "animals-017",
+    "category": "animals",
+    "source_id": "animals-017",
+    "statement": "Pingwiny cesarskie ogrzewają się podczas zamieci, stojąc ciasno razem.",
+    "correct": true,
+    "explanation": "Ptaki ogrzewają się i wymieniają miejscami."
+  },
+  {
+    "id": "animals-018",
+    "category": "animals",
+    "source_id": "animals-018",
+    "statement": "W kolonii golców piaskowych młode rodzi każda dorosła samica.",
+    "correct": false,
+    "explanation": "Młode rodzi jedna samica zwana królową."
+  },
+  {
+    "id": "animals-019",
+    "category": "animals",
+    "source_id": "animals-019",
+    "statement": "Flamingi różowieją dzięki barwnikom zawartym w pokarmie.",
+    "correct": true,
+    "explanation": "Barwniki pochodzą z glonów i skorupiaków."
+  },
+  {
+    "id": "animals-020",
+    "category": "animals",
+    "source_id": "animals-020",
+    "statement": "Kukułka zawsze wysiaduje jajka wyłącznie we własnym gnieździe.",
+    "correct": false,
+    "explanation": "Kukułka podrzuca jaja do cudzych gniazd."
+  },
+  {
+    "id": "technology-001",
+    "category": "technology",
+    "source_id": "technology-001",
+    "statement": "Jedna z pierwszych kamer sieciowych obserwowała dzbanek z kawą.",
+    "correct": true,
+    "explanation": "Kamera w Cambridge pozwalała sprawdzać stan kawy."
+  },
+  {
+    "id": "technology-002",
+    "category": "technology",
+    "source_id": "technology-002",
+    "statement": "Ćmę w komputerze Harvard Mark II znaleziono w 1971 roku.",
+    "correct": false,
+    "explanation": "Ćmę znaleziono w 1947 roku."
+  },
+  {
+    "id": "technology-003",
+    "category": "technology",
+    "source_id": "technology-003",
+    "statement": "Jedna z pierwszych myszy komputerowych miała drewnianą obudowę.",
+    "correct": true,
+    "explanation": "Drewniana obudowa kryła dwa kółka."
+  },
+  {
+    "id": "technology-004",
+    "category": "technology",
+    "source_id": "technology-004",
+    "statement": "Znak @ pojawił się w adresach e-mail dopiero w XXI wieku.",
+    "correct": false,
+    "explanation": "Znak @ wykorzystano w e-mailach w 1971 roku."
+  },
+  {
+    "id": "technology-005",
+    "category": "technology",
+    "source_id": "technology-005",
+    "statement": "Światło pomaga przenosić wzory układów scalonych na krzem.",
+    "correct": true,
+    "explanation": "W fotolitografii wzory powstają za pomocą światła."
+  },
+  {
+    "id": "technology-006",
+    "category": "technology",
+    "source_id": "technology-006",
+    "statement": "Kody QR opracowano pierwotnie w przemyśle farmaceutycznym.",
+    "correct": false,
+    "explanation": "QR powstał w japońskiej motoryzacji."
+  },
+  {
+    "id": "technology-007",
+    "category": "technology",
+    "source_id": "technology-007",
+    "statement": "Pierwszym towarem zeskanowanym kodem kreskowym przy kasie była guma do żucia.",
+    "correct": true,
+    "explanation": "Zdarzyło się to w sklepie w USA w 1974 roku."
+  },
+  {
+    "id": "technology-008",
+    "category": "technology",
+    "source_id": "technology-008",
+    "statement": "Większość danych między kontynentami płynie przez satelity.",
+    "correct": false,
+    "explanation": "Dominują podmorskie kable telekomunikacyjne."
+  },
+  {
+    "id": "technology-009",
+    "category": "technology",
+    "source_id": "technology-009",
+    "statement": "W światłowodzie informacje przemieszczają się jako impulsy światła.",
+    "correct": true,
+    "explanation": "Informację kodują impulsy świetlne."
+  },
+  {
+    "id": "technology-010",
+    "category": "technology",
+    "source_id": "technology-010",
+    "statement": "Do odczytu RFID konieczne jest oświetlenie etykiety skanerem.",
+    "correct": false,
+    "explanation": "RFID używa fal radiowych."
+  },
+  {
+    "id": "technology-011",
+    "category": "technology",
+    "source_id": "technology-011",
+    "statement": "Haczyki roślin uczepione sierści psa zainspirowały wynalazcę rzepów.",
+    "correct": true,
+    "explanation": "Roślinne haczyki zainspirowały rzepy."
+  },
+  {
+    "id": "technology-012",
+    "category": "technology",
+    "source_id": "technology-012",
+    "statement": "Klej Post-it zaprojektowano jako wyjątkowo mocny i nieodwracalny.",
+    "correct": false,
+    "explanation": "Powstał klej łatwy do odklejania."
+  },
+  {
+    "id": "technology-013",
+    "category": "technology",
+    "source_id": "technology-013",
+    "statement": "Pomysł na mikrofalówkę wiąże się ze stopionym batonikiem przy radarze.",
+    "correct": true,
+    "explanation": "Batonik ogrzał się przy sprzęcie radarowym."
+  },
+  {
+    "id": "technology-014",
+    "category": "technology",
+    "source_id": "technology-014",
+    "statement": "Wszystkie drukarki 3D korzystają z plastikowej żyłki.",
+    "correct": false,
+    "explanation": "Druk 3D może też utwardzać żywicę światłem."
+  },
+  {
+    "id": "technology-015",
+    "category": "technology",
+    "source_id": "technology-015",
+    "statement": "Folia w szybie laminowanej może utrzymać odłamki po rozbiciu.",
+    "correct": true,
+    "explanation": "Odłamki zatrzymuje folia pomiędzy taflami."
+  },
+  {
+    "id": "technology-016",
+    "category": "technology",
+    "source_id": "technology-016",
+    "statement": "Słuchawki z aktywną redukcją hałasu działają wyłącznie jak zatyczki.",
+    "correct": false,
+    "explanation": "Aktywne ANC generuje dźwięk o przeciwnej fazie."
+  },
+  {
+    "id": "technology-017",
+    "category": "technology",
+    "source_id": "technology-017",
+    "statement": "Ekran e-ink może zachowywać obraz bez ciągłego zasilania.",
+    "correct": true,
+    "explanation": "Prąd jest potrzebny głównie do zmiany obrazu."
+  },
+  {
+    "id": "technology-018",
+    "category": "technology",
+    "source_id": "technology-018",
+    "statement": "W ekranie OLED wszystkie piksele oświetla jedna wspólna lampa.",
+    "correct": false,
+    "explanation": "W OLED każdy piksel świeci samodzielnie."
+  },
+  {
+    "id": "technology-019",
+    "category": "technology",
+    "source_id": "technology-019",
+    "statement": "Kamera termowizyjna może tworzyć obraz w całkowitej ciemności.",
+    "correct": true,
+    "explanation": "Urządzenie wykrywa promieniowanie podczerwone."
+  },
+  {
+    "id": "technology-020",
+    "category": "technology",
+    "source_id": "technology-020",
+    "statement": "Niebieskie diody LED nie odegrały roli w rozwoju białych lamp LED.",
+    "correct": false,
+    "explanation": "Niebieskie LED umożliwiły rozwój białych lamp."
+  },
+  {
+    "id": "human-001",
+    "category": "human",
+    "source_id": "human-001",
+    "statement": "Brytyjski i amerykański język migowy znacznie się różnią.",
+    "correct": true,
+    "explanation": "Języki migowe różnią się między krajami."
+  },
+  {
+    "id": "human-002",
+    "category": "human",
+    "source_id": "human-002",
+    "statement": "Silbo Gomero pozwala przekazywać całe zdania za pomocą bębnów.",
+    "correct": false,
+    "explanation": "Silbo Gomero opiera się na gwizdach."
+  },
+  {
+    "id": "human-003",
+    "category": "human",
+    "source_id": "human-003",
+    "statement": "W Papui-Nowej Gwinei używa się ponad 800 języków.",
+    "correct": true,
+    "explanation": "To jeden z najbardziej różnorodnych językowo krajów."
+  },
+  {
+    "id": "human-004",
+    "category": "human",
+    "source_id": "human-004",
+    "statement": "W Japonii do zapisu zdań używa się wyłącznie kanji.",
+    "correct": false,
+    "explanation": "Stosuje się także hiraganę i katakanę."
+  },
+  {
+    "id": "human-005",
+    "category": "human",
+    "source_id": "human-005",
+    "statement": "W języku Guugu Yimithirr kierunki świata mogą zastępować „lewo” i „prawo”.",
+    "correct": true,
+    "explanation": "Położenie można określać stronami świata."
+  },
+  {
+    "id": "human-006",
+    "category": "human",
+    "source_id": "human-006",
+    "statement": "Hieroglify egipskie zawsze odczytywano wyłącznie od lewej do prawej.",
+    "correct": false,
+    "explanation": "Kierunek wskazywał zwrot postaci w znakach."
+  },
+  {
+    "id": "human-007",
+    "category": "human",
+    "source_id": "human-007",
+    "statement": "Kintsugi może podkreślać naprawione pęknięcia ceramiki.",
+    "correct": true,
+    "explanation": "Naprawione pęknięcia podkreśla się złotem."
+  },
+  {
+    "id": "human-008",
+    "category": "human",
+    "source_id": "human-008",
+    "statement": "Podczas Día de Muertos w Meksyku nie przygotowuje się ołtarzy pamięci.",
+    "correct": false,
+    "explanation": "Podczas święta przygotowuje się ołtarze i dary."
+  },
+  {
+    "id": "human-009",
+    "category": "human",
+    "source_id": "human-009",
+    "statement": "W Finlandii znajduje się ponad trzy miliony saun.",
+    "correct": true,
+    "explanation": "Sauna jest ważną częścią fińskiej kultury."
+  },
+  {
+    "id": "human-010",
+    "category": "human",
+    "source_id": "human-010",
+    "statement": "Katalońskie castells to wieże budowane z kamieni.",
+    "correct": false,
+    "explanation": "Castells to wieże z ludzi."
+  },
+  {
+    "id": "human-011",
+    "category": "human",
+    "source_id": "human-011",
+    "statement": "Lud Uros buduje pływające wyspy z trzciny na jeziorze Titicaca.",
+    "correct": true,
+    "explanation": "Wyspy są budowane z trzciny totora."
+  },
+  {
+    "id": "human-012",
+    "category": "human",
+    "source_id": "human-012",
+    "statement": "Indyjskie rangoli wykonuje się wyłącznie z drewna i metalu.",
+    "correct": false,
+    "explanation": "Rangoli tworzy się z proszku, piasku i kwiatów."
+  },
+  {
+    "id": "human-013",
+    "category": "human",
+    "source_id": "human-013",
+    "statement": "W śpiewie gardłowym jedna osoba może wydawać dwa tony naraz.",
+    "correct": true,
+    "explanation": "Jeden głos tworzy niski ton i wysoką melodię."
+  },
+  {
+    "id": "human-014",
+    "category": "human",
+    "source_id": "human-014",
+    "statement": "Puentylizm to technika malowania wyłącznie szerokimi pasami.",
+    "correct": false,
+    "explanation": "Puentylizm buduje obraz z małych kropek."
+  },
+  {
+    "id": "human-015",
+    "category": "human",
+    "source_id": "human-015",
+    "statement": "Tybetańskie mandale z piasku mogą zostać zamiecione po ukończeniu.",
+    "correct": true,
+    "explanation": "Zamiatanie mandali symbolizuje przemijanie."
+  },
+  {
+    "id": "human-016",
+    "category": "human",
+    "source_id": "human-016",
+    "statement": "W indonezyjskim teatrze cieni używa się wyłącznie żywych aktorów.",
+    "correct": false,
+    "explanation": "Tradycyjnie używa się poruszanych lalek cieniowych."
+  },
+  {
+    "id": "human-017",
+    "category": "human",
+    "source_id": "human-017",
+    "statement": "Niektórym osobom litery i cyfry kojarzą się z kolorami.",
+    "correct": true,
+    "explanation": "Zjawisko to nazywa się synestezją."
+  },
+  {
+    "id": "human-018",
+    "category": "human",
+    "source_id": "human-018",
+    "statement": "Afantazja oznacza wyjątkowo wyraziste obrazy w wyobraźni.",
+    "correct": false,
+    "explanation": "Afantazja oznacza brak obrazów w wyobraźni."
+  },
+  {
+    "id": "human-019",
+    "category": "human",
+    "source_id": "human-019",
+    "statement": "Pareidolia może sprawić, że widzimy twarz w sęku drzewa.",
+    "correct": true,
+    "explanation": "Takie złudzenie nazywa się pareidolią."
+  },
+  {
+    "id": "human-020",
+    "category": "human",
+    "source_id": "human-020",
+    "statement": "Gdy patrzymy na obraz, zawsze zauważymy każdą dużą zmianę.",
+    "correct": false,
+    "explanation": "Zmiany mogą umykać, gdy uwaga jest zajęta."
+  },
+  {
+    "id": "history-001",
+    "category": "history",
+    "source_id": "history-001",
+    "statement": "W Mezopotamii zachowała się gliniana tabliczka ze skargą na złą miedź.",
+    "correct": true,
+    "explanation": "Reklamacja dotyczyła kiepskiej miedzi."
+  },
+  {
+    "id": "history-002",
+    "category": "history",
+    "source_id": "history-002",
+    "statement": "W osadzie budowniczych piramid w Gizie nie było piekarni.",
+    "correct": false,
+    "explanation": "Odkryto osadę z piekarniami."
+  },
+  {
+    "id": "history-003",
+    "category": "history",
+    "source_id": "history-003",
+    "statement": "W Pompejach działały lokale sprzedające gotowe jedzenie.",
+    "correct": true,
+    "explanation": "Gotowe jedzenie sprzedawano przy ladach."
+  },
+  {
+    "id": "history-004",
+    "category": "history",
+    "source_id": "history-004",
+    "statement": "System liczbowy Majów opierał się na dziesiątkach.",
+    "correct": false,
+    "explanation": "System Majów opierał się na dwudziestkach."
+  },
+  {
+    "id": "history-005",
+    "category": "history",
+    "source_id": "history-005",
+    "statement": "Inkowie prowadzili rachunki za pomocą węzłów na sznurkach.",
+    "correct": true,
+    "explanation": "Węzły i kolory pomagały zapisywać liczby."
+  },
+  {
+    "id": "history-006",
+    "category": "history",
+    "source_id": "history-006",
+    "statement": "Wikingowie dotarli do Ameryki dopiero po wyprawie Kolumba.",
+    "correct": false,
+    "explanation": "Wikingowie dotarli do Ameryki około 500 lat wcześniej."
+  },
+  {
+    "id": "history-007",
+    "category": "history",
+    "source_id": "history-007",
+    "statement": "Jedwabny Szlak składał się z wielu tras handlowych.",
+    "correct": true,
+    "explanation": "Była to sieć szlaków, a nie pojedyncza droga."
+  },
+  {
+    "id": "history-008",
+    "category": "history",
+    "source_id": "history-008",
+    "statement": "W Timbuktu nie przechowywano rękopisów naukowych.",
+    "correct": false,
+    "explanation": "Zachowały się tam tysiące rękopisów."
+  },
+  {
+    "id": "history-009",
+    "category": "history",
+    "source_id": "history-009",
+    "statement": "Samurajowie walczyli także za pomocą łuków.",
+    "correct": true,
+    "explanation": "Samurajowie używali również łuków."
+  },
+  {
+    "id": "history-010",
+    "category": "history",
+    "source_id": "history-010",
+    "statement": "W Tenochtitlán nie było żadnych kanałów wodnych.",
+    "correct": false,
+    "explanation": "W mieście były liczne kanały i łodzie."
+  },
+  {
+    "id": "history-011",
+    "category": "history",
+    "source_id": "history-011",
+    "statement": "Jadwigę koronowano w 1384 roku na króla Polski.",
+    "correct": true,
+    "explanation": "Jadwiga była pełnoprawnym władcą."
+  },
+  {
+    "id": "history-012",
+    "category": "history",
+    "source_id": "history-012",
+    "statement": "Kopalnie soli w Bochni i Wieliczce rozpoczęły działalność w XIX wieku.",
+    "correct": false,
+    "explanation": "Kopalnie działały już w XIII wieku."
+  },
+  {
+    "id": "history-013",
+    "category": "history",
+    "source_id": "history-013",
+    "statement": "Konstytucję 3 maja uchwalono w 1791 roku.",
+    "correct": true,
+    "explanation": "Konstytucja zniosła liberum veto."
+  },
+  {
+    "id": "history-014",
+    "category": "history",
+    "source_id": "history-014",
+    "statement": "Polki uzyskały prawa wyborcze dopiero po II wojnie światowej.",
+    "correct": false,
+    "explanation": "Prawa wyborcze uzyskały w 1918 roku."
+  },
+  {
+    "id": "history-015",
+    "category": "history",
+    "source_id": "history-015",
+    "statement": "Warszawskie Stare Miasto odbudowano po II wojnie światowej.",
+    "correct": true,
+    "explanation": "Stare Miasto odbudowano po zniszczeniach."
+  },
+  {
+    "id": "history-016",
+    "category": "history",
+    "source_id": "history-016",
+    "statement": "Wielki Pożar Londynu rozpoczął się w 1766 roku.",
+    "correct": false,
+    "explanation": "Pożar wybuchł w 1666 roku."
+  },
+  {
+    "id": "history-017",
+    "category": "history",
+    "source_id": "history-017",
+    "statement": "W pokazowym locie balonowym w 1783 roku leciały owca, kaczka i kogut.",
+    "correct": true,
+    "explanation": "Był to pokaz przed lotami ludzi."
+  },
+  {
+    "id": "history-018",
+    "category": "history",
+    "source_id": "history-018",
+    "statement": "Rok bez lata nastąpił przed wybuchem wulkanu Tambora.",
+    "correct": false,
+    "explanation": "Erupcja Tambory była w 1815, ochłodzenie w 1816."
+  },
+  {
+    "id": "history-019",
+    "category": "history",
+    "source_id": "history-019",
+    "statement": "Smród Tamizy w 1858 roku zakłócał obrady brytyjskiego parlamentu.",
+    "correct": true,
+    "explanation": "Przyspieszyło to budowę kanalizacji."
+  },
+  {
+    "id": "history-020",
+    "category": "history",
+    "source_id": "history-020",
+    "statement": "Roald Amundsen dotarł na biegun południowy później niż wyprawa Scotta.",
+    "correct": false,
+    "explanation": "Amundsen dotarł do bieguna przed Scottem."
+  },
+  {
+    "id": "world-001",
+    "category": "world",
+    "source_id": "world-001",
+    "statement": "Islandia leży na granicy rozsuwających się płyt tektonicznych.",
+    "correct": true,
+    "explanation": "Oddalają się tam płyty Eurazji i Ameryki Północnej."
+  },
+  {
+    "id": "world-002",
+    "category": "world",
+    "source_id": "world-002",
+    "statement": "Kamienie w Dolinie Śmierci przesuwają się wyłącznie przez trzęsienia ziemi.",
+    "correct": false,
+    "explanation": "Cienki lód i wiatr potrafią przesuwać kamienie."
+  },
+  {
+    "id": "world-003",
+    "category": "world",
+    "source_id": "world-003",
+    "statement": "Kolumny Grobli Olbrzyma powstały podczas stygnięcia lawy.",
+    "correct": true,
+    "explanation": "Bazalt pękał podczas stygnięcia lawy."
+  },
+  {
+    "id": "world-004",
+    "category": "world",
+    "source_id": "world-004",
+    "statement": "Wielki Kanion ma dokładnie ten sam wiek co najstarsze odsłonięte skały.",
+    "correct": false,
+    "explanation": "Kanion jest znacznie młodszy od odsłanianych skał."
+  },
+  {
+    "id": "world-005",
+    "category": "world",
+    "source_id": "world-005",
+    "statement": "W Himalajach można znaleźć skamieniałości zwierząt morskich.",
+    "correct": true,
+    "explanation": "Dawne dno oceanu wypiętrzyło się w góry."
+  },
+  {
+    "id": "world-006",
+    "category": "world",
+    "source_id": "world-006",
+    "statement": "Największą pustynią Ziemi jest Sahara.",
+    "correct": false,
+    "explanation": "Największą pustynią jest Antarktyda."
+  },
+  {
+    "id": "world-007",
+    "category": "world",
+    "source_id": "world-007",
+    "statement": "Mauna Kea przewyższa Everest, licząc od podmorskiej podstawy.",
+    "correct": true,
+    "explanation": "Większość Mauna Kea kryje się pod wodą."
+  },
+  {
+    "id": "world-008",
+    "category": "world",
+    "source_id": "world-008",
+    "statement": "Salar de Uyuni odbija niebo wyłącznie wtedy, gdy pokrywa go śnieg.",
+    "correct": false,
+    "explanation": "Efekt lustra daje cienka warstwa wody po deszczu."
+  },
+  {
+    "id": "world-009",
+    "category": "world",
+    "source_id": "world-009",
+    "statement": "Sahara w przeszłości miała wilgotniejsze okresy z jeziorami.",
+    "correct": true,
+    "explanation": "Na Saharze istniały jeziora i roślinność."
+  },
+  {
+    "id": "world-010",
+    "category": "world",
+    "source_id": "world-010",
+    "statement": "Pustynia Atakama leży w Afryce.",
+    "correct": false,
+    "explanation": "Atakama znajduje się w Chile."
+  },
+  {
+    "id": "world-011",
+    "category": "world",
+    "source_id": "world-011",
+    "statement": "Najdłuższy łańcuch górski Ziemi znajduje się pod oceanami.",
+    "correct": true,
+    "explanation": "Najdłuższy system górski jest pod oceanami."
+  },
+  {
+    "id": "world-012",
+    "category": "world",
+    "source_id": "world-012",
+    "statement": "Podwodny wodospad w Cieśninie Duńskiej tworzy rzeka spadająca z klifu.",
+    "correct": false,
+    "explanation": "Zimna, gęsta woda opada pod cieplejszą."
+  },
+  {
+    "id": "world-013",
+    "category": "world",
+    "source_id": "world-013",
+    "statement": "Bajkał jest najgłębszym jeziorem świata.",
+    "correct": true,
+    "explanation": "Jezioro Bajkał jest najgłębsze."
+  },
+  {
+    "id": "world-014",
+    "category": "world",
+    "source_id": "world-014",
+    "statement": "Rio Negro i Solimões mieszają się całkowicie tuż przy spotkaniu.",
+    "correct": false,
+    "explanation": "Rzeki płyną obok siebie przez kilometry."
+  },
+  {
+    "id": "world-015",
+    "category": "world",
+    "source_id": "world-015",
+    "statement": "Najgłębszy punkt oceanu znajduje się w Rowie Mariańskim.",
+    "correct": true,
+    "explanation": "Chodzi o Rów Mariański."
+  },
+  {
+    "id": "world-016",
+    "category": "world",
+    "source_id": "world-016",
+    "statement": "Zorze polarne powstają przez odbijanie światła Księżyca.",
+    "correct": false,
+    "explanation": "Zorzę wywołują cząstki pochodzące od Słońca."
+  },
+  {
+    "id": "world-017",
+    "category": "world",
+    "source_id": "world-017",
+    "statement": "Nad burzami mogą pojawiać się krótkie czerwone błyski.",
+    "correct": true,
+    "explanation": "To krótkotrwałe wyładowania elektryczne."
+  },
+  {
+    "id": "world-018",
+    "category": "world",
+    "source_id": "world-018",
+    "statement": "Halo wokół Słońca tworzą głównie krople oleju w powietrzu.",
+    "correct": false,
+    "explanation": "Halo powstaje w kryształkach lodu w chmurach."
+  },
+  {
+    "id": "world-019",
+    "category": "world",
+    "source_id": "world-019",
+    "statement": "Tęcza może mieć postać pełnego koła.",
+    "correct": true,
+    "explanation": "Z powietrza można zobaczyć cały okrąg."
+  },
+  {
+    "id": "world-020",
+    "category": "world",
+    "source_id": "world-020",
+    "statement": "Zielony błysk przy zachodzie Słońca wywołuje kolor powierzchni morza.",
+    "correct": false,
+    "explanation": "Atmosfera rozszczepia kolory światła."
+  }
+]
