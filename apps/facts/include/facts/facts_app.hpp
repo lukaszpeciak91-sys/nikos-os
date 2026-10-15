@@ -102,7 +102,9 @@ private:
         std::uint16_t max_width, std::uint8_t max_lines,
         char* dest, std::size_t dest_size) const;
     void render_readable(const char* text, std::int16_t x,
-        std::int16_t y, std::int16_t width, std::int16_t height);
+        std::int16_t y, std::int16_t width, std::int16_t height,
+        board::DisplayColor foreground = board::DisplayColor::PrimaryText,
+        board::DisplayColor background = board::DisplayColor::Background);
 
     View view_ = View::MainMenu;
     bool active_ = false;
