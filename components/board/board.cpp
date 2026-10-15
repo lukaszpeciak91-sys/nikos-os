@@ -335,6 +335,14 @@ void Board::tone(float frequency_hz, std::uint32_t duration_ms)
     }
 }
 
+void Board::set_notification_volume_level(std::uint8_t level)
+{
+    // 100% retains the previous M5Unified master volume of 64.
+    // Presets are relative UI steps, not calibrated acoustic percentages.
+    constexpr std::uint8_t kVolumes[5] = {0, 16, 32, 48, 64};
+    if (level <= 4) M5.Speaker.setVolume(kVolumes[level]);
+}
+
 void Board::stop_tone()
 {
     M5.Speaker.stop();
