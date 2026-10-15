@@ -228,3 +228,22 @@ display clipping and default STANDARD behavior. ESP-IDF 5.5.5 compilation,
 firmware size delta, stack high-water and LCD visual validation remain
 mandatory prior to merge. Main-task stack configuration is untouched
 (`CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` already exists on main).
+
+### Font core PR #71 — audit repair (UTF-8, l-stroke, Z-dot)
+
+The decoder's invalid-byte result is now retained by the layout measurer and
+`supported=false` is reported for malformed UTF-8 and unsupported codepoints
+in both experimental modes. Both still draw a bounded '?' fallback. COMPOSED
+draws its L/l stroke inside the narrow lowercase l advance (three plotted
+columns, with the next glyph starting after the declared advance). The
+PRE-RENDERED uppercase Ż now has a centred dot raster distinct from Ź's acute;
+all 18 Polish raster strings were checked for duplicates. The host test covers
+these regressions, failed-fit no-draw behavior and explicit pixel bounds.
+
+ESP-IDF 5.5.5 is not installed in the execution environment and the GitHub
+repository cannot be cloned from its restricted network, so native C++ tests,
+firmware build, linked flash usage, app-partition free bytes, runtime timing
+and device validation are not yet confirmed. Per-pixel `Board::fill_rect`
+remains a performance concern: up to 192 inspected bits and one drawing call
+per set bit per glyph (plus region clearing), to be profiled on target.
+`CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` remains unchanged.
