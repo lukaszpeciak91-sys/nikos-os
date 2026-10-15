@@ -460,3 +460,23 @@ all radio, UI and timer processing. The brief startup beep occurs before NVS
 initialization and remains an intentionally excluded boot diagnostic sound.
 The three existing sound patterns are unchanged. The existing signal-sound
 selector remains a melody submenu under Settings > Sound, alongside volume.
+
+### Facts Quiz — Prawda/Fałsz v0.1
+
+The existing FactsApp owns the menu entry and delegates gameplay to the
+small dedicated Quiz state machine. The quiz owns ten randomly drawn distinct
+indices, current position, score, selection, feedback and final result.
+The app retains the Quiz object across Communicator foreground preemption,
+display wake redraws, Charging Lock and other system overlays. Quiz has no
+network, persistence, background timer or additional FreeRTOS task.
+
+The approved immutable content source is
+`content/quiz/nikos_quiz_prawda_falsz_120.json`; generator
+`tools/generate_quiz.py` deterministically emits
+`apps/facts/generated/quiz_data.cpp` containing all 120 records with
+source IDs, correct booleans, statements and explanations preserved. Six
+categories contain 20 records each. The compact 9px Polish UI font is reused;
+the question occupies five 15px text rows in a fixed 240×135 layout. The
+generator rejects excessive line counts and unsupported content changes.
+No reader-screen pagination or shrinking is allowed. Hardware proof of
+glyph placement remains mandatory.
