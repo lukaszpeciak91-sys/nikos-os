@@ -1007,10 +1007,13 @@ Action Launcher::update(const board::InputState& input)
         if (input.secondary_long) {
             screen_ = Screen::Settings;
         } else if (input.secondary_short) {
-            font_selection_ = static_cast<std::uint8_t>((font_selection_ + 1U) % 3U);
+            font_selection_ =
+                static_cast<std::uint8_t>((font_selection_ + 1U) % 3U);
         } else if (input.primary_short) {
             settings_.font_mode = static_cast<font_core::Mode>(font_selection_);
             screen_ = Screen::Settings;
+        } else {
+            return Action::None;
         }
         render();
         return Action::None;
