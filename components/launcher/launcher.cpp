@@ -569,7 +569,7 @@ Action Launcher::update(const board::InputState& input)
         if (input.secondary_short) {
             entertainment_selection_ =
                 static_cast<std::uint8_t>(
-                    (entertainment_selection_ + 1U) % 3U);
+                    (entertainment_selection_ + 1U) % 4U);
             render();
             return Action::None;
         }
@@ -579,6 +579,9 @@ Action Launcher::update(const board::InputState& input)
                 return Action::OpenSnake;
             }
             if (entertainment_selection_ == 1U) {
+                return Action::OpenMiniRacer;
+            }
+            if (entertainment_selection_ == 2U) {
                 return Action::OpenFacts;
             }
 
@@ -1753,16 +1756,17 @@ void Launcher::render_entertainment()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[3] = {
+    constexpr const char* kItems[4] = {
         "Snake",
+        "Mini Racer",
         "Ciekawostki",
         "Powrot",
     };
 
-    for (std::uint8_t index = 0; index < 3U; ++index) {
+    for (std::uint8_t index = 0; index < 4U; ++index) {
         const bool selected = index == entertainment_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(39 + index * 24);
+            static_cast<std::int16_t>(35 + index * 20);
 
         board_.draw_text_region(
             22,
