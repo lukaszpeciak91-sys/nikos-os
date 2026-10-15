@@ -14,6 +14,7 @@ public:
     void suspend();
     void resume();
     bool microphone_active() const { return microphone_ok_; }
+    bool suspended() const { return suspended_; }
     Result update(const board::InputState& input, std::uint32_t now_ms);
 private:
     void render(bool full);
@@ -24,6 +25,7 @@ private:
     std::uint8_t shown_level_ = 255;
     std::uint8_t shown_peak_ = 255;
     bool active_ = false;
+    bool suspended_ = false;
     bool microphone_ok_ = false;
     bool capture_pending_ = false;
 };
