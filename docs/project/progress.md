@@ -247,3 +247,7 @@ and device validation are not yet confirmed. Per-pixel `Board::fill_rect`
 remains a performance concern: up to 192 inspected bits and one drawing call
 per set bit per glyph (plus region clearing), to be profiled on target.
 `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` remains unchanged.
+
+### Font selector stacked PR A — implementation candidate
+
+Added a boot-only selection of STANDARD / COMPOSED / PRE-RENDERED under USTAWIENIA > CZCIONKA and small real-UI Launcher pilots. Legacy STANDARD sizes remain unchanged. Application-specific screens, Facts, Quiz and Communicator are not migrated in this PR. Firmware compile, executable host checks and physical metrics/fit checks are pending; this branch must be tested cumulatively with stacked Facts PR B after independent source audits.

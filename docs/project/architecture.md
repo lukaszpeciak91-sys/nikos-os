@@ -521,3 +521,7 @@ full-sentence bitmap assets have been removed. Font Lab is the ONLY runtime
 consumer of this shared core in v0.1; existing Launcher, Settings,
 Communicator, Facts and Quiz continue to use their previous renderers.
 No NVS, theme, orientation, radio or power policy is changed.
+
+### Font selector UI pilot (stacked PR A)
+
+Boot-scoped `settings::State::font_mode` defaults to STANDARD. The Launcher owns `USTAWIENIA > CZCIONKA` and pilots three font modes on its Main, Tools, Entertainment and Settings selectable rows plus the selector screen. STANDARD routes these rows through the unchanged Font0 Board API at their existing scale 2. Experimental modes use a per-Launcher `font_core::Renderer` and explicit fit rejection; they do not intercept normal Board draw calls or affect other applications. No NVS, orientation, radio, lifecycle or redraw scheduling changes.
