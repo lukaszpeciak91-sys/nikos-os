@@ -205,3 +205,13 @@ Reordered Ciekawostki to LOSUJ, QUIZ, six categories and POWRÓT. Quiz line brea
 ### Mini Racer v0.1 implementation candidate
 
 A focused, unmerged PR adds Mini Racer under Rozrywka, with two-lane gameplay, scrolling road marks, simple car primitives, automatic bounded difficulty, swept collision detection, pause/game-over actions, a 10-minute session cap and RAM-only score record. The module delegates all system ownership to existing `app_main`, Board and DisplayLifecycle boundaries. Code audit, firmware build, flash/RAM measurement and physical checks of both orientations, repeated entry/exit, incoming Communicator, Charging Lock and BatteryGuard remain required prior to merge.
+
+### Font Lab v0.1 — temporary experiment
+Added an unmerged, independent Tools diagnostic to compare three Polish text
+rendering strategies across six identical samples without modifying the
+system Unicode font mapper. Included independent fixed bitmap glyphs,
+native-letter/diacritic composition and complete pre-rasterized phrase
+images. U8g2 is recorded as a researched-but-excluded candidate. The compact
+assets are fixed and compiled into firmware. ESP-IDF 5.5.5 compile,
+flash/RAM deltas and physical LCD readability/diacritic alignment still
+require verification; the application is not a production-wide font change.
