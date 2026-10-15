@@ -371,7 +371,7 @@ bool Board::microphone_recording() const
 void Board::end_microphone()
 {
     M5.Mic.end();
-    if (!M5.Speaker.isEnabled() && !M5.Speaker.begin()) {
+    if (!M5.Speaker.begin()) {
         ESP_LOGE(kTag, "Speaker recovery after mic failed");
     }
 }
