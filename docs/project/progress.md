@@ -144,3 +144,14 @@ Append concise entries here when the authoritative project state changes.
 - 2026-10-14 — Completed the authoring-time Facts catalogue with six categories of 100 titled Polish facts each (600 total), refined the content validator, and accepted editorial corrections. The firmware/UI reader, title list, random selection, pagination and input navigation remain a separate implementation iteration.
 
 - 2026-10-14 — Implemented Ciekawostki v0.1 from the merged 600-record Facts catalogue: deterministic source→firmware generation strips source/note, category lists preserve 001..100 plus POWROT, LOSUJ spans all 600 without immediate repeat, the retained reader paginates UTF-8 without heap allocation, and Communicator/system overlays preserve the active Facts state.
+
+
+## Sound Level Meter v0.1 — implementation candidate
+
+A focused Sound Meter module, relative RMS/peak processor, Board microphone
+ownership boundary and Narzędzia runtime entry have been added on an
+unmerged feature branch. The existing messaging pause/resume and Countdown
+pause/resume contracts are reused, including charging takeover cleanup.
+Hardware microphone sampling, display quality, speaker recovery and repeated
+enter/exit cycles still require physical validation on M5StickC Plus SE.
+No acoustic calibration or dB presentation is included.
