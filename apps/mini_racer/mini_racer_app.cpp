@@ -20,7 +20,6 @@ void MiniRacerApp::begin() {
     active_ = true;
     suspended_ = false;
     session_started_ms_ = now_ms();
-    record_ = record_; // Record intentionally persists within this app instance.
     start_round(session_started_ms_);
 }
 void MiniRacerApp::start_round(std::uint32_t now) {
