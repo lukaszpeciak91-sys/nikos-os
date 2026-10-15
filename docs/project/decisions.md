@@ -811,3 +811,7 @@ Retain state across Communicator and system overlays via FactsApp redraw.
 ### Quiz R1 layout validation
 
 Do not truncate quiz strings or approximate glyph width by Unicode codepoint count. Keep the original approved 120 records and validate wrapping against the project's actual compiled Polish UI font. Reuse an isolated Board text-width accessor instead of modifying the existing global text style or introducing a generic layout framework.
+
+### Mini Racer v0.1 — bounded two-lane arcade
+
+Implement a small dedicated game parallel to Snake, reusing Board graphics and existing Entertainment/runtime lifecycle. One obstacle at a time provides a conservative avoidability guarantee at all bounded speeds; adding concurrent enemies would require a separate reachability proof. Pause preserves exact game state, the wall-clock session remains capped at ten minutes (including pauses), and the maximum score remains volatile across rounds within the current boot. Communicator, POWER and charging policy retain system-level priority.

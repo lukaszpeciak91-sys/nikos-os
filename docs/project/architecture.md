@@ -480,3 +480,7 @@ the question occupies five 15px text rows in a fixed 240×135 layout. The
 generator rejects excessive line counts and unsupported content changes.
 No reader-screen pagination or shrinking is allowed. Hardware proof of
 glyph placement remains mandatory.
+
+### Mini Racer v0.1
+
+`Rozrywka > Mini Racer` launches a dedicated, fixed-memory, two-lane game composed alongside Snake. Launcher owns only the entry and navigation. Mini Racer owns the lane selection, one oncoming vehicle, bounded acceleration, elapsed-time score, RAM-only session record, pause/result menus and 10-minute wall-clock session limit (including pauses). The one-opponent generator leaves at least 200 px of warning distance at the 70 px/s maximum speed, and movement uses swept horizontal overlap checks. Gameplay uses monotonic milliseconds rather than loop counts, with a capped frame update and roughly 13 fps rendering. System overlays preserve its retained state; incoming Communicator and charging-time ownership suspend play and foreground return resets the movement timestamp. It shares the Board 240×135 logical display and global orientation/power policy; no network or new rendering engine is added.

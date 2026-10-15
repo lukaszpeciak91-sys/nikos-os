@@ -201,3 +201,7 @@ all screens, buttons, radio preemption, POWER, Charging Lock and battery guards.
 ### Quiz R1 audit repair
 
 Reordered Ciekawostki to LOSUJ, QUIZ, six categories and POWRÓT. Quiz line breaking now consults actual Polish UI glyph widths via the Board display font; the deterministic validator reads the exact firmware font advance table and checks all approved statements and explanations within their available 226-pixel width. The 120 approved records and generated assets are unchanged; 60 true and 60 false answers were confirmed. Runtime failure shows a visible error instead of silently clipping. Target ESP-IDF build, RAM/flash measurement and physical LCD confirmation remain outstanding.
+
+### Mini Racer v0.1 implementation candidate
+
+A focused, unmerged PR adds Mini Racer under Rozrywka, with two-lane gameplay, scrolling road marks, simple car primitives, automatic bounded difficulty, swept collision detection, pause/game-over actions, a 10-minute session cap and RAM-only score record. The module delegates all system ownership to existing `app_main`, Board and DisplayLifecycle boundaries. Code audit, firmware build, flash/RAM measurement and physical checks of both orientations, repeated entry/exit, incoming Communicator, Charging Lock and BatteryGuard remain required prior to merge.
