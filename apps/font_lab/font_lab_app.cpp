@@ -1,11 +1,15 @@
 #include "font_lab/font_lab_app.hpp"
-#include "font_lab/bitmap_assets.hpp"
 #include <cstdint>
 namespace nikos::font_lab {
 namespace {
 constexpr const char* kNames[] = {"STANDARD", "COMPOSED", "PRE-RENDERED"};
 constexpr std::uint8_t kCandidateCount = 3;
 constexpr std::uint8_t kPageCount = 6;
+constexpr const char* kTestText[kPageCount] = {
+    "Zażółć gęślą jaźń", "Ą Ć Ę Ł Ń Ó Ś Ź Ż",
+    "ą ć ę ł ń ó ś ź ż", "Łódź leży w Polsce.",
+    "Żółwie żyją długo.", "Kąt padania światła."
+};
 }
 void FontLabApp::begin() {
     active_ = true;
