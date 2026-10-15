@@ -9,6 +9,7 @@ idf_component_register(
         countdown
         facts
         font_lab
+        font_core
         flashlight
         launcher
         log
