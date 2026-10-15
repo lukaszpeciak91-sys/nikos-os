@@ -139,6 +139,7 @@ private:
     void render_signal_sound();
     void render_sound_menu();
     void render_signal_volume();
+    void redraw_sound_selection_rows(std::uint8_t previous);
     void render_brightness();
     void render_theme();
     void render_orientation();

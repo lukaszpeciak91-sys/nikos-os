@@ -1,45 +1,78 @@
 #!/usr/bin/env python3
-"""Focused host invariants for Mini Racer's bounded obstacle policy."""
+"""Compile and exercise Mini Racer's production traffic/state rules on host."""
 from pathlib import Path
-import re
+import shutil
+import subprocess
+import tempfile
 
-ROOT = Path(__file__).resolve().parents[2]
-CODE = (ROOT / "apps/mini_racer/mini_racer_app.cpp").read_text(encoding="utf-8")
-HEADER = (ROOT / "apps/mini_racer/include/mini_racer/mini_racer_app.hpp").read_text(encoding="utf-8")
+root = Path(__file__).resolve().parents[2]
+header_dir = root / "apps/mini_racer/include"
+compiler = shutil.which("g++") or shutil.which("clang++")
+if not compiler:
+    raise SystemExit("A C++17 host compiler is required")
 
-def get_constant(name, source):
-    match = re.search(r"\b" + name + r"\s*=\s*(\d+)", source)
-    if match is None:
-        raise AssertionError(name)
-    return int(match.group(1))
+source = r"""
+#include <cassert>
+#include <cstdint>
+#include "mini_racer/traffic_rules.hpp"
+using namespace nikos::mini_racer::rules;
+int main() {
+    Traffic traffic{};
+    initialize(traffic, 255, 0);
+    static_assert(kEnemyCount == 3, "must have three vehicles");
+    assert(traffic.size() == 3);
+    for (std::size_t i = 1; i < traffic.size(); ++i) {
+        assert(traffic[i].x_q8 - traffic[i-1].x_q8 == kSpacingPx * 256);
+        assert(traffic[i].lane != traffic[i-1].lane);
+    }
+    // A car fully beyond the left edge is placed after the rightmost.
+    traffic[0].x_q8 = -30 * 256;
+    assert(!advance(traffic, 70 * 256, 60, 0));
+    assert(traffic[0].x_q8 == traffic[2].x_q8 + kSpacingPx * 256);
+    assert(traffic[0].lane != traffic[2].lane);
 
-initial = get_constant("kInitialSpeedQ8", CODE) // 256
-maximum = get_constant("kMaxSpeedQ8", CODE) // 256
-spawn = get_constant("kSpawnX", HEADER)
-player_right = get_constant("kPlayerRight", HEADER)
-gap = get_constant("kMinGapPx", CODE)
-assert 0 < initial < maximum <= 70
-assert spawn > player_right
-assert (spawn - player_right) / maximum >= 2.0
-assert (spawn + gap - player_right) / maximum >= 3.0
-assert "enemy_lane_ = static_cast<std::uint8_t>(esp_random() & 1U)" in CODE
-assert "enemy_x_q8_ = static_cast<std::int32_t>(" in CODE
-assert "old_x + kEnemyWidth >= kPlayerLeft" in CODE
-assert "new_x <= kPlayerRight" in CODE
-assert "player_lane_ ^= 1U" in CODE
-assert "last_tick_ms_ = now;" in CODE
-assert "now - session_started_ms_ >= kSessionLimitMs" in CODE
-# Test swept horizontal overlap for both lanes, including maximal steps.
-for obstacle_lane in (0, 1):
-    for player_lane in (0, 1):
-        for old_x in range(-32, 241):
-            new_x = old_x - maximum * 0.2
-            overlap = (old_x + 26 >= 33) and (new_x <= player_right)
-            detection = obstacle_lane == player_lane and overlap
-            if obstacle_lane != player_lane:
-                assert not detection
-            elif old_x >= player_right and new_x <= player_right:
-                assert detection
-# No round may exceed the wall-clock session cap, including pauses.
-assert get_constant("kSessionLimitMs", HEADER) == 600000
-print("Mini Racer host obstacle, collision and session invariants OK")
+    // A capped-speed swept collision cannot skip a matching-lane car.
+    initialize(traffic, 255, 0);
+    traffic[0].x_q8 = 60 * 256;
+    assert(advance(traffic, 70 * 256, 60, 0));
+    initialize(traffic, 255, 0);
+    traffic[0].x_q8 = 60 * 256;
+    assert(!advance(traffic, 70 * 256, 60, 1));
+
+    // Repeated recycling never creates coincident opposite-lane barriers.
+    initialize(traffic, 255, 0);
+    for (int step = 0; step < 20000; ++step) {
+        // Avoid collisions without changing the production update path.
+        // Lane 2 is reserved for this test driver (outside playable 0/1).
+        assert(!advance(traffic, 70 * 256, 60, 2));
+        for (std::size_t i = 0; i < traffic.size(); ++i) {
+            assert(traffic[i].lane <= 1);
+            for (std::size_t j = i + 1; j < traffic.size(); ++j) {
+                assert(traffic[i].x_q8 != traffic[j].x_q8);
+                if (traffic[i].lane != traffic[j].lane)
+                    assert((traffic[i].x_q8 > traffic[j].x_q8
+                        ? traffic[i].x_q8 - traffic[j].x_q8
+                        : traffic[j].x_q8 - traffic[i].x_q8) >= kSpacingPx * 256);
+            }
+        }
+    }
+    State state = State::Playing;
+    state = pause(state);
+    assert(state == State::Paused);
+    assert(pause(state) == State::Paused);
+    state = resume(state);
+    assert(state == State::Playing);
+    state = hit(state);
+    assert(state == State::GameOver);
+    assert(resume(state) == State::GameOver);
+    assert(hit(State::Paused) == State::Paused);
+}
+"""
+with tempfile.TemporaryDirectory() as tmp:
+    cpp = Path(tmp) / "mini_racer_host.cpp"
+    exe = Path(tmp) / "mini_racer_host"
+    cpp.write_text(source, encoding="utf-8")
+    subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                    "-I", str(header_dir), str(cpp), "-o", str(exe)], check=True)
+    subprocess.run([str(exe)], check=True)
+print("Mini Racer production traffic and state host tests OK")

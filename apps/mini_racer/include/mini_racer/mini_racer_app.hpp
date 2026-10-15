@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <array>
 #include "board/board.hpp"
+#include "mini_racer/traffic_rules.hpp"
 #include "power/display_lifecycle.hpp"
 namespace nikos::mini_racer {
 class MiniRacerApp final {
@@ -16,7 +18,7 @@ public:
     void resume_if_suspended() { if (suspended_) resume(); }
     UpdateResult update(const board::InputState& input);
 private:
-    enum class State : std::uint8_t { Playing, Paused, GameOver, TimeLimit };
+    using State = rules::State;
     static std::uint32_t now_ms();
     static constexpr std::uint32_t kSessionLimitMs = 600000;
     static constexpr std::int32_t kSpawnX = 255;
@@ -28,7 +30,7 @@ private:
     void start_round(std::uint32_t now);
     void tick(std::uint32_t now);
     void render();
-    void render_playing();
+    void render_playing(bool full = true);
     void render_menu(bool game_over);
     void render_car(std::int16_t x, std::uint8_t lane, board::DisplayColor color);
     board::Board& board_;
@@ -37,8 +39,11 @@ private:
     bool active_ = false;
     bool suspended_ = false;
     std::uint8_t player_lane_ = 1;
-    std::uint8_t enemy_lane_ = 0;
-    std::int32_t enemy_x_q8_ = kSpawnX * 256;
+    rules::Traffic enemies_{};
+    rules::Traffic drawn_enemies_{};
+    std::uint8_t drawn_player_lane_ = 1;
+    bool frame_valid_ = false;
+    std::uint32_t last_drawn_score_ = 0;
     std::uint32_t last_tick_ms_ = 0;
     std::uint32_t last_frame_ms_ = 0;
     std::uint32_t session_started_ms_ = 0;
