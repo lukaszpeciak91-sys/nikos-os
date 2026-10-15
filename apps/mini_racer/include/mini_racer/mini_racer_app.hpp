@@ -18,7 +18,7 @@ public:
     void resume_if_suspended() { if (suspended_) resume(); }
     UpdateResult update(const board::InputState& input);
 private:
-    enum class State : std::uint8_t { Playing, Paused, GameOver, TimeLimit };
+    using State = rules::State;
     static std::uint32_t now_ms();
     static constexpr std::uint32_t kSessionLimitMs = 600000;
     static constexpr std::int32_t kSpawnX = 255;
