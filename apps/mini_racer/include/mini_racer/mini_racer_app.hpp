@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <array>
 #include "board/board.hpp"
 #include "power/display_lifecycle.hpp"
 namespace nikos::mini_racer {
@@ -28,7 +29,7 @@ private:
     void start_round(std::uint32_t now);
     void tick(std::uint32_t now);
     void render();
-    void render_playing();
+    void render_playing(bool full = true);
     void render_menu(bool game_over);
     void render_car(std::int16_t x, std::uint8_t lane, board::DisplayColor color);
     board::Board& board_;
@@ -37,8 +38,11 @@ private:
     bool active_ = false;
     bool suspended_ = false;
     std::uint8_t player_lane_ = 1;
-    std::uint8_t enemy_lane_ = 0;
-    std::int32_t enemy_x_q8_ = kSpawnX * 256;
+    struct Enemy { std::int32_t x_q8 = 0; std::uint8_t lane = 0; };
+    static constexpr std::size_t kEnemyCount = 3;
+    static constexpr std::int32_t kEnemySpacing = 110;
+    std::array<Enemy, kEnemyCount> enemies_{};
+    std::uint32_t last_drawn_score_ = 0;
     std::uint32_t last_tick_ms_ = 0;
     std::uint32_t last_frame_ms_ = 0;
     std::uint32_t session_started_ms_ = 0;
