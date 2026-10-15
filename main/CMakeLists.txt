@@ -8,6 +8,7 @@ idf_component_register(
         communicator
         countdown
         facts
+        font_lab
         flashlight
         launcher
         log
