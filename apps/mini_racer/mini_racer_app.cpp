@@ -25,10 +25,8 @@ void MiniRacerApp::start_round(std::uint32_t now) {
     state_ = State::Playing;
     player_lane_ = 1;
     const std::uint8_t first_lane = static_cast<std::uint8_t>(esp_random() & 1U);
-    for (std::size_t i = 0; i < enemies_.size(); ++i) {
-        enemies_[i].x_q8 = (kSpawnX + static_cast<std::int32_t>(i) * kEnemySpacing) * 256;
-        enemies_[i].lane = static_cast<std::uint8_t>(first_lane ^ (i & 1U));
-    }
+    rules::initialize(enemies_, kSpawnX, first_lane);
+    frame_valid_ = false;
     last_drawn_score_ = 0;
     active_play_ms_ = 0;
     score_ = 0;
@@ -108,38 +106,10 @@ void MiniRacerApp::tick(std::uint32_t now) {
         const std::uint32_t speed = std::min(
             kMaxSpeedQ8, kInitialSpeedQ8 +
                 (active_play_ms_ / 10000U) * kAccelerationQ8);
-        // Fixed spatial ordering is the reachability policy: consecutive
-        // hazards stay at least 110 px apart (>=1.57 s at maximum speed).
-        // The alternate lane is always free near each hazard; no two enemies
-        // can block both lanes at the same longitudinal position.
-        for (auto& enemy : enemies_) {
-            const std::int32_t old_x = enemy.x_q8 / 256;
-            enemy.x_q8 -= static_cast<std::int32_t>((speed * dt) / 1000U);
-            const std::int32_t new_x = enemy.x_q8 / 256;
-            if (enemy.lane == player_lane_
-                && old_x + kEnemyWidth >= kPlayerLeft
-                && new_x <= kPlayerRight) {
-                state_ = State::GameOver;
-                menu_selection_ = 0;
-                break;
-            }
-        }
-        if (state_ == State::GameOver) break;
-        // Recycle only after a vehicle has completely left the road.
-        // New vehicle follows the rightmost active vehicle by 110 px,
-        // and changes lane relative to that vehicle.
-        for (auto& enemy : enemies_) {
-            if (enemy.x_q8 / 256 + kEnemyWidth >= kRoadLeft) continue;
-            std::int32_t rightmost = enemy.x_q8;
-            std::uint8_t rightmost_lane = enemy.lane;
-            for (const auto& other : enemies_) {
-                if (&other != &enemy && other.x_q8 > rightmost) {
-                    rightmost = other.x_q8;
-                    rightmost_lane = other.lane;
-                }
-            }
-            enemy.x_q8 = rightmost + kEnemySpacing * 256;
-            enemy.lane = static_cast<std::uint8_t>(rightmost_lane ^ 1U);
+        if (rules::advance(enemies_, speed, dt, player_lane_)) {
+            state_ = State::GameOver;
+            menu_selection_ = 0;
+            break;
         }
         divider_offset_ = static_cast<std::uint16_t>(
             (divider_offset_ + speed * dt / 1000U / 256U) % 24U);
@@ -168,8 +138,24 @@ void MiniRacerApp::render_car(std::int16_t x, std::uint8_t lane,
 }
 void MiniRacerApp::render_playing(bool full) {
     if (full) board_.fill_rect(0, 0, 240, 135, board::DisplayColor::Background);
-    // Only the moving road area is erased per frame, never the whole LCD.
-    board_.fill_rect(kRoadLeft, 29, kRoadRight - kRoadLeft + 1, 81,
+    // Erase previous car silhouettes only. These bounds never touch the
+    // static road borders or HUD. M5GFX clips physical-screen edges.
+    const auto erase_car = [this](std::int32_t x, std::uint8_t lane) {
+        const std::int32_t left = std::max<std::int32_t>(kRoadLeft, x);
+        const std::int32_t right = std::min<std::int32_t>(kRoadRight + 1, x + kEnemyWidth);
+        if (right > left) {
+            board_.fill_rect(static_cast<std::int16_t>(left),
+                static_cast<std::int16_t>(kLaneCenters[lane] - 10),
+                static_cast<std::int16_t>(right - left), 22,
+                board::DisplayColor::Background);
+        }
+    };
+    if (!full && frame_valid_) {
+        erase_car(33, drawn_player_lane_);
+        for (const auto& enemy : drawn_enemies_) erase_car(enemy.x_q8 / 256, enemy.lane);
+    }
+    // Only the two-pixel moving lane divider needs full-width refreshing.
+    board_.fill_rect(kRoadLeft, 68, kRoadRight - kRoadLeft + 1, 2,
                      board::DisplayColor::Background);
     char score[22]{};
     char record[23]{};
@@ -205,6 +191,9 @@ void MiniRacerApp::render_playing(bool full) {
                        board::DisplayColor::SecondaryText);
         }
     }
+    drawn_player_lane_ = player_lane_;
+    drawn_enemies_ = enemies_;
+    frame_valid_ = true;
     if (full) {
         board_.draw_text_region(5, 120, 120, 13, "M5 ZMIANA PASA", 1);
         board_.draw_text_region(140, 120, 96, 13, "SIDE PAUZA", 1);
