@@ -11,6 +11,9 @@ public:
     void begin();
     void end();
     void redraw();
+    void suspend();
+    void resume();
+    bool microphone_active() const { return microphone_ok_; }
     Result update(const board::InputState& input, std::uint32_t now_ms);
 private:
     void render(bool full);
