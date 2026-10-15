@@ -139,10 +139,10 @@ void MiniRacerApp::render_car(std::int16_t x, std::uint8_t lane,
 void MiniRacerApp::render_playing(bool full) {
     if (full) board_.fill_rect(0, 0, 240, 135, board::DisplayColor::Background);
     // Erase previous car silhouettes only. These bounds never touch the
-    // static road borders or HUD. M5GFX clips physical-screen edges.
+    // HUD or horizontal road borders. Clamp to LCD edges to remove\n    // sprites partially exiting the left and right sides.
     const auto erase_car = [this](std::int32_t x, std::uint8_t lane) {
-        const std::int32_t left = std::max<std::int32_t>(kRoadLeft, x);
-        const std::int32_t right = std::min<std::int32_t>(kRoadRight + 1, x + kEnemyWidth);
+        const std::int32_t left = std::max<std::int32_t>(0, x);
+        const std::int32_t right = std::min<std::int32_t>(240, x + kEnemyWidth);
         if (right > left) {
             board_.fill_rect(static_cast<std::int16_t>(left),
                 static_cast<std::int16_t>(kLaneCenters[lane] - 10),
