@@ -14,11 +14,20 @@ assert len(items) == 120
 assert len({x["id"] for x in items}) == 120
 assert all(sum(x["category"] == c for x in items) == 20 for c in module.CATS)
 assert len({x["source_id"] for x in items}) == 120
+assert sum(x["correct"] is True for x in items) == 60
+assert sum(x["correct"] is False for x in items) == 60
+assert all(x["source_id"] == x["id"] for x in items)
 assert (ROOT / "apps/facts/generated/quiz_data.cpp").read_text(encoding="utf-8") == module.generate()
+glyphs = module.font_advances()
 for x in items:
     assert isinstance(x["correct"], bool)
-    assert len(module.wrap(x["statement"], 24)) <= 5, x["id"]
-    assert len(module.wrap(x["explanation"], 24)) <= 4, x["id"]
+    assert len(module.wrap(x["statement"], 226, glyphs)) <= 5, x["id"]
+    assert len(module.wrap(x["explanation"], 226, glyphs)) <= 4, x["id"]
+    for field, count in (("statement", 5), ("explanation", 4)):
+        wrapped = module.wrap(x[field], 226, glyphs)
+        assert len(wrapped) <= count, x["id"]
+        assert " ".join(wrapped) == x[field], x["id"]
+        assert all(sum(glyphs[c] for c in line) <= 226 for line in wrapped)
     assert all(ord(c) > 31 for c in x["statement"] + x["explanation"])
 for seed in range(500):
     rng = random.Random(seed)
