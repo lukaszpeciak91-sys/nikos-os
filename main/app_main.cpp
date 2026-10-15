@@ -1487,6 +1487,20 @@ extern "C" void app_main(void)
             display_lifecycle.filter_input(raw_input);
         const nikos::board::InputState& input = display_input.input;
 
+        if (state == RuntimeState::SoundMeter
+            && (display_input.power_display_off
+                || display_lifecycle.state()
+                    == nikos::power::DisplayState::DisplayOff)) {
+            sound_meter.suspend();
+        }
+        if (state == RuntimeState::SoundMeter
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+            && !display_input.power_display_off
+            && !sound_meter.microphone_active()) {
+            sound_meter.resume();
+        }
+
         if (display_input.power_display_off) {
             // POWER controls display visibility only. Transient visible
             // presentations end, but a battery advisory remains pending until
