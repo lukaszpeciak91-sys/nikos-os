@@ -269,7 +269,7 @@ The current messaging RX schedules remain experimental transport configuration a
 
 Owns the current fixed launcher navigation, its explicit shallow category screens, and the local-session Stopwatch presentation/state.
 
-It does not own radio lifecycle internals, application registries, persistence, profiles, plugin loading, or hardware power control. The launcher may request whole-device shutdown only after explicit confirmation. RadioLab is launched from `Narzędzia`; after RadioLab exits, the launcher returns to `Narzędzia` rather than MAIN.
+It does not own radio lifecycle internals, application registries, persistence, profiles, plugin loading, or hardware power control. The launcher may request whole-device shutdown only after explicit confirmation. RadioLab remains compiled but hidden from normal launcher navigation; its retained exit path returns to `Narzędzia` rather than MAIN.
 
 ### applications
 
