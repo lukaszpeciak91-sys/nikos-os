@@ -43,15 +43,18 @@ int main() {
     initialize(traffic, 255, 0);
     for (int step = 0; step < 20000; ++step) {
         // Avoid collisions without changing the production update path.
-        auto simulation = traffic;
-        for (auto& e : simulation) e.lane = 2;
-        assert(!advance(simulation, 70 * 256, 60, 0));
-        traffic = simulation;
-        // Restore a deterministic alternating two-lane assignment in x order.
-        for (auto& e : traffic) e.lane = 0;
-        for (std::size_t i = 0; i < traffic.size(); ++i)
-            for (std::size_t j = i + 1; j < traffic.size(); ++j)
+        // Lane 2 is reserved for this test driver (outside playable 0/1).
+        assert(!advance(traffic, 70 * 256, 60, 2));
+        for (std::size_t i = 0; i < traffic.size(); ++i) {
+            assert(traffic[i].lane <= 1);
+            for (std::size_t j = i + 1; j < traffic.size(); ++j) {
                 assert(traffic[i].x_q8 != traffic[j].x_q8);
+                if (traffic[i].lane != traffic[j].lane)
+                    assert((traffic[i].x_q8 > traffic[j].x_q8
+                        ? traffic[i].x_q8 - traffic[j].x_q8
+                        : traffic[j].x_q8 - traffic[i].x_q8) >= kSpacingPx * 256);
+            }
+        }
     }
     State state = State::Playing;
     state = pause(state);
