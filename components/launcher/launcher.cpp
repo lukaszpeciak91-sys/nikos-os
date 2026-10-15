@@ -1638,7 +1638,7 @@ void Launcher::render_main()
                 16);
         }
 
-        board_.draw_text_region(
+        draw_pilot_text(
             18,
             row_y,
             index == 0 ? 140 : 184,
@@ -1732,7 +1732,7 @@ void Launcher::render_tools()
         const std::int16_t y =
             static_cast<std::int16_t>(29 + index * 18);
 
-        board_.draw_text_region(
+        draw_pilot_text(
             22,
             y,
             196,
@@ -1792,7 +1792,7 @@ void Launcher::render_entertainment()
         const std::int16_t y =
             static_cast<std::int16_t>(35 + index * 20);
 
-        board_.draw_text_region(
+        draw_pilot_text(
             22,
             y,
             196,
@@ -2781,7 +2781,7 @@ void Launcher::render_settings()
         const std::int16_t y =
             static_cast<std::int16_t>(35 + slot * 19);
 
-        board_.draw_text_region(
+        draw_pilot_text(
             22,
             y,
             196,
@@ -2824,7 +2824,8 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
         return;
     }
     font_renderer_.select(settings_.font_mode);
-    auto result = font_renderer_.draw(text, {x, y, width, height}, fg, bg);
+    const auto effective_height = static_cast<std::int16_t>(height < 19 ? 19 : height);
+    auto result = font_renderer_.draw(text, {x, y, width, effective_height}, fg, bg);
     if (!result.fits) {
         board_.draw_text_region(x, y, width, height,
             "FONT FIT ERROR", 1, board::DisplayColor::Danger, bg);
