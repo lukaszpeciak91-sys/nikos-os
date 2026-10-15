@@ -340,6 +340,35 @@ void Board::stop_tone()
     M5.Speaker.stop();
 }
 
+bool Board::begin_microphone()
+{
+    M5.Speaker.stop();
+    M5.Speaker.end();
+    if (M5.Mic.begin()) return true;
+    ESP_LOGE(kTag, "Microphone initialization failed");
+    M5.Mic.end();
+    if (!M5.Speaker.begin()) ESP_LOGE(kTag, "Speaker recovery failed");
+    return false;
+}
+
+bool Board::record_microphone(std::int16_t* buffer, std::size_t count, std::uint32_t hz)
+{
+    return M5.Mic.isEnabled() && M5.Mic.record(buffer, count, hz);
+}
+
+bool Board::microphone_recording() const
+{
+    return M5.Mic.isRecording();
+}
+
+void Board::end_microphone()
+{
+    M5.Mic.end();
+    if (!M5.Speaker.isEnabled() && !M5.Speaker.begin()) {
+        ESP_LOGE(kTag, "Speaker recovery after mic failed");
+    }
+}
+
 void Board::wake_display()
 {
     // M5GFX wakeup() restores its remembered brightness. For normal UI,
