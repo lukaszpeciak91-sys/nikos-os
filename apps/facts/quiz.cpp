@@ -90,7 +90,7 @@ void Quiz::draw_wrapped(const char* text, std::int16_t y,
             const std::size_t bytes = end - offset;
             if (bytes >= kBufferSize) break;
             std::memcpy(line, text + offset, bytes);
-            line[bytes] = '\\0';
+            line[bytes] = '\0';
             if (board_.polish_ui_text_width(line) > kMaxWidth) break;
             accepted_end = end;
             cursor = end;
