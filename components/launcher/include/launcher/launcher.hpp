@@ -18,6 +18,7 @@ enum class Action : std::uint8_t {
     OpenRadioLab,
     OpenPowerDiag,
     OpenFlashlight,
+    OpenSoundMeter,
     OpenSnake,
     OpenFacts,
     BrightnessChanged,
