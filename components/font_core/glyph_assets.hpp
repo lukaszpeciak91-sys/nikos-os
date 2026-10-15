@@ -1,4 +1,8 @@
 #pragma once
+// Offline-rasterized subset of DejaVu Sans, 12 px, each glyph packed as
+// 16 rows of 12 monochrome bits. Font license:
+// components/board/fonts/LICENSE-DejaVu.txt.
+// Dynamic UTF-8 strings use these glyphs; no sentence bitmaps remain.
 #include <cstdint>
 namespace nikos::font_core::detail {
 struct GlyphAsset { std::uint16_t codepoint; std::uint8_t advance; const char* rows; };
