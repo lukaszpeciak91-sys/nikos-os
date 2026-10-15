@@ -6,6 +6,7 @@
 
 #include "board/board.hpp"
 #include "facts/generated/facts_data.hpp"
+#include "facts/quiz.hpp"
 
 namespace nikos::facts {
 
@@ -28,6 +29,7 @@ private:
         MainMenu,
         TitleList,
         Reader,
+        Quiz,
     };
 
     struct PageRange {
@@ -35,7 +37,7 @@ private:
         std::uint16_t end = 0;
     };
 
-    static constexpr std::uint8_t kMainItemCount = 8;
+    static constexpr std::uint8_t kMainItemCount = 9;
     static constexpr std::uint8_t kMainVisibleRows = 5;
     static constexpr std::uint8_t kTitleVisibleRows = 5;
     static constexpr std::uint8_t kTitleBackIndex = 100;
@@ -89,6 +91,7 @@ private:
     void render_reader();
 
     board::Board& board_;
+    Quiz quiz_;
 
     View view_ = View::MainMenu;
     bool active_ = false;

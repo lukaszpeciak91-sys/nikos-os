@@ -1,6 +1,8 @@
 idf_component_register(
     SRCS
         "facts_app.cpp"
+        "quiz.cpp"
+        "generated/quiz_data.cpp"
         "generated/facts_data.cpp"
         "generated/facts_data_space.cpp"
         "generated/facts_data_animals.cpp"

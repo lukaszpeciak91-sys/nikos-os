@@ -798,3 +798,16 @@ The sound settings menu groups the existing three melodies and volume. Persist
 one bounded u8 key in existing NVS namespace. Speaker master volume is reapplied
 after the microphone exclusive-resource handoff. The startup beep remains
 outside persisted preference because it runs before NVS initialization.
+
+## Quiz Prawda/Fałsz v0.1
+
+Keep the quiz as a narrow child of FactsApp, not a new launcher-level runtime
+or game framework. Each ten-question round uses a bounded partial shuffle
+over 120 IDs; no within-round repeats or backtracking. Feedback is manually
+advanced, and the final score ranges 0–10. Preserve approved dataset wording,
+answers, explanations and source IDs without editorial auto-shortening.
+Retain state across Communicator and system overlays via FactsApp redraw.
+
+### Quiz R1 layout validation
+
+Do not truncate quiz strings or approximate glyph width by Unicode codepoint count. Keep the original approved 120 records and validate wrapping against the project's actual compiled Polish UI font. Reuse an isolated Board text-width accessor instead of modifying the existing global text style or introducing a generic layout framework.

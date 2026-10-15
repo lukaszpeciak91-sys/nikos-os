@@ -186,3 +186,18 @@ verification are required: five audible steps, silence, existing melody,
 SYGNAŁ, regular preset alerts, countdown, charging tone, reboot, microphone
 entry/exit, repeated navigation and volume restoration. No dB or acoustic
 linearity claims have been verified.
+
+## Quiz Prawda/Fałsz v0.1 — implementation candidate
+
+Added original approved 120-question JSON as source of truth, deterministic
+offline asset generator, separate Quiz component and FactsApp menu integration.
+Static dataset validation confirms 120 total, 20 per category, no duplicate IDs,
+Polish glyph coverage and five-line question / four-line feedback character
+bounds. Host test source has been added; ESP-IDF 5.5.5 build and real 240×135
+glyph/display verification have not been run in this execution environment.
+The PR must remain unmerged pending green firmware CI and hardware checks for
+all screens, buttons, radio preemption, POWER, Charging Lock and battery guards.
+
+### Quiz R1 audit repair
+
+Reordered Ciekawostki to LOSUJ, QUIZ, six categories and POWRÓT. Quiz line breaking now consults actual Polish UI glyph widths via the Board display font; the deterministic validator reads the exact firmware font advance table and checks all approved statements and explanations within their available 226-pixel width. The 120 approved records and generated assets are unchanged; 60 true and 60 false answers were confirmed. Runtime failure shows a visible error instead of silently clipping. Target ESP-IDF build, RAM/flash measurement and physical LCD confirmation remain outstanding.

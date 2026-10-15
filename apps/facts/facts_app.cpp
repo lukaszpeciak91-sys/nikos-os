@@ -7,8 +7,9 @@
 
 namespace {
 
-constexpr const char* kMainLabels[8] = {
+constexpr const char* kMainLabels[9] = {
     "LOSUJ",
+    "QUIZ PRAWDA/FAŁSZ",
     "KOSMOS",
     "ZWIERZĘTA",
     "TECHNOLOGIA",
@@ -48,7 +49,7 @@ std::array<char, 128> FactsApp::wrapped_title_{};
 std::array<char, 320> FactsApp::wrapped_body_{};
 
 FactsApp::FactsApp(board::Board& board)
-    : board_(board)
+    : board_(board), quiz_(board)
 {
 }
 
@@ -72,6 +73,9 @@ void FactsApp::redraw()
     }
 
     switch (view_) {
+        case View::Quiz:
+            quiz_.redraw();
+            break;
         case View::TitleList:
             render_title_list();
             break;
@@ -90,6 +94,11 @@ FactsApp::UpdateResult FactsApp::update(
 {
     if (!active_) {
         return UpdateResult::ExitRequested;
+    }
+
+    if (view_ == View::Quiz) {
+        if (quiz_.update(input)) enter_main_menu();
+        return UpdateResult::Running;
     }
 
     if (input.secondary_long) {
@@ -116,7 +125,10 @@ FactsApp::UpdateResult FactsApp::update(
 
         if (main_selection_ == 0U) {
             open_random_fact();
-        } else if (main_selection_ <= 6U) {
+        } else if (main_selection_ == 1U) {
+            view_ = View::Quiz;
+            quiz_.start();
+        } else if (main_selection_ <= 7U) {
             enter_category(category_for_menu_index(main_selection_));
         } else {
             return UpdateResult::ExitRequested;
@@ -170,17 +182,17 @@ data::Category FactsApp::category_for_menu_index(
     std::uint8_t index)
 {
     switch (index) {
-        case 2:
-            return data::Category::Animals;
         case 3:
-            return data::Category::Technology;
+            return data::Category::Animals;
         case 4:
-            return data::Category::Human;
+            return data::Category::Technology;
         case 5:
-            return data::Category::History;
+            return data::Category::Human;
         case 6:
+            return data::Category::History;
+        case 7:
             return data::Category::World;
-        case 1:
+        case 2:
         default:
             return data::Category::Space;
     }
