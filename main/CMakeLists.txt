@@ -20,6 +20,7 @@ idf_component_register(
         radiolab
         settings
         signal_sound
+        sound_meter
         snake
         storage
 )
