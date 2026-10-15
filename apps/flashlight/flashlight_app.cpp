@@ -157,7 +157,7 @@ void FlashlightApp::stop_light(bool render_selector)
     display_lifecycle_.note_visible_activity();
 
     if (render_selector) {
-        render_selector();
+        this->render_selector();
     }
 }
 
