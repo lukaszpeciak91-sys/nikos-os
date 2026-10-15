@@ -64,7 +64,7 @@ MiniRacerApp::UpdateResult MiniRacerApp::update(const board::InputState& input) 
     }
     if (state_ == State::Playing) {
         if (input.secondary_short) {
-            state_ = State::Paused;
+            state_ = rules::pause(state_);
             menu_selection_ = 0;
             render();
         } else {
@@ -80,7 +80,7 @@ MiniRacerApp::UpdateResult MiniRacerApp::update(const board::InputState& input) 
         } else if (input.primary_short) {
             if (menu_selection_ == 1U) return UpdateResult::ExitRequested;
             if (state_ == State::Paused) {
-                state_ = State::Playing;
+                state_ = rules::resume(state_);
                 last_tick_ms_ = now;
                 last_frame_ms_ = now;
                 render();
@@ -107,7 +107,7 @@ void MiniRacerApp::tick(std::uint32_t now) {
             kMaxSpeedQ8, kInitialSpeedQ8 +
                 (active_play_ms_ / 10000U) * kAccelerationQ8);
         if (rules::advance(enemies_, speed, dt, player_lane_)) {
-            state_ = State::GameOver;
+            state_ = rules::hit(state_);
             menu_selection_ = 0;
             break;
         }
