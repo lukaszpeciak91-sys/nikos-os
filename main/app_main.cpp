@@ -1950,8 +1950,13 @@ extern "C" void app_main(void)
                     resume_messaging_after_meter = communicator_enabled;
                     resume_countdown_after_meter =
                         countdown.state() == nikos::countdown::State::Running;
-                    bool audio_ownership_ready = true;
-                    if (resume_messaging_after_meter
+                    // Do not steal the speaker from a pending timer alert
+                    // or the charging-lock presentation.
+                    bool audio_ownership_ready =
+                        !countdown.expired_pending()
+                        && !charging_mode.active;
+                    if (audio_ownership_ready
+                        && resume_messaging_after_meter
                         && !messaging.pause_transport()) {
                         ESP_LOGE(kTag, "Cannot pause messaging for sound meter");
                         audio_ownership_ready = false;
