@@ -62,6 +62,25 @@ int main() {
     assert(acute && dot && std::strcmp(acute->rows, dot->rows) != 0);
     // Both glyphs retain the identical Latin Z body after the first row.
     assert(std::strcmp(acute->rows + 3, dot->rows + 3) == 0);
+    // The dot must be centred independently of the acute marker.
+    assert(std::strncmp(acute->rows, "100", 3) == 0);
+    assert(std::strncmp(dot->rows, "040", 3) == 0);
+    // No two Polish glyphs may silently share an identical raster.
+    for (std::size_t i = 95; i < nikos::font_core::detail::kGlyphCount; ++i) {
+        for (std::size_t j = i + 1; j < nikos::font_core::detail::kGlyphCount; ++j) {
+            assert(std::strcmp(nikos::font_core::detail::kGlyphAssets[i].rows,
+                               nikos::font_core::detail::kGlyphAssets[j].rows) != 0);
+        }
+    }
+    // The composed l-stroke is confined to x offsets 1..3, below the
+    // lowercase base l advance (4 px). The following character starts at 5.
+    renderer.select(Mode::Composed);
+    board.glyph_pixel_max_x = -1;
+    assert(renderer.draw(u8"ł", {0, 0, 30, 19}).fits);
+    assert(board.glyph_pixel_max_x < renderer.advance(0x0142));
+    const int last_pixel = board.pixels;
+    assert(!renderer.draw(u8"małe", {225, 130, 30, 19}).fits);
+    assert(board.pixels == last_pixel);
     assert(board.bounds_ok);
     std::puts("Font core host tests passed");
 }
