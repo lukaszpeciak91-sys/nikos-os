@@ -2221,7 +2221,7 @@ void Launcher::render_date_editor()
 {
     clear_shell(board_);
 
-    char date_text[11]{};
+    char date_text[16]{};
     std::snprintf(
         date_text,
         sizeof(date_text),
@@ -2481,7 +2481,7 @@ void Launcher::render_calendar()
         const std::uint8_t column =
             static_cast<std::uint8_t>(slot % 7U);
 
-        char day_text[3]{};
+        char day_text[4]{};
         std::snprintf(
             day_text,
             sizeof(day_text),
