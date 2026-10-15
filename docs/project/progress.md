@@ -173,3 +173,16 @@ and screen-off interactions, radio reception before and after exclusive mode,
 charging interruption and repeated enter/exit. Static review or published
 library examples do not constitute hardware confirmation. Do not merge until
 CI and physical device checks provide evidence.
+
+## Signal Volume v0.1 — implementation candidate
+
+One focused unmerged PR adds Settings > Sound > Volume alongside the existing
+melody selector. Five relative presets (0/25/50/75/100%) are mapped to
+M5Unified master-volume 0/16/32/48/64 with the legacy default preserved.
+A single NVS preference survives reboot, change failures roll back to the
+persisted state, 0% suppresses Board::tone(), and speaker recovery after the
+Sound Level Meter reapplies the chosen level. A new build/CI and physical
+verification are required: five audible steps, silence, existing melody,
+SYGNAŁ, regular preset alerts, countdown, charging tone, reboot, microphone
+entry/exit, repeated navigation and volume restoration. No dB or acoustic
+linearity claims have been verified.
