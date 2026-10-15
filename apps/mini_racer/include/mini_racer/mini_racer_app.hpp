@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <array>
 #include "board/board.hpp"
+#include "mini_racer/traffic_rules.hpp"
 #include "power/display_lifecycle.hpp"
 namespace nikos::mini_racer {
 class MiniRacerApp final {
@@ -38,10 +39,10 @@ private:
     bool active_ = false;
     bool suspended_ = false;
     std::uint8_t player_lane_ = 1;
-    struct Enemy { std::int32_t x_q8 = 0; std::uint8_t lane = 0; };
-    static constexpr std::size_t kEnemyCount = 3;
-    static constexpr std::int32_t kEnemySpacing = 110;
-    std::array<Enemy, kEnemyCount> enemies_{};
+    rules::Traffic enemies_{};
+    rules::Traffic drawn_enemies_{};
+    std::uint8_t drawn_player_lane_ = 1;
+    bool frame_valid_ = false;
     std::uint32_t last_drawn_score_ = 0;
     std::uint32_t last_tick_ms_ = 0;
     std::uint32_t last_frame_ms_ = 0;
