@@ -7,7 +7,7 @@
 
 namespace {
 
-constexpr const char* kMainLabels[8] = {
+constexpr const char* kMainLabels[9] = {
     "LOSUJ",
     "KOSMOS",
     "ZWIERZĘTA",
@@ -15,6 +15,7 @@ constexpr const char* kMainLabels[8] = {
     "CZŁOWIEK",
     "HISTORIA",
     "ŚWIAT",
+    "QUIZ PRAWDA/FAŁSZ",
     "POWRÓT",
 };
 
@@ -48,7 +49,7 @@ std::array<char, 128> FactsApp::wrapped_title_{};
 std::array<char, 320> FactsApp::wrapped_body_{};
 
 FactsApp::FactsApp(board::Board& board)
-    : board_(board)
+    : board_(board), quiz_(board)
 {
 }
 
@@ -72,6 +73,9 @@ void FactsApp::redraw()
     }
 
     switch (view_) {
+        case View::Quiz:
+            quiz_.redraw();
+            break;
         case View::TitleList:
             render_title_list();
             break;
@@ -90,6 +94,11 @@ FactsApp::UpdateResult FactsApp::update(
 {
     if (!active_) {
         return UpdateResult::ExitRequested;
+    }
+
+    if (view_ == View::Quiz) {
+        if (quiz_.update(input)) enter_main_menu();
+        return UpdateResult::Running;
     }
 
     if (input.secondary_long) {
@@ -118,6 +127,9 @@ FactsApp::UpdateResult FactsApp::update(
             open_random_fact();
         } else if (main_selection_ <= 6U) {
             enter_category(category_for_menu_index(main_selection_));
+        } else if (main_selection_ == 7U) {
+            view_ = View::Quiz;
+            quiz_.start();
         } else {
             return UpdateResult::ExitRequested;
         }
