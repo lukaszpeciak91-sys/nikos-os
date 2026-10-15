@@ -251,3 +251,20 @@ per set bit per glyph (plus region clearing), to be profiled on target.
 ### Font selector stacked PR A — implementation candidate
 
 Added a boot-only selection of STANDARD / COMPOSED / PRE-RENDERED under USTAWIENIA > CZCIONKA and small real-UI Launcher pilots. Legacy STANDARD sizes remain unchanged. Application-specific screens, Facts, Quiz and Communicator are not migrated in this PR. Firmware compile, executable host checks and physical metrics/fit checks are pending; this branch must be tested cumulatively with stacked Facts PR B after independent source audits.
+
+### Font selector + Facts readability cumulative candidate (stacked PR B)
+PR B stacks on the font-selector Launcher pilot. Facts main menu order
+is LOSUJ, six categories, QUIZ, return. Category navigation still covers
+100 titles each, now one title per page at readable size. Reader bodies
+are wrapped using the selected font's measured glyph advances and
+paginated into bounded page spans; 600-source-content static simulation
+shows up to five pages for STANDARD and four for COMPOSED/PRE-RENDERED.
+Quiz supports M5-driven text subpages while retaining one answer, points,
+replay and communication preemption. The 15 additional corpus glyphs
+bring the supported raster repertoire to 128.
+
+This is an unmerged, unflashed candidate. Executable native unit tests,
+ESP-IDF 5.5.5 firmware build, image/partition size, stack high-water,
+on-device render latency and physical 240x135 clipping inspection remain
+mandatory. Build and flash only the final cumulative HEAD on the FIRST
+Stick once PR #71, stacked PR A and stacked PR B pass independent audits.

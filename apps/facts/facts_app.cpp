@@ -9,13 +9,13 @@ namespace {
 
 constexpr const char* kMainLabels[9] = {
     "LOSUJ",
-    "QUIZ PRAWDA/FAŁSZ",
     "KOSMOS",
     "ZWIERZĘTA",
     "TECHNOLOGIA",
     "CZŁOWIEK",
     "HISTORIA",
     "ŚWIAT",
+    "QUIZ PRAWDA/FAŁSZ",
     "POWRÓT",
 };
 
@@ -47,9 +47,10 @@ namespace nikos::facts {
 
 std::array<char, 128> FactsApp::wrapped_title_{};
 std::array<char, 320> FactsApp::wrapped_body_{};
+std::array<char, 320> FactsApp::measure_scratch_{};
 
-FactsApp::FactsApp(board::Board& board)
-    : board_(board), quiz_(board)
+FactsApp::FactsApp(board::Board& board, settings::State& settings)
+    : board_(board), settings_(settings), renderer_(board), quiz_(board, settings)
 {
 }
 
@@ -125,11 +126,11 @@ FactsApp::UpdateResult FactsApp::update(
 
         if (main_selection_ == 0U) {
             open_random_fact();
-        } else if (main_selection_ == 1U) {
+        } else if (main_selection_ <= 6U) {
+            enter_category(category_for_menu_index(main_selection_));
+        } else if (main_selection_ == 7U) {
             view_ = View::Quiz;
             quiz_.start();
-        } else if (main_selection_ <= 7U) {
-            enter_category(category_for_menu_index(main_selection_));
         } else {
             return UpdateResult::ExitRequested;
         }
@@ -182,19 +183,13 @@ data::Category FactsApp::category_for_menu_index(
     std::uint8_t index)
 {
     switch (index) {
-        case 3:
-            return data::Category::Animals;
-        case 4:
-            return data::Category::Technology;
-        case 5:
-            return data::Category::Human;
-        case 6:
-            return data::Category::History;
-        case 7:
-            return data::Category::World;
-        case 2:
-        default:
-            return data::Category::Space;
+        case 2: return data::Category::Animals;
+        case 3: return data::Category::Technology;
+        case 4: return data::Category::Human;
+        case 5: return data::Category::History;
+        case 6: return data::Category::World;
+        case 1:
+        default: return data::Category::Space;
     }
 }
 
@@ -459,10 +454,94 @@ void FactsApp::advance_reader()
     open_fact(category_, current_fact_index_, false);
 }
 
+std::uint8_t FactsApp::text_line_height() const
+{
+    return settings_.font_mode == font_core::Mode::Standard ? 24U : 19U;
+}
+
+std::uint16_t FactsApp::text_width(const char* text) const
+{
+    if (settings_.font_mode == font_core::Mode::Standard) {
+        return static_cast<std::uint16_t>(
+            2 * board_.polish_ui_text_width(text));
+    }
+    auto& renderer = const_cast<font_core::Renderer&>(renderer_);
+    renderer.select(settings_.font_mode);
+    return renderer.measure(text, 30000, 30000).width_px;
+}
+
+bool FactsApp::wrap_pixels(const char* text, std::size_t start,
+    std::size_t end, std::uint16_t max_width, std::uint8_t max_lines,
+    char* dest, std::size_t dest_size) const
+{
+    if (!text || !dest || dest_size == 0 || start > end) return false;
+    dest[0] = '\0';
+    std::size_t out = 0;
+    std::size_t cursor = start;
+    std::size_t line_start = 0;
+    std::uint8_t lines = 1;
+    while (cursor < end) {
+        while (cursor < end && text[cursor] == ' ') ++cursor;
+        if (cursor >= end) break;
+        std::size_t word_end = cursor;
+        while (word_end < end && text[word_end] != ' ') {
+            const std::size_t step = utf8_codepoint_bytes(
+                static_cast<unsigned char>(text[word_end]));
+            word_end += step <= end - word_end ? step : 1U;
+        }
+        const std::size_t bytes = word_end - cursor;
+        const bool has_word = out > line_start;
+        const std::size_t candidate = out + (has_word ? 1U : 0U) + bytes;
+        if (candidate >= dest_size || candidate >= measure_scratch_.size())
+            return false;
+        const std::size_t existing = out - line_start;
+        std::memcpy(measure_scratch_.data(), dest + line_start, existing);
+        std::size_t n = existing;
+        if (has_word) measure_scratch_[n++] = ' ';
+        std::memcpy(measure_scratch_.data() + n, text + cursor, bytes);
+        n += bytes;
+        measure_scratch_[n] = '\0';
+        if (text_width(measure_scratch_.data()) > max_width) {
+            if (!has_word || lines >= max_lines) return false;
+            if (out + 1U + bytes >= dest_size) return false;
+            dest[out++] = '\n';
+            line_start = out;
+            ++lines;
+        } else if (has_word) {
+            dest[out++] = ' ';
+        }
+        if (out + bytes >= dest_size) return false;
+        std::memcpy(dest + out, text + cursor, bytes);
+        out += bytes;
+        dest[out] = '\0';
+        cursor = word_end;
+    }
+    return true;
+}
+
+void FactsApp::render_readable(const char* text, std::int16_t x,
+    std::int16_t y, std::int16_t width, std::int16_t height,
+    board::DisplayColor foreground, board::DisplayColor background)
+{
+    if (settings_.font_mode == font_core::Mode::Standard) {
+        board_.draw_polish_ui_text_region(
+            x, y, width, height, text, 2, foreground, background);
+        return;
+    }
+    renderer_.select(settings_.font_mode);
+    const auto result = renderer_.draw(
+        text, {x, y, width, height}, foreground, background);
+    if (!result.fits || !result.supported) {
+        board_.draw_text_region(x, y, width, height,
+            "TEXT FIT ERROR", 1, board::DisplayColor::Danger, background);
+    }
+}
+
 void FactsApp::build_pages()
 {
     page_count_ = 0;
     page_index_ = 0;
+    page_overflow_ = false;
 
     if (current_fact_ == nullptr || current_fact_->text == nullptr) {
         return;
@@ -499,197 +578,110 @@ void FactsApp::build_pages()
     }
 }
 
-void FactsApp::append_paginated_range(
-    std::size_t start,
-    std::size_t end)
+void FactsApp::append_paginated_range(std::size_t start, std::size_t end)
 {
-    if (current_fact_ == nullptr || start >= end) {
-        return;
-    }
-
+    if (!current_fact_ || start >= end) return;
     const char* text = current_fact_->text;
     std::size_t cursor = start;
-
-    while (cursor < end && page_count_ < kMaxPages) {
-        while (cursor < end && text[cursor] == ' ') {
-            ++cursor;
+    while (cursor < end) {
+        while (cursor < end && text[cursor] == ' ') ++cursor;
+        if (cursor == end) break;
+        if (page_count_ >= kMaxPages) {
+            page_overflow_ = true;
+            return;
         }
-        if (cursor >= end) {
-            break;
+        std::size_t candidate_end = cursor;
+        std::size_t accepted_end = cursor;
+        while (candidate_end < end) {
+            while (candidate_end < end && text[candidate_end] == ' ')
+                ++candidate_end;
+            std::size_t word_end = candidate_end;
+            while (word_end < end && text[word_end] != ' ') {
+                const std::size_t step = utf8_codepoint_bytes(
+                    static_cast<unsigned char>(text[word_end]));
+                word_end += step <= end - word_end ? step : 1U;
+            }
+            if (word_end == candidate_end) break;
+            if (!wrap_pixels(text, cursor, word_end, 232, kBodyMaxLines,
+                    wrapped_body_.data(), wrapped_body_.size())) break;
+            accepted_end = word_end;
+            candidate_end = word_end;
         }
-
-        std::size_t page_end = end;
-        if (count_utf8_codepoints(text, cursor, end)
-            > kPageMaxCodepoints) {
-            page_end = bounded_word_split(
-                text,
-                cursor,
-                end,
-                kPageMaxCodepoints);
+        if (accepted_end == cursor) {
+            page_overflow_ = true;
+            return;
         }
-
-        while (page_end > cursor && text[page_end - 1U] == ' ') {
-            --page_end;
-        }
-
         pages_[page_count_++] = PageRange{
             static_cast<std::uint16_t>(cursor),
-            static_cast<std::uint16_t>(page_end),
+            static_cast<std::uint16_t>(accepted_end)
         };
-
-        cursor = page_end;
-        while (cursor < end && text[cursor] == ' ') {
-            ++cursor;
-        }
+        cursor = accepted_end;
     }
 }
 
 void FactsApp::render_main_menu()
 {
     board_.clear_screen();
-
     board_.draw_polish_ui_text_region(
-        14,
-        6,
-        212,
-        16,
-        "CIEKAWOSTKI",
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    board_.draw_line(
-        14,
-        23,
-        225,
-        23,
-        board::DisplayColor::SecondaryText);
-
+        14, 4, 212, 19, "CIEKAWOSTKI", 1);
+    board_.draw_line(14, 25, 225, 25, board::DisplayColor::SecondaryText);
     for (std::uint8_t slot = 0; slot < kMainVisibleRows; ++slot) {
         const std::uint8_t index =
             static_cast<std::uint8_t>(main_view_start_ + slot);
-        if (index >= kMainItemCount) {
-            break;
-        }
-
+        if (index >= kMainItemCount) break;
         const bool selected = index == main_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(29 + slot * 18);
-
-        board_.draw_polish_ui_text_region(
-            26,
-            y,
-            194,
-            16,
-            kMainLabels[index],
-            1,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(board_, 16, y, 14);
+            static_cast<std::int16_t>(29 + slot * 29);
+        const auto color = selected ? board::DisplayColor::PrimaryText
+                                    : board::DisplayColor::SecondaryText;
+        if (selected)
+            board_.fill_rect(24, y, 204, 26, board::DisplayColor::Surface);
+        if (wrap_pixels(kMainLabels[index], 0,
+                range_length(kMainLabels[index]), 194, 1,
+                wrapped_title_.data(), wrapped_title_.size())) {
+            render_readable(wrapped_title_.data(), 26, y, 194, 26,
+                color, selected ? board::DisplayColor::Surface
+                                : board::DisplayColor::Background);
+        } else {
+            board_.draw_text_region(26, y, 194, 22,
+                "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
         }
+        if (selected) draw_selection_marker(board_, 16, y, 24);
     }
-
-    board_.draw_text_region(
-        14,
-        121,
-        212,
-        12,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 121, 212, 12,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1);
 }
 
 void FactsApp::render_title_list()
 {
     board_.clear_screen();
-
-    board_.draw_polish_ui_text_region(
-        12,
-        4,
-        180,
-        15,
-        data::category_label(category_),
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    char position[12]{};
-    if (title_selection_ < data::kFactsPerCategory) {
-        std::snprintf(
-            position,
-            sizeof(position),
-            "%03u/100",
-            static_cast<unsigned>(title_selection_ + 1U));
+    board_.draw_polish_ui_text_region(12, 4, 168, 15,
+        data::category_label(category_), 1);
+    char position[16]{};
+    std::snprintf(position, sizeof(position), "%03u/101",
+        static_cast<unsigned>(title_selection_ + 1U));
+    board_.draw_text_region(176, 4, 60, 14, position, 1,
+        board::DisplayColor::Accent);
+    board_.draw_line(10, 23, 230, 23, board::DisplayColor::SecondaryText);
+    const data::Fact* facts = data::category_facts(category_);
+    const char* label = title_selection_ == kTitleBackIndex
+        ? "POWRÓT" : facts[title_selection_].title;
+    if (wrap_pixels(label, 0, range_length(label), 218, 3,
+            wrapped_title_.data(), wrapped_title_.size())) {
+        render_readable(wrapped_title_.data(), 12, 36, 218, 73);
+    } else {
+        board_.draw_text_region(12, 53, 218, 20,
+            "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
     }
-    board_.draw_text_region(
-        186,
-        4,
-        50,
-        12,
-        position,
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-
-    const data::Fact* facts =
-        data::category_facts(category_);
-
-    for (std::uint8_t slot = 0; slot < kTitleVisibleRows; ++slot) {
-        const std::uint8_t index =
-            static_cast<std::uint8_t>(title_view_start_ + slot);
-        if (index > kTitleBackIndex) {
-            break;
-        }
-
-        const bool selected = index == title_selection_;
-        const std::int16_t y =
-            static_cast<std::int16_t>(23 + slot * 19);
-        const char* label =
-            index == kTitleBackIndex
-                ? "POWRÓT"
-                : facts[index].title;
-
-        board_.draw_polish_ui_text_region(
-            18,
-            y,
-            214,
-            17,
-            label,
-            1,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(board_, 10, y, 15);
-        }
-    }
-
-    board_.draw_text_region(
-        14,
-        121,
-        212,
-        12,
-        "M5 OTWORZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 121, 212, 12,
+        "M5 OTWORZ | BOCZNY DALEJ", 1);
 }
 
 void FactsApp::render_reader()
 {
     board_.clear_screen();
 
-    if (current_fact_ == nullptr || page_count_ == 0U) {
+    if (current_fact_ == nullptr || page_count_ == 0U || page_overflow_) {
         board_.draw_text_region(
             50,
             55,
@@ -742,61 +734,24 @@ void FactsApp::render_reader()
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 
-    const std::size_t title_end =
-        range_length(current_fact_->title);
-    if (!wrap_utf8(
-            current_fact_->title,
-            0U,
-            title_end,
-            kTitleCodepointsPerLine,
-            kTitleMaxLines,
-            wrapped_title_.data(),
-            wrapped_title_.size())) {
-        std::snprintf(
-            wrapped_title_.data(),
-            wrapped_title_.size(),
-            "%s",
-            current_fact_->title);
+    const std::size_t title_end = range_length(current_fact_->title);
+    if (!wrap_pixels(current_fact_->title, 0U, title_end,
+            232, 2, wrapped_title_.data(), wrapped_title_.size())) {
+        board_.draw_text_region(4, 20, 232, 20,
+            "TITLE FIT ERROR", 1, board::DisplayColor::Danger);
+        return;
     }
-
-    board_.draw_polish_ui_text_region(
-        4,
-        15,
-        232,
-        27,
-        wrapped_title_.data(),
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    board_.draw_line(
-        4,
-        43,
-        235,
-        43,
-        board::DisplayColor::SecondaryText);
-
+    render_readable(wrapped_title_.data(), 4, 16, 232, 48);
+    board_.draw_line(4, 65, 235, 65, board::DisplayColor::SecondaryText);
     const PageRange& page = pages_[page_index_];
-    if (!wrap_utf8(
-            current_fact_->text,
-            page.start,
-            page.end,
-            kBodyCodepointsPerLine,
-            kBodyMaxLines,
-            wrapped_body_.data(),
-            wrapped_body_.size())) {
-        wrapped_body_[0] = '\0';
+    if (!wrap_pixels(current_fact_->text, page.start, page.end,
+            232, kBodyMaxLines,
+            wrapped_body_.data(), wrapped_body_.size())) {
+        board_.draw_text_region(4, 80, 232, 18,
+            "BODY FIT ERROR", 1, board::DisplayColor::Danger);
+        return;
     }
-
-    board_.draw_polish_ui_text_region(
-        4,
-        47,
-        232,
-        73,
-        wrapped_body_.data(),
-        1,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
+    render_readable(wrapped_body_.data(), 4, 69, 232, 50);
 
     char page_progress[12]{};
     std::snprintf(

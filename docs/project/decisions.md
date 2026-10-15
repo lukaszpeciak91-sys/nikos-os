@@ -838,3 +838,13 @@ is scoped to the Font Lab instance and defaults to STANDARD after every
 entry; no persistent selection or global UI migration is authorized yet.
 Physical legibility, speed and accented character placement will determine
 whether the renderer can be piloted on ordinary application screens.
+
+### Facts readability stacked PR B
+Prioritize complete, readable content and measured lines over preserving
+the old five-row title list or two-page codepoint split. Keep all 600
+editorial texts and 120 quiz records unchanged. Use scale-2 Polish GFXfont
+for STANDARD Facts/Quiz as an explicit exception to the ordinary
+STANDARD Font0 menus, because Font0 lacks Polish glyphs. Use selected
+experimental fonts for the same content and add only corpus-verified
+non-Polish accents/punctuation to their offline glyph set. Never allow
+a word/page overflow to drop content silently.
