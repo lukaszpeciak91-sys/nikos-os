@@ -9,13 +9,13 @@ namespace {
 
 constexpr const char* kMainLabels[9] = {
     "LOSUJ",
+    "QUIZ PRAWDA/FAŁSZ",
     "KOSMOS",
     "ZWIERZĘTA",
     "TECHNOLOGIA",
     "CZŁOWIEK",
     "HISTORIA",
     "ŚWIAT",
-    "QUIZ PRAWDA/FAŁSZ",
     "POWRÓT",
 };
 
@@ -125,11 +125,11 @@ FactsApp::UpdateResult FactsApp::update(
 
         if (main_selection_ == 0U) {
             open_random_fact();
-        } else if (main_selection_ <= 6U) {
-            enter_category(category_for_menu_index(main_selection_));
-        } else if (main_selection_ == 7U) {
+        } else if (main_selection_ == 1U) {
             view_ = View::Quiz;
             quiz_.start();
+        } else if (main_selection_ <= 7U) {
+            enter_category(category_for_menu_index(main_selection_));
         } else {
             return UpdateResult::ExitRequested;
         }
@@ -182,17 +182,17 @@ data::Category FactsApp::category_for_menu_index(
     std::uint8_t index)
 {
     switch (index) {
-        case 2:
-            return data::Category::Animals;
         case 3:
-            return data::Category::Technology;
+            return data::Category::Animals;
         case 4:
-            return data::Category::Human;
+            return data::Category::Technology;
         case 5:
-            return data::Category::History;
+            return data::Category::Human;
         case 6:
+            return data::Category::History;
+        case 7:
             return data::Category::World;
-        case 1:
+        case 2:
         default:
             return data::Category::Space;
     }
