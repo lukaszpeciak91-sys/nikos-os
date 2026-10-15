@@ -24,6 +24,7 @@ const char* level_label(std::uint8_t level)
 void SoundMeterApp::begin()
 {
     active_ = true;
+    suspended_ = false;
     capture_pending_ = false;
     last_capture_ms_ = 0;
     shown_level_ = 255;
@@ -37,12 +38,14 @@ void SoundMeterApp::end()
 {
     if (active_) suspend();
     active_ = false;
+    suspended_ = false;
     capture_pending_ = false;
     microphone_ok_ = false;
 }
 
 void SoundMeterApp::suspend()
 {
+    suspended_ = true;
     if (microphone_ok_) board_.end_microphone();
     microphone_ok_ = false;
     capture_pending_ = false;
@@ -51,6 +54,7 @@ void SoundMeterApp::suspend()
 void SoundMeterApp::resume()
 {
     if (!active_ || microphone_ok_) return;
+    suspended_ = false;
     microphone_ok_ = board_.begin_microphone();
     capture_pending_ = false;
     last_capture_ms_ = 0;
