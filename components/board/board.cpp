@@ -344,6 +344,13 @@ bool Board::begin_microphone()
 {
     M5.Speaker.stop();
     M5.Speaker.end();
+    // Board::begin keeps internal_mic disabled at boot to preserve normal
+    // buzzer behavior. Configure the verified PDM pins only for this tool.
+    auto mic_config = M5.Mic.config();
+    mic_config.pin_data_in = 34;
+    mic_config.pin_ws = 0;
+    mic_config.sample_rate = 17000;
+    M5.Mic.config(mic_config);
     if (M5.Mic.begin()) return true;
     ESP_LOGE(kTag, "Microphone initialization failed");
     M5.Mic.end();
@@ -353,7 +360,7 @@ bool Board::begin_microphone()
 
 bool Board::record_microphone(std::int16_t* buffer, std::size_t count, std::uint32_t hz)
 {
-    return M5.Mic.isEnabled() && M5.Mic.record(buffer, count, hz);
+    return M5.Mic.isRunning() && M5.Mic.record(buffer, count, hz);
 }
 
 bool Board::microphone_recording() const
