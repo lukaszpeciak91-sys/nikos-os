@@ -77,13 +77,11 @@ std::uint8_t width_of(Mode mode, std::uint32_t cp, bool& supported) {
         if (cp > 0x7E || cp < 0x20) supported = false;
         return 6;
     }
-    if (mode == Mode::Composed && cp > 0x7E) {
-        const Accent translated = composed(cp);
-        if (translated.mark == 0) supported = false;
-    }
-    const auto* g = glyph(mode == Mode::Composed
-        ? static_cast<std::uint32_t>(
-            static_cast<std::uint8_t>(composed(cp).base)) : cp);
+    const Accent translated = composed(cp);
+    const bool compose_mark = mode == Mode::Composed && translated.mark != 0;
+    const auto* g = glyph(compose_mark
+        ? static_cast<std::uint32_t>(static_cast<std::uint8_t>(translated.base))
+        : cp);
     if (!g) {
         supported = false;
         g = glyph('?');
@@ -238,7 +236,8 @@ Result Renderer::draw(const char* text, Region r, board::DisplayColor fg,
             const auto cp = decode(p);
             p = cp.next;
             const auto composed_glyph = composed(cp.codepoint);
-            const auto actual_cp = mode_ == Mode::Composed
+            const auto actual_cp =
+                mode_ == Mode::Composed && composed_glyph.mark != 0
                 ? static_cast<std::uint32_t>(
                     static_cast<std::uint8_t>(composed_glyph.base))
                 : cp.codepoint;
