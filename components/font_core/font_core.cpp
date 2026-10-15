@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 namespace nikos::font_core {
 namespace {
@@ -204,8 +205,21 @@ Result Renderer::draw(const char* text, Region r, board::DisplayColor fg,
     }
     board_.fill_rect(r.x, r.y, r.width, r.height, bg);
     if (mode_ == Mode::Standard) {
-        // Preserves existing Font0 rendering path and size.
-        board_.draw_text_region(r.x, r.y, r.width, r.height, text, 1, fg, bg);
+        // Existing Font0 rasterization is unchanged. Each measured line is
+        // submitted separately so wrapping cannot escape the supplied region.
+        for (std::uint8_t line = 0; line < layout.result.lines; ++line) {
+            const auto& span = layout.lines[line];
+            const std::size_t length = static_cast<std::size_t>(span.end - span.begin);
+            char bounded_line[48]{};
+            if (length >= sizeof(bounded_line)) {
+                layout.result.fits = false;
+                return layout.result;
+            }
+            std::memcpy(bounded_line, span.begin, length);
+            board_.draw_text_region(
+                r.x, static_cast<std::int16_t>(r.y + line * metrics().line_height),
+                r.width, metrics().line_height, bounded_line, 1, fg, bg);
+        }
         return layout.result;
     }
     const auto m = metrics();
