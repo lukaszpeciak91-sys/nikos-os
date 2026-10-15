@@ -5,6 +5,7 @@
 #include "countdown/countdown_service.hpp"
 #include "facts/facts_app.hpp"
 #include "font_lab/font_lab_app.hpp"
+#include "font_core/font_core.hpp"
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
 #include "power/display_lifecycle.hpp"
@@ -996,6 +997,34 @@ extern "C" void app_main(void)
     nikos::settings::State settings;
     board.set_theme(settings.theme);
 
+    // This small callback preserves Board's legacy STANDARD rendering and
+    // allows applications sharing Board to adopt the selected font without
+    // changing their navigation, lifecycle, or ownership.
+    nikos::font_core::Renderer system_text_renderer(board);
+    struct SystemTextContext {
+        nikos::font_core::Renderer* renderer;
+        nikos::settings::State* settings;
+    } system_text_context{&system_text_renderer, &settings};
+    board.set_text_delegate(&system_text_context,
+        [](void* user, std::int16_t x, std::int16_t y,
+           std::int16_t w, std::int16_t h, const char* value,
+           std::uint8_t size, nikos::board::DisplayColor fg,
+           nikos::board::DisplayColor bg) -> bool {
+            auto& ctx = *static_cast<SystemTextContext*>(user);
+            if (ctx.settings->font_mode == nikos::font_core::Mode::Standard
+                || value == nullptr || w <= 0 || h < 19 || x < 0 || y < 0
+                || x + w > 240 || y + h > 135) {
+                return false;
+            }
+            auto& renderer = *ctx.renderer;
+            renderer.select(ctx.settings->font_mode);
+            const auto m = renderer.measure(value, w, h);
+            // Preserve tightly packed HUD/numeric and unsupported glyph
+            // layouts on their existing native path.
+            if (!m.fits || !m.supported) return false;
+            return renderer.draw(value, {x, y, w, h}, fg, bg).fits;
+        });
+
     nikos::signal_sound::Player signal_sound(board, settings);
     nikos::countdown::Service countdown(esp_timer_get_time);
     nikos::battery_guard::BatteryGuard battery_guard(board);
@@ -1088,7 +1117,7 @@ extern "C" void app_main(void)
     nikos::power_diag::PowerDiagApp power_diag(board);
     nikos::flashlight::FlashlightApp flashlight(board, display_lifecycle);
     nikos::sound_meter::SoundMeterApp sound_meter(board);
-    nikos::facts::FactsApp facts(board);
+    nikos::facts::FactsApp facts(board, settings);
     nikos::font_lab::FontLabApp font_lab(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
     nikos::mini_racer::MiniRacerApp mini_racer(board, display_lifecycle);
