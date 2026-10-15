@@ -13,6 +13,7 @@ public:
     void redraw();
     void suspend(); // Foreground interruption: preserve exact game state.
     void resume();
+    void resume_if_suspended() { if (suspended_) resume(); }
     UpdateResult update(const board::InputState& input);
 private:
     enum class State : std::uint8_t { Playing, Paused, GameOver, TimeLimit };
