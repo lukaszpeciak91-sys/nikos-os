@@ -17,18 +17,27 @@ initial = get_constant("kInitialSpeedQ8", CODE) // 256
 maximum = get_constant("kMaxSpeedQ8", CODE) // 256
 spawn = get_constant("kSpawnX", HEADER)
 player_right = get_constant("kPlayerRight", HEADER)
-gap = get_constant("kMinGapPx", CODE)
+spacing = get_constant("kEnemySpacing", HEADER)
+count = get_constant("kEnemyCount", HEADER)
 assert 0 < initial < maximum <= 70
+assert count == 3
 assert spawn > player_right
 assert (spawn - player_right) / maximum >= 2.0
-assert (spawn + gap - player_right) / maximum >= 3.0
-assert "enemy_lane_ = static_cast<std::uint8_t>(esp_random() & 1U)" in CODE
-assert "enemy_x_q8_ = static_cast<std::int32_t>(" in CODE
+# Each new hazard is at least 1.5 seconds behind the previous one.
+assert spacing / maximum >= 1.5
+# Cars cannot overlap horizontally across lanes, and one lane stays free.
+assert spacing > get_constant("kEnemyWidth", HEADER)
+assert "rightmost + kEnemySpacing * 256" in CODE
+assert "rightmost_lane ^ 1U" in CODE
+assert "first_lane ^ (i & 1U)" in CODE
 assert "old_x + kEnemyWidth >= kPlayerLeft" in CODE
 assert "new_x <= kPlayerRight" in CODE
 assert "player_lane_ ^= 1U" in CODE
 assert "last_tick_ms_ = now;" in CODE
 assert "now - session_started_ms_ >= kSessionLimitMs" in CODE
+assert "render_playing(false)" in CODE
+assert "if (full) board_.fill_rect(0, 0, 240, 135" in CODE
+assert "y + 18, 6, 4" in CODE # two rear wheels
 # Test swept horizontal overlap for both lanes, including maximal steps.
 for obstacle_lane in (0, 1):
     for player_lane in (0, 1):
