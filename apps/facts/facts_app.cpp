@@ -356,7 +356,7 @@ std::uint8_t FactsApp::title_item_height(std::uint8_t index) const
 {
     const char* title = index == kTitleBackIndex ? "POWRÓT"
         : data::category_facts(category_)[index].title;
-    if (!wrap_pixels(title, 0, range_length(title), 211, 3,
+    if (!wrap_pixels(title, 0, range_length(title), 224, 3,
             wrapped_title_.data(), wrapped_title_.size())) return 80;
     std::uint8_t lines = 1;
     for (const char* p = wrapped_title_.data(); *p; ++p)
@@ -548,8 +548,11 @@ std::uint8_t FactsApp::title_line_count() const
 {
     if (!current_fact_) return 1;
     if (!wrap_pixels(current_fact_->title, 0, range_length(current_fact_->title),
-            232, 2, wrapped_title_.data(), wrapped_title_.size())) return 2;
-    return std::strchr(wrapped_title_.data(), '\n') ? 2 : 1;
+            232, 3, wrapped_title_.data(), wrapped_title_.size())) return 3;
+    std::uint8_t lines = 1;
+    for (const char* p = wrapped_title_.data(); *p; ++p)
+        if (*p == '\n') ++lines;
+    return lines;
 }
 
 std::uint8_t FactsApp::body_line_capacity() const
@@ -676,14 +679,14 @@ void FactsApp::render_title_list()
         if (y + height > 115) break;
         const char* label = index == kTitleBackIndex ? "POWRÓT" : facts[index].title;
         const bool selected = index == title_selection_;
-        if (!wrap_pixels(label, 0, range_length(label), 211, 3,
+        if (!wrap_pixels(label, 0, range_length(label), 224, 3,
                 wrapped_title_.data(), wrapped_title_.size())) break;
         const auto bg = selected ? board::DisplayColor::Surface
                                  : board::DisplayColor::Background;
-        render_readable(wrapped_title_.data(), 23, y, 211, height, 
+        render_readable(wrapped_title_.data(), 12, y, 224, height, 
             selected ? board::DisplayColor::PrimaryText
                      : board::DisplayColor::SecondaryText, bg);
-        if (selected) draw_selection_marker(board_, 14, y, height - 2);
+        if (selected) draw_selection_marker(board_, 8, y, height - 2);
         y += height;
     }
     board_.draw_text_region(14, 121, 212, 12,
@@ -749,7 +752,7 @@ void FactsApp::render_reader()
 
     const std::size_t title_end = range_length(current_fact_->title);
     if (!wrap_pixels(current_fact_->title, 0U, title_end,
-            232, 2, wrapped_title_.data(), wrapped_title_.size())) {
+            232, 3, wrapped_title_.data(), wrapped_title_.size())) {
         board_.draw_text_region(4, 20, 232, 20,
             "TITLE FIT ERROR", 1, board::DisplayColor::Danger);
         return;
