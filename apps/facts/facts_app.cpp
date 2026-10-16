@@ -1,5 +1,6 @@
 #include "facts/facts_app.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -351,24 +352,27 @@ void FactsApp::update_main_viewport()
     }
 }
 
+std::uint8_t FactsApp::title_item_height(std::uint8_t index) const
+{
+    const char* title = index == kTitleBackIndex ? "POWRÓT"
+        : data::category_facts(category_)[index].title;
+    if (!wrap_pixels(title, 0, range_length(title), 224, 3,
+            wrapped_title_.data(), wrapped_title_.size())) return 80;
+    std::uint8_t lines = 1;
+    for (const char* p = wrapped_title_.data(); *p; ++p)
+        if (*p == '\n') ++lines;
+    return static_cast<std::uint8_t>(lines * text_line_height() + 4);
+}
+
 void FactsApp::update_title_viewport()
 {
-    if (title_selection_ < title_view_start_) {
-        title_view_start_ = title_selection_;
-    } else if (
-        title_selection_
-        >= static_cast<std::uint8_t>(
-            title_view_start_ + kTitleVisibleRows)) {
-        title_view_start_ = static_cast<std::uint8_t>(
-            title_selection_ - kTitleVisibleRows + 1U);
-    }
-
-    constexpr std::uint8_t kItemCount =
-        kTitleBackIndex + 1U;
-    const std::uint8_t max_start =
-        kItemCount - kTitleVisibleRows;
-    if (title_view_start_ > max_start) {
-        title_view_start_ = max_start;
+    if (title_selection_ < title_view_start_) title_view_start_ = title_selection_;
+    while (title_view_start_ < title_selection_) {
+        std::int16_t used = 0;
+        for (std::uint8_t i = title_view_start_; i <= title_selection_; ++i)
+            used += title_item_height(i);
+        if (used <= 87) break;
+        ++title_view_start_;
     }
 }
 
@@ -456,7 +460,8 @@ void FactsApp::advance_reader()
 
 std::uint8_t FactsApp::text_line_height() const
 {
-    return settings_.font_mode == font_core::Mode::Standard ? 24U : 19U;
+    return settings_.font_mode == font_core::Mode::Standard ? 24U :
+        settings_.font_mode == font_core::Mode::PreRendered ? 24U : 19U;
 }
 
 std::uint16_t FactsApp::text_width(const char* text) const
@@ -467,6 +472,7 @@ std::uint16_t FactsApp::text_width(const char* text) const
     }
     auto& renderer = const_cast<font_core::Renderer&>(renderer_);
     renderer.select(settings_.font_mode);
+    renderer.set_size(font_core::Size::Readable);
     return renderer.measure(text, 30000, 30000).width_px;
 }
 
@@ -529,12 +535,33 @@ void FactsApp::render_readable(const char* text, std::int16_t x,
         return;
     }
     renderer_.select(settings_.font_mode);
+    renderer_.set_size(font_core::Size::Readable);
     const auto result = renderer_.draw(
         text, {x, y, width, height}, foreground, background);
     if (!result.fits || !result.supported) {
         board_.draw_text_region(x, y, width, height,
             "TEXT FIT ERROR", 1, board::DisplayColor::Danger, background);
     }
+}
+
+std::uint8_t FactsApp::title_line_count() const
+{
+    if (!current_fact_) return 1;
+    if (!wrap_pixels(current_fact_->title, 0, range_length(current_fact_->title),
+            232, 3, wrapped_title_.data(), wrapped_title_.size())) return 3;
+    std::uint8_t lines = 1;
+    for (const char* p = wrapped_title_.data(); *p; ++p)
+        if (*p == '\n') ++lines;
+    return lines;
+}
+
+std::uint8_t FactsApp::body_line_capacity() const
+{
+    const std::int16_t divider = static_cast<std::int16_t>(
+        17 + title_line_count() * text_line_height() + 2);
+    const std::int16_t available = static_cast<std::int16_t>(119 - divider - 4);
+    return static_cast<std::uint8_t>(std::max<std::int16_t>(
+        1, available / text_line_height()));
 }
 
 void FactsApp::build_pages()
@@ -550,27 +577,9 @@ void FactsApp::build_pages()
     const char* text = current_fact_->text;
     const std::size_t end = range_length(text);
 
-    std::size_t preferred_boundary = 0;
-    for (std::size_t i = 0; i + 1U < end; ++i) {
-        const char current = text[i];
-        if ((current == '.' || current == '!' || current == '?')
-            && text[i + 1U] == ' ') {
-            preferred_boundary = i + 1U;
-        }
-    }
-
-    if (preferred_boundary > 0U
-        && preferred_boundary < end) {
-        append_paginated_range(0U, preferred_boundary);
-
-        std::size_t second_start = preferred_boundary;
-        while (second_start < end && text[second_start] == ' ') {
-            ++second_start;
-        }
-        append_paginated_range(second_start, end);
-    } else {
-        append_paginated_range(0U, end);
-    }
+    // Greedy measured pagination: all text stays on one page when it fits.
+    // Only break at whole-word UTF-8 byte boundaries when necessary.
+    append_paginated_range(0U, end);
 
     if (page_count_ == 0U) {
         pages_[0] = PageRange{0U, static_cast<std::uint16_t>(end)};
@@ -602,7 +611,7 @@ void FactsApp::append_paginated_range(std::size_t start, std::size_t end)
                 word_end += step <= end - word_end ? step : 1U;
             }
             if (word_end == candidate_end) break;
-            if (!wrap_pixels(text, cursor, word_end, 232, kBodyMaxLines,
+            if (!wrap_pixels(text, cursor, word_end, 232, body_line_capacity(),
                     wrapped_body_.data(), wrapped_body_.size())) break;
             accepted_end = word_end;
             candidate_end = word_end;
@@ -635,18 +644,18 @@ void FactsApp::render_main_menu()
         const auto color = selected ? board::DisplayColor::PrimaryText
                                     : board::DisplayColor::SecondaryText;
         if (selected)
-            board_.fill_rect(24, y, 204, 26, board::DisplayColor::Surface);
+            board_.fill_rect(12, y, 224, 26, board::DisplayColor::Surface);
         if (wrap_pixels(kMainLabels[index], 0,
-                range_length(kMainLabels[index]), 194, 1,
+                range_length(kMainLabels[index]), 224, 1,
                 wrapped_title_.data(), wrapped_title_.size())) {
-            render_readable(wrapped_title_.data(), 26, y, 194, 26,
+            render_readable(wrapped_title_.data(), 12, y, 224, 26,
                 color, selected ? board::DisplayColor::Surface
                                 : board::DisplayColor::Background);
         } else {
-            board_.draw_text_region(26, y, 194, 22,
+            board_.draw_text_region(12, y, 224, 22,
                 "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
         }
-        if (selected) draw_selection_marker(board_, 16, y, 24);
+        if (selected) draw_selection_marker(board_, 8, y, 24);
     }
     board_.draw_text_region(14, 121, 212, 12,
         "M5 WYBIERZ | BOCZNY DALEJ", 1);
@@ -664,14 +673,21 @@ void FactsApp::render_title_list()
         board::DisplayColor::Accent);
     board_.draw_line(10, 23, 230, 23, board::DisplayColor::SecondaryText);
     const data::Fact* facts = data::category_facts(category_);
-    const char* label = title_selection_ == kTitleBackIndex
-        ? "POWRÓT" : facts[title_selection_].title;
-    if (wrap_pixels(label, 0, range_length(label), 218, 3,
-            wrapped_title_.data(), wrapped_title_.size())) {
-        render_readable(wrapped_title_.data(), 12, 36, 218, 73);
-    } else {
-        board_.draw_text_region(12, 53, 218, 20,
-            "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
+    std::int16_t y = 28;
+    for (std::uint8_t index = title_view_start_; index <= kTitleBackIndex; ++index) {
+        const std::uint8_t height = title_item_height(index);
+        if (y + height > 115) break;
+        const char* label = index == kTitleBackIndex ? "POWRÓT" : facts[index].title;
+        const bool selected = index == title_selection_;
+        if (!wrap_pixels(label, 0, range_length(label), 224, 3,
+                wrapped_title_.data(), wrapped_title_.size())) break;
+        const auto bg = selected ? board::DisplayColor::Surface
+                                 : board::DisplayColor::Background;
+        render_readable(wrapped_title_.data(), 12, y, 224, height, 
+            selected ? board::DisplayColor::PrimaryText
+                     : board::DisplayColor::SecondaryText, bg);
+        if (selected) draw_selection_marker(board_, 8, y, height - 2);
+        y += height;
     }
     board_.draw_text_region(14, 121, 212, 12,
         "M5 OTWORZ | BOCZNY DALEJ", 1);
@@ -736,22 +752,28 @@ void FactsApp::render_reader()
 
     const std::size_t title_end = range_length(current_fact_->title);
     if (!wrap_pixels(current_fact_->title, 0U, title_end,
-            232, 2, wrapped_title_.data(), wrapped_title_.size())) {
+            232, 3, wrapped_title_.data(), wrapped_title_.size())) {
         board_.draw_text_region(4, 20, 232, 20,
             "TITLE FIT ERROR", 1, board::DisplayColor::Danger);
         return;
     }
-    render_readable(wrapped_title_.data(), 4, 16, 232, 48);
-    board_.draw_line(4, 65, 235, 65, board::DisplayColor::SecondaryText);
+    const std::int16_t title_height =
+        static_cast<std::int16_t>(title_line_count() * text_line_height());
+    render_readable(wrapped_title_.data(), 4, 16, 232, title_height);
+    const std::int16_t divider_y = static_cast<std::int16_t>(18 + title_height);
+    board_.draw_line(4, divider_y, 235, divider_y,
+        board::DisplayColor::SecondaryText);
+    const std::int16_t body_y = static_cast<std::int16_t>(divider_y + 3);
+    const std::int16_t body_height = static_cast<std::int16_t>(119 - body_y);
     const PageRange& page = pages_[page_index_];
     if (!wrap_pixels(current_fact_->text, page.start, page.end,
-            232, kBodyMaxLines,
+            232, body_line_capacity(),
             wrapped_body_.data(), wrapped_body_.size())) {
-        board_.draw_text_region(4, 80, 232, 18,
+        board_.draw_text_region(4, body_y, 232, 18,
             "BODY FIT ERROR", 1, board::DisplayColor::Danger);
         return;
     }
-    render_readable(wrapped_body_.data(), 4, 69, 232, 50);
+    render_readable(wrapped_body_.data(), 4, body_y, 232, body_height);
 
     char page_progress[12]{};
     std::snprintf(

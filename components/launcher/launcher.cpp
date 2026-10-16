@@ -16,11 +16,11 @@ struct Entry {
 
 constexpr std::array<Entry, 6> kEntries = {{
     {"Komunikator"},
-    {"Narzedzia"},
+    {"Narzędzia"},
     {"Rozrywka"},
     {"Zegar"},
     {"Ustawienia"},
-    {"Wylacz"},
+    {"Wyłącz"},
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
@@ -1608,13 +1608,15 @@ void Launcher::render_main()
     render_header_time_if_changed();
     render_battery_if_changed();
 
+    const bool readable = settings_.font_mode != font_core::Mode::Composed;
+    const std::size_t visible_rows = readable ? 3U : kVisibleLauncherRows;
     std::size_t first_visible = 0;
-    if (selected_index_ >= kVisibleLauncherRows) {
+    if (selected_index_ >= visible_rows) {
         first_visible =
-            selected_index_ - kVisibleLauncherRows + 1U;
+            selected_index_ - visible_rows + 1U;
     }
 
-    for (std::size_t slot = 0; slot < kVisibleLauncherRows; ++slot) {
+    for (std::size_t slot = 0; slot < visible_rows; ++slot) {
         const std::size_t index = first_visible + slot;
         if (index >= kEntries.size()) {
             break;
@@ -1622,7 +1624,7 @@ void Launcher::render_main()
 
         const bool selected = index == selected_index_;
         const std::int16_t row_y =
-            static_cast<std::int16_t>(32 + slot * 19);
+            static_cast<std::int16_t>(readable ? 33 + slot * 27 : 32 + slot * 19);
         const board::DisplayColor row_background =
             selected
                 ? board::DisplayColor::Surface
@@ -1633,7 +1635,7 @@ void Launcher::render_main()
                 8,
                 static_cast<std::int16_t>(row_y - 2),
                 224,
-                18,
+                readable ? 25 : 18,
                 "",
                 1,
                 board::DisplayColor::PrimaryText,
@@ -1642,14 +1644,14 @@ void Launcher::render_main()
                 board_,
                 8,
                 static_cast<std::int16_t>(row_y - 1),
-                16);
+                readable ? 22 : 16);
         }
 
         draw_pilot_text(
             18,
             row_y,
             index == 0 ? 140 : 184,
-            18,
+            readable ? 24 : 18,
             kEntries[index].label,
             2,
             selected
@@ -1715,16 +1717,16 @@ void Launcher::render_main()
 void Launcher::render_tools()
 {
     clear_shell(board_);
-    // Five rows need 19 px each for experimental fonts. Reclaim 6 px
-    // from the heading and move the footer; keep STANDARD unchanged.
-    const bool experimental_font = settings_.font_mode != font_core::Mode::Standard;
+    // Keep the STANDARD five-row layout; use a scrolled three-row viewport
+    // when readable PRE-RENDERED text is selected.
+    const bool experimental_font = settings_.font_mode != font_core::Mode::Composed;
 
-    board_.draw_text_region(
+    draw_pilot_text(
         14,
-        experimental_font ? 2 : 8,
+        experimental_font ? 4 : 8,
         212,
-        20,
-        "NARZEDZIA",
+        experimental_font ? 24 : 20,
+        "NARZĘDZIA",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
@@ -1734,20 +1736,24 @@ void Launcher::render_tools()
         "Latarka",
         "Miernik halasu",
         "Test fontu",
-        "Powrot",
+        "Powrót",
     };
 
-    for (std::uint8_t index = 0; index < 5; ++index) {
+    const std::uint8_t first = experimental_font && tools_selection_ >= 3U
+        ? static_cast<std::uint8_t>(tools_selection_ - 2U) : 0U;
+    const std::uint8_t visible = experimental_font ? 3U : 5U;
+    for (std::uint8_t slot = 0; slot < visible; ++slot) {
+        const std::uint8_t index = static_cast<std::uint8_t>(first + slot);
         const bool selected = index == tools_selection_;
         const std::int16_t y =
             static_cast<std::int16_t>(experimental_font
-                ? 23 + index * 19 : 29 + index * 18);
+                ? 30 + slot * 27 : 29 + index * 18);
 
         draw_pilot_text(
             22,
             y,
             196,
-            19,
+            experimental_font ? 25 : 19,
             kTools[index],
             2,
             selected
@@ -1762,7 +1768,7 @@ void Launcher::render_tools()
                 board_,
                 14,
                 y,
-                17);
+                experimental_font ? 23 : 17);
         }
     }
 
@@ -1795,19 +1801,23 @@ void Launcher::render_entertainment()
         "Snake",
         "Mini Racer",
         "Ciekawostki",
-        "Powrot",
+        "Powrót",
     };
 
-    for (std::uint8_t index = 0; index < 4U; ++index) {
+    const bool readable = settings_.font_mode != font_core::Mode::Composed;
+    const std::uint8_t first = readable && entertainment_selection_ >= 3U
+        ? static_cast<std::uint8_t>(entertainment_selection_ - 2U) : 0U;
+    for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
+        const std::uint8_t index = static_cast<std::uint8_t>(first + slot);
         const bool selected = index == entertainment_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(35 + index * 20);
+            static_cast<std::int16_t>(readable ? 34 + slot * 27 : 35 + index * 20);
 
         draw_pilot_text(
             22,
             y,
             196,
-            settings_.font_mode == font_core::Mode::Standard ? 21 : 20,
+            readable ? 25 : (settings_.font_mode == font_core::Mode::Standard ? 21 : 20),
             kItems[index],
             2,
             selected
@@ -1822,7 +1832,7 @@ void Launcher::render_entertainment()
                 board_,
                 14,
                 y,
-                18);
+                readable ? 23 : 18);
         }
     }
 
@@ -2770,33 +2780,34 @@ void Launcher::render_settings()
         board::DisplayColor::Background);
 
     constexpr const char* kItems[7] = {
-        "Dzwiek",
-        "Jasnosc",
+        "Dźwięk",
+        "Jasność",
         "Motyw",
         "Orientacja",
         "Czcionka",
-        "AUTO WYLACZ.",
-        "Powrot",
+        "AUTO WYŁĄCZ.",
+        "Powrót",
     };
 
+    const bool readable = settings_.font_mode != font_core::Mode::Composed;
     std::uint8_t first_visible = 0;
-    if (settings_selection_ >= 4U) {
+    if (settings_selection_ >= (readable ? 3U : 4U)) {
         first_visible =
-            static_cast<std::uint8_t>(settings_selection_ - 3U);
+            static_cast<std::uint8_t>(settings_selection_ - (readable ? 2U : 3U));
     }
 
-    for (std::uint8_t slot = 0; slot < 4; ++slot) {
+    for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
         const std::uint8_t index =
             static_cast<std::uint8_t>(first_visible + slot);
         const bool selected = index == settings_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(35 + slot * 19);
+            static_cast<std::int16_t>(readable ? 36 + slot * 27 : 35 + slot * 19);
 
         draw_pilot_text(
             22,
             y,
             196,
-            18,
+            readable ? 25 : 18,
             kItems[index],
             2,
             selected
@@ -2811,7 +2822,7 @@ void Launcher::render_settings()
                 board_,
                 14,
                 y,
-                16);
+                readable ? 23 : 16);
         }
     }
 
@@ -2831,10 +2842,25 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
     std::uint8_t standard_size, board::DisplayColor fg, board::DisplayColor bg)
 {
     if (settings_.font_mode == font_core::Mode::Standard) {
-        board_.draw_text_region(x, y, width, height, text, standard_size, fg, bg);
+        // Font0 is byte-oriented; accented labels need the existing Polish font.
+        bool non_ascii = false;
+        for (const unsigned char* p =
+                 reinterpret_cast<const unsigned char*>(text); *p; ++p) {
+            if (*p >= 0x80U) { non_ascii = true; break; }
+        }
+        if (non_ascii) {
+            // STANDARD menu rows are now allocated >=24px when using Polish.
+            const std::uint8_t scale = standard_size;
+            board_.draw_polish_ui_text_region(
+                x, y, width, height, text, scale, fg, bg);
+        } else {
+            board_.draw_text_region(x, y, width, height, text, standard_size, fg, bg);
+        }
         return;
     }
     font_renderer_.select(settings_.font_mode);
+    font_renderer_.set_size(standard_size >= 2 && height >= 24
+        ? font_core::Size::Readable : font_core::Size::Compact);
     const auto effective_height = static_cast<std::int16_t>(height < 19 ? 19 : height);
     auto result = font_renderer_.draw(text, {x, y, width, effective_height}, fg, bg);
     if (!result.fits) {
