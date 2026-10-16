@@ -161,15 +161,19 @@ Layout prepare(Mode mode, Size size, const char* text, std::int16_t max_width,
 }
 void raster_glyph(board::Board& board, const detail::GlyphAsset& asset,
                   int x, int y, Region r, board::DisplayColor color, bool large) {
+    // Draw contiguous glyph runs instead of one SPI transaction per pixel.
+    // Clipping stays local to the destination region; no framebuffer.
     for (int row = 0; row < kRows; ++row) {
         const char* bits = asset.rows + row * 3;
         const std::uint16_t mask = static_cast<std::uint16_t>(
             nibble(bits[0]) * 256 + nibble(bits[1]) * 16 + nibble(bits[2]));
-        for (int col = 0; col < kColumns; ++col) {
-            if (!(mask & (1U << (11 - col)))) continue;
-            const int px = x + (large ? col * 5 / 4 : col);
+        for (int col = 0; col < kColumns;) {
+            if (!(mask & (1U << (11 - col)))) { ++col; continue; }
+            const int begin = col;
+            while (col < kColumns && (mask & (1U << (11 - col)))) ++col;
+            const int px = x + (large ? begin * 5 / 4 : begin);
+            const int right = x + (large ? col * 5 / 4 : col);
             const int py = y + (large ? row * 5 / 4 : row);
-            const int right = x + (large ? (col + 1) * 5 / 4 : col + 1);
             const int bottom = y + (large ? (row + 1) * 5 / 4 : row + 1);
             const int left_clip = std::max(px, static_cast<int>(r.x));
             const int top_clip = std::max(py, static_cast<int>(r.y));
