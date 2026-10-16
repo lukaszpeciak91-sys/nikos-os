@@ -505,13 +505,16 @@ void render_clock_glance(
         4,
         nikos::board::DisplayColor::PrimaryText,
         nikos::board::DisplayColor::Background);
-    board.draw_text_region(
-        54,
-        84,
-        132,
-        20,
-        date_text,
-        2,
+    // Render Glance date explicitly, bypassing the compact system delegate.
+    // The existing Unicode-capable font provides reliable metrics and keeps
+    // the date centered beneath the untouched large native time display.
+    constexpr std::int16_t date_scale = 2;
+    const std::int16_t date_width = static_cast<std::int16_t>(
+        board.polish_ui_text_width(date_text) * date_scale);
+    const std::int16_t date_x = static_cast<std::int16_t>(
+        (240 - date_width) / 2);
+    board.draw_polish_ui_text_region(
+        date_x, 84, date_width, 30, date_text, date_scale,
         nikos::board::DisplayColor::SecondaryText,
         nikos::board::DisplayColor::Background);
 }
@@ -976,12 +979,15 @@ extern "C" void app_main(void)
            nikos::board::DisplayColor bg) -> bool {
             auto& ctx = *static_cast<SystemTextContext*>(user);
             if (ctx.settings->font_mode == nikos::font_core::Mode::Standard
-                || value == nullptr || w <= 0 || h < 19 || x < 0 || y < 0
+                || value == nullptr || size >= 3 || w <= 0 || h < 19 || x < 0 || y < 0
                 || x + w > 240 || y + h > 135) {
                 return false;
             }
             auto& renderer = *ctx.renderer;
             renderer.select(ctx.settings->font_mode);
+            renderer.set_size(size >= 2 && h >= 24
+                ? nikos::font_core::Size::Readable
+                : nikos::font_core::Size::Compact);
             const auto m = renderer.measure(value, w, h);
             // Preserve tightly packed HUD/numeric and unsupported glyph
             // layouts on their existing native path.

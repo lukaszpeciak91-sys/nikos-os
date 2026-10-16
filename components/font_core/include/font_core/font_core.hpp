@@ -6,6 +6,7 @@
 namespace nikos::font_core {
 
 enum class Mode : std::uint8_t { Standard, Composed, PreRendered };
+enum class Size : std::uint8_t { Compact, Readable };
 
 struct Metrics {
     std::uint8_t line_height;
@@ -34,6 +35,7 @@ class Renderer final {
 public:
     explicit Renderer(board::Board& board) : board_(board) {}
     void select(Mode mode) { mode_ = mode; }
+    void set_size(Size size) { size_ = size; }
     Mode mode() const { return mode_; }
     Metrics metrics() const;
     std::uint8_t advance(std::uint32_t codepoint) const;
@@ -45,5 +47,6 @@ public:
 private:
     board::Board& board_;
     Mode mode_ = Mode::Standard;
+    Size size_ = Size::Compact;
 };
 }

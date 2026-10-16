@@ -41,12 +41,12 @@ private:
 
     static constexpr std::uint8_t kMainItemCount = 9;
     static constexpr std::uint8_t kMainVisibleRows = 3;
-    static constexpr std::uint8_t kTitleVisibleRows = 1;
+    static constexpr std::uint8_t kTitleVisibleRows = 4;
     static constexpr std::uint8_t kTitleBackIndex = 100;
     static constexpr std::uint8_t kMaxPages = 12;
     static constexpr std::size_t kPageMaxCodepoints = 120; // legacy helper limit
     static constexpr std::size_t kBodyCodepointsPerLine = 24;
-    static constexpr std::size_t kBodyMaxLines = 2;
+    static constexpr std::size_t kBodyMaxLines = 5;
     static constexpr std::size_t kTitleCodepointsPerLine = 22;
     static constexpr std::size_t kTitleMaxLines = 2;
 
@@ -83,6 +83,9 @@ private:
         std::uint8_t index,
         bool random_mode);
     void advance_reader();
+    std::uint8_t body_line_capacity() const;
+    std::uint8_t title_line_count() const;
+    std::uint8_t title_item_height(std::uint8_t index) const;
     void build_pages();
     void append_paginated_range(
         std::size_t start,
