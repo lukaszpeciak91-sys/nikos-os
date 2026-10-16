@@ -1608,13 +1608,15 @@ void Launcher::render_main()
     render_header_time_if_changed();
     render_battery_if_changed();
 
+    const bool readable = settings_.font_mode == font_core::Mode::PreRendered;
+    const std::size_t visible_rows = readable ? 3U : kVisibleLauncherRows;
     std::size_t first_visible = 0;
-    if (selected_index_ >= kVisibleLauncherRows) {
+    if (selected_index_ >= visible_rows) {
         first_visible =
-            selected_index_ - kVisibleLauncherRows + 1U;
+            selected_index_ - visible_rows + 1U;
     }
 
-    for (std::size_t slot = 0; slot < kVisibleLauncherRows; ++slot) {
+    for (std::size_t slot = 0; slot < visible_rows; ++slot) {
         const std::size_t index = first_visible + slot;
         if (index >= kEntries.size()) {
             break;
@@ -1622,7 +1624,7 @@ void Launcher::render_main()
 
         const bool selected = index == selected_index_;
         const std::int16_t row_y =
-            static_cast<std::int16_t>(32 + slot * 19);
+            static_cast<std::int16_t>(readable ? 33 + slot * 26 : 32 + slot * 19);
         const board::DisplayColor row_background =
             selected
                 ? board::DisplayColor::Surface
@@ -1633,7 +1635,7 @@ void Launcher::render_main()
                 8,
                 static_cast<std::int16_t>(row_y - 2),
                 224,
-                18,
+                readable ? 24 : 18,
                 "",
                 1,
                 board::DisplayColor::PrimaryText,
@@ -1642,14 +1644,14 @@ void Launcher::render_main()
                 board_,
                 8,
                 static_cast<std::int16_t>(row_y - 1),
-                16);
+                readable ? 22 : 16);
         }
 
         draw_pilot_text(
             18,
             row_y,
             index == 0 ? 140 : 184,
-            18,
+            readable ? 24 : 18,
             kEntries[index].label,
             2,
             selected
