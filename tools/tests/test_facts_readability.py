@@ -66,6 +66,18 @@ assert len(quiz) == 120
 # Match the actual 5:4 proportional readable PRE-RENDERED advances.
 raster_readable = {c: (width * 5 + 3) // 4 for c, width in raster.items()}
 
+# All nine Facts menu labels must fit the 224px viewport on one line.
+facts_source = (ROOT / "apps/facts/facts_app.cpp").read_text(encoding="utf-8")
+menu_section = facts_source.split("constexpr const char* kMainLabels[9] = {", 1)[1].split("};", 1)[0]
+menu_labels = re.findall(r'"([^"]+)"', menu_section)
+assert len(menu_labels) == 9, menu_labels
+assert menu_labels[-2:] == ["QUIZ PRAWDA/FAŁSZ", "POWRÓT"]
+assert "range_length(kMainLabels[index]), 224, 1" in facts_source
+for mode, widths in (("STANDARD", legacy), ("COMPOSED", composed),
+                     ("PRE-RENDERED", raster_readable)):
+    for label in menu_labels:
+        assert count_lines(label, widths, 224) == 1, (mode, label)
+
 for name, widths, line_height in (
     ("STANDARD", legacy, 24),
     ("COMPOSED", composed, 19),
