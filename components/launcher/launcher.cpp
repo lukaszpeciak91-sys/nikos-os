@@ -1608,7 +1608,7 @@ void Launcher::render_main()
     render_header_time_if_changed();
     render_battery_if_changed();
 
-    const bool readable = settings_.font_mode == font_core::Mode::PreRendered;
+    const bool readable = settings_.font_mode != font_core::Mode::Composed;
     const std::size_t visible_rows = readable ? 3U : kVisibleLauncherRows;
     std::size_t first_visible = 0;
     if (selected_index_ >= visible_rows) {
@@ -1624,7 +1624,7 @@ void Launcher::render_main()
 
         const bool selected = index == selected_index_;
         const std::int16_t row_y =
-            static_cast<std::int16_t>(readable ? 33 + slot * 26 : 32 + slot * 19);
+            static_cast<std::int16_t>(readable ? 33 + slot * 27 : 32 + slot * 19);
         const board::DisplayColor row_background =
             selected
                 ? board::DisplayColor::Surface
@@ -1635,7 +1635,7 @@ void Launcher::render_main()
                 8,
                 static_cast<std::int16_t>(row_y - 2),
                 224,
-                readable ? 24 : 18,
+                readable ? 25 : 18,
                 "",
                 1,
                 board::DisplayColor::PrimaryText,
@@ -1719,9 +1719,9 @@ void Launcher::render_tools()
     clear_shell(board_);
     // Keep the STANDARD five-row layout; use a scrolled three-row viewport
     // when readable PRE-RENDERED text is selected.
-    const bool experimental_font = settings_.font_mode != font_core::Mode::Standard;
+    const bool experimental_font = settings_.font_mode != font_core::Mode::Composed;
 
-    board_.draw_text_region(
+    draw_pilot_text(
         14,
         experimental_font ? 4 : 8,
         212,
@@ -2789,7 +2789,7 @@ void Launcher::render_settings()
         "Powrót",
     };
 
-    const bool readable = settings_.font_mode == font_core::Mode::PreRendered;
+    const bool readable = settings_.font_mode != font_core::Mode::Composed;
     std::uint8_t first_visible = 0;
     if (settings_selection_ >= (readable ? 3U : 4U)) {
         first_visible =
@@ -2849,7 +2849,8 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
             if (*p >= 0x80U) { non_ascii = true; break; }
         }
         if (non_ascii) {
-            const std::uint8_t scale = height >= 24 ? 2U : 1U;
+            // STANDARD menu rows are now allocated >=24px when using Polish.
+            const std::uint8_t scale = standard_size;
             board_.draw_polish_ui_text_region(
                 x, y, width, height, text, scale, fg, bg);
         } else {
