@@ -63,21 +63,37 @@ quiz = json.loads((ROOT / "content/quiz/nikos_quiz_prawda_falsz_120.json")
                   .read_text(encoding="utf-8"))
 assert len(quiz) == 120
 
-for name, widths in (("STANDARD", legacy), ("COMPOSED", composed),
-                     ("PRE-RENDERED", raster)):
+# Match the actual 5:4 proportional readable PRE-RENDERED advances.
+raster_readable = {c: (width * 5 + 3) // 4 for c, width in raster.items()}
+
+for name, widths, line_height in (
+    ("STANDARD", legacy, 24),
+    ("COMPOSED", composed, 19),
+    ("PRE-RENDERED", raster_readable, 24),
+):
     max_pages = 0
+    one_page = 0
+    multiple_pages = 0
     for ident, title, body in facts:
-        assert count_lines(title, widths, 232) <= 2, (name, ident, "title")
-        segments = re.split(r'(?<=[.!?]) +', body)
-        pages = sum((count_lines(segment, widths, 232) + 1) // 2
-                    for segment in segments)
+        title_lines = count_lines(title, widths, 232)
+        assert 1 <= title_lines <= 2, (name, ident, "title")
+        divider_y = 18 + title_lines * line_height
+        body_capacity = max(1, (119 - (divider_y + 3)) // line_height)
+        assert divider_y < 119 and body_capacity >= 1
+        lines = count_lines(body, widths, 232)
+        pages = (lines + body_capacity - 1) // body_capacity
         assert 1 <= pages <= 12, (name, ident, pages)
+        if lines <= body_capacity:
+            assert pages == 1
+            one_page += 1
+        else:
+            multiple_pages += 1
         max_pages = max(max_pages, pages)
     for item in quiz:
         assert count_lines(item["statement"], widths, 226) <= 3 * 8, (
             name, item["id"], "question")
         assert count_lines(item["explanation"], widths, 226) <= 2 * 8, (
             name, item["id"], "feedback")
-    print(f"{name}: all 600 facts and 120 quiz questions fit; max pages = {max_pages}")
-
-print("Facts readability exhaustive data test PASS")
+    print(f"{name}: 600 facts, 120 quiz items; "
+          f"one-page={one_page}, multipage={multiple_pages}, max={max_pages}")
+print("Facts v0.2 measured data validation PASS")
