@@ -16,11 +16,11 @@ struct Entry {
 
 constexpr std::array<Entry, 6> kEntries = {{
     {"Komunikator"},
-    {"Narzedzia"},
+    {"Narzędzia"},
     {"Rozrywka"},
     {"Zegar"},
     {"Ustawienia"},
-    {"Wylacz"},
+    {"Wyłącz"},
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
@@ -2842,7 +2842,19 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
     std::uint8_t standard_size, board::DisplayColor fg, board::DisplayColor bg)
 {
     if (settings_.font_mode == font_core::Mode::Standard) {
-        board_.draw_text_region(x, y, width, height, text, standard_size, fg, bg);
+        // Font0 is byte-oriented; accented labels need the existing Polish font.
+        bool non_ascii = false;
+        for (const unsigned char* p =
+                 reinterpret_cast<const unsigned char*>(text); *p; ++p) {
+            if (*p >= 0x80U) { non_ascii = true; break; }
+        }
+        if (non_ascii) {
+            const std::uint8_t scale = height >= 24 ? 2U : 1U;
+            board_.draw_polish_ui_text_region(
+                x, y, width, height, text, scale, fg, bg);
+        } else {
+            board_.draw_text_region(x, y, width, height, text, standard_size, fg, bg);
+        }
         return;
     }
     font_renderer_.select(settings_.font_mode);
