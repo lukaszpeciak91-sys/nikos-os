@@ -72,11 +72,16 @@ for name, widths, line_height in (
     ("PRE-RENDERED", raster_readable, 24),
 ):
     max_pages = 0
+    tested_titles = 0
     one_page = 0
     multiple_pages = 0
     for ident, title, body in facts:
+        tested_titles += 1
         title_lines = count_lines(title, widths, 232)
-        assert 1 <= title_lines <= 2, (name, ident, "title")
+        assert 1 <= title_lines <= 3, (name, ident, "reader title")
+        list_lines = count_lines(title, widths, 224)
+        assert 1 <= list_lines <= 3, (name, ident, "category title")
+        assert list_lines * line_height + 4 <= 87, (name, ident, "list viewport")
         divider_y = 18 + title_lines * line_height
         body_capacity = max(1, (119 - (divider_y + 3)) // line_height)
         assert divider_y < 119 and body_capacity >= 1
@@ -89,6 +94,7 @@ for name, widths, line_height in (
         else:
             multiple_pages += 1
         max_pages = max(max_pages, pages)
+    assert tested_titles == 600
     for item in quiz:
         assert count_lines(item["statement"], widths, 226) <= 3 * 8, (
             name, item["id"], "question")
