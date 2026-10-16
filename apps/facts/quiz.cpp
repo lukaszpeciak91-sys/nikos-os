@@ -88,6 +88,7 @@ std::uint16_t Quiz::text_width(const char* text) const
         return static_cast<std::uint16_t>(2 * board_.polish_ui_text_width(text));
     auto& renderer = const_cast<font_core::Renderer&>(renderer_);
     renderer.select(settings_.font_mode);
+    renderer.set_size(font_core::Size::Readable);
     return renderer.measure(text, 30000, 30000).width_px;
 }
 
@@ -178,6 +179,7 @@ void Quiz::draw_text_page(const char* text, std::int16_t y,
         board_.draw_polish_ui_text_region(7, y, 226, height, text_buffer_, 2);
     } else {
         renderer_.select(settings_.font_mode);
+        renderer_.set_size(font_core::Size::Readable);
         const auto result = renderer_.draw(text_buffer_, {7, y, 226, height});
         if (!result.fits || !result.supported) {
             board_.draw_text_region(7, y, 226, 17,
@@ -201,6 +203,7 @@ void Quiz::draw_selected_text(const char* text, std::int16_t x,
             text, 2, foreground, background);
     } else {
         renderer_.select(settings_.font_mode);
+        renderer_.set_size(font_core::Size::Readable);
         const auto result = renderer_.draw(
             text, {x, y, width, height}, foreground, background);
         if (!result.fits || !result.supported)
