@@ -1725,7 +1725,7 @@ void Launcher::render_tools()
         14,
         experimental_font ? 4 : 8,
         212,
-        20,
+        experimental_font ? 24 : 20,
         "NARZĘDZIA",
         2,
         board::DisplayColor::PrimaryText,
@@ -1804,7 +1804,7 @@ void Launcher::render_entertainment()
         "Powrót",
     };
 
-    const bool readable = settings_.font_mode == font_core::Mode::PreRendered;
+    const bool readable = settings_.font_mode != font_core::Mode::Composed;
     const std::uint8_t first = readable && entertainment_selection_ >= 3U
         ? static_cast<std::uint8_t>(entertainment_selection_ - 2U) : 0U;
     for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
