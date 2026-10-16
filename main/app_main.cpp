@@ -42,8 +42,6 @@ constexpr std::uint32_t kClockGlanceDurationMs = 4000;
 constexpr std::uint32_t kCriticalShutdownMessageMs = 1750;
 constexpr std::uint32_t kChargingVbusPollIntervalMs = 1000;
 constexpr std::int16_t kChargingVbusPresentMv = 4000;
-constexpr std::int16_t kChargingFullBatteryMv = 4100;
-constexpr std::int16_t kChargingFullFallbackBatteryMv = 4150;
 constexpr std::uint8_t kChargingFullConfirmSamples = 3;
 constexpr std::uint32_t kChargingPresentationMs = 5000;
 constexpr std::uint32_t kChargingAnimationStepMs = 400;
@@ -90,7 +88,6 @@ struct ChargingModeState {
     bool active = false;
     bool full_latched = false;
     bool full_presentation_pending = false;
-    bool charging_observed = false;
     std::uint8_t full_confirm_count = 0;
 
     bool communication_active = false;
@@ -219,7 +216,6 @@ void reset_charging_session(ChargingModeState& state)
     state.active = false;
     state.full_latched = false;
     state.full_presentation_pending = false;
-    state.charging_observed = false;
     state.full_confirm_count = 0;
 
     state.communication_active = false;
@@ -254,8 +250,7 @@ ChargingCableEvent poll_charging_cable(
         state.active = true;
         state.full_latched = false;
         state.full_presentation_pending = false;
-        state.charging_observed = false;
-        state.full_confirm_count = 0;
+            state.full_confirm_count = 0;
         state.communication_active = false;
         state.owner_override_active = false;
         state.owner_override_last_activity_ms = 0;
@@ -435,45 +430,14 @@ bool update_charging_full_confirmation(
     const nikos::board::PowerStatus& status =
         battery_update.power_status;
 
-    const bool valid_battery_sample =
-        status.voltage_mv > 0;
-    const bool vbus_present =
-        status.vbus_voltage_mv >= kChargingVbusPresentMv;
-
-    if (!valid_battery_sample || !vbus_present) {
-        state.full_confirm_count = 0;
-        return false;
-    }
-
-    if (status.charge_state == nikos::board::ChargeState::Charging) {
-        state.charging_observed = true;
-        state.full_confirm_count = 0;
-        return false;
-    }
-
-    const bool discharging =
-        status.charge_state
-            == nikos::board::ChargeState::Discharging;
-    const bool observed_charge_completion_candidate =
-        state.charging_observed
-        && status.voltage_mv >= kChargingFullBatteryMv
-        && discharging;
-
-    // Real M5StickC Plus SE hardware can reach charge termination before
-    // BatteryGuard observes a Charging sample for the current VBUS session.
-    // Keep that historical evidence as the primary path, but allow a stricter
-    // fallback only when the battery is already very high, the PMIC reports
-    // not charging, and the measured battery current is exactly neutral.
-    const bool quiet_high_voltage_completion_candidate =
-        !state.charging_observed
-        && status.voltage_mv >= kChargingFullFallbackBatteryMv
-        && discharging
-        && status.current_supported
-        && status.current_ma == 0;
-
+    // The same voltage-derived percentage shown by Launcher and PowerDiag
+    // is authoritative, but FULL requires charge termination as well.
+    // Only BatteryGuard samples count toward the three-sample confirmation.
     const bool completion_candidate =
-        observed_charge_completion_candidate
-        || quiet_high_voltage_completion_candidate;
+        status.voltage_mv > 0
+        && status.vbus_voltage_mv >= kChargingVbusPresentMv
+        && status.level_percent == 100
+        && status.charge_state == nikos::board::ChargeState::Discharging;
 
     if (!completion_candidate) {
         state.full_confirm_count = 0;
