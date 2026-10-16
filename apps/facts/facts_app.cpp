@@ -644,18 +644,18 @@ void FactsApp::render_main_menu()
         const auto color = selected ? board::DisplayColor::PrimaryText
                                     : board::DisplayColor::SecondaryText;
         if (selected)
-            board_.fill_rect(24, y, 204, 26, board::DisplayColor::Surface);
+            board_.fill_rect(12, y, 224, 26, board::DisplayColor::Surface);
         if (wrap_pixels(kMainLabels[index], 0,
-                range_length(kMainLabels[index]), 194, 1,
+                range_length(kMainLabels[index]), 224, 1,
                 wrapped_title_.data(), wrapped_title_.size())) {
-            render_readable(wrapped_title_.data(), 26, y, 194, 26,
+            render_readable(wrapped_title_.data(), 12, y, 224, 26,
                 color, selected ? board::DisplayColor::Surface
                                 : board::DisplayColor::Background);
         } else {
-            board_.draw_text_region(26, y, 194, 22,
+            board_.draw_text_region(12, y, 224, 22,
                 "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
         }
-        if (selected) draw_selection_marker(board_, 16, y, 24);
+        if (selected) draw_selection_marker(board_, 8, y, 24);
     }
     board_.draw_text_region(14, 121, 212, 12,
         "M5 WYBIERZ | BOCZNY DALEJ", 1);
