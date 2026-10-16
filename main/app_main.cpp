@@ -541,13 +541,16 @@ void render_clock_glance(
         4,
         nikos::board::DisplayColor::PrimaryText,
         nikos::board::DisplayColor::Background);
-    board.draw_text_region(
-        54,
-        84,
-        132,
-        20,
-        date_text,
-        2,
+    // Render Glance date explicitly, bypassing the compact system delegate.
+    // The existing Unicode-capable font provides reliable metrics and keeps
+    // the date centered beneath the untouched large native time display.
+    constexpr std::int16_t date_scale = 2;
+    const std::int16_t date_width = static_cast<std::int16_t>(
+        board.polish_ui_text_width(date_text) * date_scale);
+    const std::int16_t date_x = static_cast<std::int16_t>(
+        (240 - date_width) / 2);
+    board.draw_polish_ui_text_region(
+        date_x, 84, date_width, 30, date_text, date_scale,
         nikos::board::DisplayColor::SecondaryText,
         nikos::board::DisplayColor::Background);
 }
