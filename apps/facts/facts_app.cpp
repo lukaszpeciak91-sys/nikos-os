@@ -460,7 +460,8 @@ void FactsApp::advance_reader()
 
 std::uint8_t FactsApp::text_line_height() const
 {
-    return settings_.font_mode == font_core::Mode::Standard ? 24U : 19U;
+    return settings_.font_mode == font_core::Mode::Standard ? 24U :
+        settings_.font_mode == font_core::Mode::PreRendered ? 24U : 19U;
 }
 
 std::uint16_t FactsApp::text_width(const char* text) const
@@ -471,6 +472,7 @@ std::uint16_t FactsApp::text_width(const char* text) const
     }
     auto& renderer = const_cast<font_core::Renderer&>(renderer_);
     renderer.select(settings_.font_mode);
+    renderer.set_size(font_core::Size::Readable);
     return renderer.measure(text, 30000, 30000).width_px;
 }
 
@@ -533,6 +535,7 @@ void FactsApp::render_readable(const char* text, std::int16_t x,
         return;
     }
     renderer_.select(settings_.font_mode);
+    renderer_.set_size(font_core::Size::Readable);
     const auto result = renderer_.draw(
         text, {x, y, width, height}, foreground, background);
     if (!result.fits || !result.supported) {
