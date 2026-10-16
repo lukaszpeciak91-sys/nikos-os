@@ -249,3 +249,15 @@ and device validation are not yet confirmed. Per-pixel `Board::fill_rect`
 remains a performance concern: up to 192 inspected bits and one drawing call
 per set bit per glyph (plus region clearing), to be profiled on target.
 `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` remains unchanged.
+
+
+### Charging FULL confirmation — percent/termination contract (2026-10)
+
+VBUS + valid battery sample + `PowerStatus.level_percent == 100` +
+`ChargeState::Discharging` for **3 consecutive BatteryGuard samples**
+(about 30 s at the existing 10 s cadence) -> latched FULL / OK.
+Each sampled invalid/unknown/charging/<100%/VBUS-absent state resets the
+pending count. The earlier `charging_observed`, >=4150 mV and battery-current
+fallbacks are removed. Once latched, the existing one-shot tone, deferred
+Owner Override/Communicator presentation, and unplug reset are preserved.
+The percent mapping and BatteryGuard cadence are unchanged.
