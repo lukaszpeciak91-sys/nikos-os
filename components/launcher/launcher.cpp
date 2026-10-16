@@ -1715,16 +1715,16 @@ void Launcher::render_main()
 void Launcher::render_tools()
 {
     clear_shell(board_);
-    // Five rows need 19 px each for experimental fonts. Reclaim 6 px
-    // from the heading and move the footer; keep STANDARD unchanged.
+    // Keep the STANDARD five-row layout; use a scrolled three-row viewport
+    // when readable PRE-RENDERED text is selected.
     const bool experimental_font = settings_.font_mode != font_core::Mode::Standard;
 
     board_.draw_text_region(
         14,
-        experimental_font ? 2 : 8,
+        experimental_font ? 4 : 8,
         212,
         20,
-        "NARZEDZIA",
+        "NARZĘDZIA",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
@@ -1734,20 +1734,24 @@ void Launcher::render_tools()
         "Latarka",
         "Miernik halasu",
         "Test fontu",
-        "Powrot",
+        "Powrót",
     };
 
-    for (std::uint8_t index = 0; index < 5; ++index) {
+    const std::uint8_t first = experimental_font && tools_selection_ >= 3U
+        ? static_cast<std::uint8_t>(tools_selection_ - 2U) : 0U;
+    const std::uint8_t visible = experimental_font ? 3U : 5U;
+    for (std::uint8_t slot = 0; slot < visible; ++slot) {
+        const std::uint8_t index = static_cast<std::uint8_t>(first + slot);
         const bool selected = index == tools_selection_;
         const std::int16_t y =
             static_cast<std::int16_t>(experimental_font
-                ? 23 + index * 19 : 29 + index * 18);
+                ? 30 + slot * 27 : 29 + index * 18);
 
         draw_pilot_text(
             22,
             y,
             196,
-            19,
+            experimental_font ? 25 : 19,
             kTools[index],
             2,
             selected
@@ -1762,7 +1766,7 @@ void Launcher::render_tools()
                 board_,
                 14,
                 y,
-                17);
+                experimental_font ? 23 : 17);
         }
     }
 
@@ -1795,19 +1799,23 @@ void Launcher::render_entertainment()
         "Snake",
         "Mini Racer",
         "Ciekawostki",
-        "Powrot",
+        "Powrót",
     };
 
-    for (std::uint8_t index = 0; index < 4U; ++index) {
+    const bool readable = settings_.font_mode == font_core::Mode::PreRendered;
+    const std::uint8_t first = readable && entertainment_selection_ >= 3U
+        ? static_cast<std::uint8_t>(entertainment_selection_ - 2U) : 0U;
+    for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
+        const std::uint8_t index = static_cast<std::uint8_t>(first + slot);
         const bool selected = index == entertainment_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(35 + index * 20);
+            static_cast<std::int16_t>(readable ? 34 + slot * 27 : 35 + index * 20);
 
         draw_pilot_text(
             22,
             y,
             196,
-            settings_.font_mode == font_core::Mode::Standard ? 21 : 20,
+            readable ? 25 : (settings_.font_mode == font_core::Mode::Standard ? 21 : 20),
             kItems[index],
             2,
             selected
@@ -1822,7 +1830,7 @@ void Launcher::render_entertainment()
                 board_,
                 14,
                 y,
-                18);
+                readable ? 23 : 18);
         }
     }
 
@@ -2770,33 +2778,34 @@ void Launcher::render_settings()
         board::DisplayColor::Background);
 
     constexpr const char* kItems[7] = {
-        "Dzwiek",
-        "Jasnosc",
+        "Dźwięk",
+        "Jasność",
         "Motyw",
         "Orientacja",
         "Czcionka",
-        "AUTO WYLACZ.",
-        "Powrot",
+        "AUTO WYŁĄCZ.",
+        "Powrót",
     };
 
+    const bool readable = settings_.font_mode == font_core::Mode::PreRendered;
     std::uint8_t first_visible = 0;
-    if (settings_selection_ >= 4U) {
+    if (settings_selection_ >= (readable ? 3U : 4U)) {
         first_visible =
-            static_cast<std::uint8_t>(settings_selection_ - 3U);
+            static_cast<std::uint8_t>(settings_selection_ - (readable ? 2U : 3U));
     }
 
-    for (std::uint8_t slot = 0; slot < 4; ++slot) {
+    for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
         const std::uint8_t index =
             static_cast<std::uint8_t>(first_visible + slot);
         const bool selected = index == settings_selection_;
         const std::int16_t y =
-            static_cast<std::int16_t>(35 + slot * 19);
+            static_cast<std::int16_t>(readable ? 36 + slot * 27 : 35 + slot * 19);
 
         draw_pilot_text(
             22,
             y,
             196,
-            18,
+            readable ? 25 : 18,
             kItems[index],
             2,
             selected
@@ -2811,7 +2820,7 @@ void Launcher::render_settings()
                 board_,
                 14,
                 y,
-                16);
+                readable ? 23 : 16);
         }
     }
 
