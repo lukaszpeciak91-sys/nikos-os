@@ -139,7 +139,9 @@ Append concise entries here when the authoritative project state changes.
 
 - 2026-10-11 — Added Auto Power-Off v0.1: a per-device NVS boolean defaults ON and drives controlled whole-device shutdown after 20 minutes without local M5/BOCZNY/short-POWER activity, with VBUS suspension, fresh timing after unplug, Countdown blocking, and incoming-Communicator deferral without changing DisplayLifecycle or radio policy.
 
-- 2026-10-15 — Hardened Charging Full detection from real-device evidence: the existing observed-Charging completion path remains primary, while sessions that miss that historical sample may confirm Full only after three consecutive VBUS-present samples at >=4150 mV with PMIC Discharging and supported 0 mA battery current. No duplicate PMU polling or charging-lock ownership change was introduced.
+- 2026-10-15 — Added an interim Charging Full fallback for sessions that missed a sampled Charging phase; this transitional rule used >=4150 mV, PMIC Discharging, and 0 mA evidence and was superseded by the simplified percent/termination contract below.
+
+- 2026-10-16 — Simplified Charging Full authority to one product-visible contract: three consecutive valid BatteryGuard samples with VBUS present, voltage-derived 100%, and PMIC Discharging latch FULL/OK. Any invalid/unknown/charging/<100%/VBUS-absent sample resets confirmation; battery current remains diagnostic-only.
 
 - 2026-10-11 — Extended the local RTC clock to date/calendar v0.2: Board exposes date-only RTC read/write, ClockService validates 2000-2099 Gregorian dates plus a single persisted rtc_date_configured trust marker required because PCF8563 VL is shared with the seconds register, ZEGAR adds USTAW DATE / KALENDARZ with short-click Calendar actions, and Clock Glance shows DD.MM.YYYY below HH:MM without weekday text or timezone/NTP/Countdown/Stopwatch coupling.
 
@@ -250,14 +252,3 @@ remains a performance concern: up to 192 inspected bits and one drawing call
 per set bit per glyph (plus region clearing), to be profiled on target.
 `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` remains unchanged.
 
-
-### Charging FULL confirmation — percent/termination contract (2026-10)
-
-VBUS + valid battery sample + `PowerStatus.level_percent == 100` +
-`ChargeState::Discharging` for **3 consecutive BatteryGuard samples**
-(about 30 s at the existing 10 s cadence) -> latched FULL / OK.
-Each sampled invalid/unknown/charging/<100%/VBUS-absent state resets the
-pending count. The earlier `charging_observed`, >=4150 mV and battery-current
-fallbacks are removed. Once latched, the existing one-shot tone, deferred
-Owner Override/Communicator presentation, and unplug reset are preserved.
-The percent mapping and BatteryGuard cadence are unchanged.

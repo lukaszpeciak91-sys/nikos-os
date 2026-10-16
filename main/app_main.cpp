@@ -250,7 +250,7 @@ ChargingCableEvent poll_charging_cable(
         state.active = true;
         state.full_latched = false;
         state.full_presentation_pending = false;
-            state.full_confirm_count = 0;
+        state.full_confirm_count = 0;
         state.communication_active = false;
         state.owner_override_active = false;
         state.owner_override_last_activity_ms = 0;

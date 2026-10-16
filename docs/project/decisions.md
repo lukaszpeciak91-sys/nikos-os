@@ -617,7 +617,7 @@ While VBUS is present, Charging Lock consumes ordinary local M5, BOCZNY, and sho
 
 The charging presentation is deliberately minimal: a large theme-aware battery plus `LADOWANIE`, animated through four fill steps only while the LCD is visible. Confirmed Full uses a large filled battery plus `OK`. `OK` does not mean certified safe-to-unplug operation, cell-temperature verification, or any broader safety guarantee; this implementation does not measure cell temperature directly.
 
-Full is not derived from displayed percentage, one high-voltage sample, or one non-Charging sample. The primary path remains unchanged: the current cable session first observes a valid BatteryGuard sample with VBUS present and `ChargeState::Charging`, then Full requires three consecutive valid BatteryGuard samples with VBUS >= 4000 mV, battery voltage >= 4100 mV, and `ChargeState::Discharging`. Real-device evidence at 4167 mV / 100% / CHG NIE / 0 mA showed that AXP192 can already be at charge termination before the approximately-10-second BatteryGuard cadence captures any `Charging` sample. For that missed-history case only, a conservative fallback requires three consecutive samples with VBUS present, battery voltage >= 4150 mV, `ChargeState::Discharging`, supported current telemetry, and exactly 0 mA. Any sample that fails the active candidate resets in-progress confirmation. The existing BatteryGuard sample supplies all evidence; no duplicate PMU polling is introduced.
+Full uses the same voltage-derived `PowerStatus.level_percent` already exposed by Board, but never from one percentage sample alone. While the current VBUS session is active, Full requires three consecutive valid BatteryGuard samples with VBUS >= 4000 mV, `level_percent == 100`, and `ChargeState::Discharging`. Any sampled invalid battery state, absent VBUS, percentage below 100, `Charging`, or `Unknown` resets the in-progress count. Battery current remains diagnostic-only and is not Full authority. The existing approximately-10-second BatteryGuard sample supplies all evidence; no duplicate PMU polling is introduced.
 
 Full confirmation still latches immediately for the cable session, but presentation authority belongs to Charging Lock. If an incoming communication or Owner Override owns the foreground when Full is confirmed, the completion presentation is marked pending without tone or screen theft. When Charging Lock next regains control, Board emits one neutral approximately-3200 Hz / 90 ms tone and shows Full/OK for a fresh 5-second window exactly once. Later button checks show Full/OK without repeating the tone. VBUS removal clears both the latch and any still-deferred presentation event.
 
@@ -839,14 +839,3 @@ entry; no persistent selection or global UI migration is authorized yet.
 Physical legibility, speed and accented character placement will determine
 whether the renderer can be piloted on ordinary application screens.
 
-
-### Charging FULL confirmation — percent/termination contract (2026-10)
-
-VBUS + valid battery sample + `PowerStatus.level_percent == 100` +
-`ChargeState::Discharging` for **3 consecutive BatteryGuard samples**
-(about 30 s at the existing 10 s cadence) -> latched FULL / OK.
-Each sampled invalid/unknown/charging/<100%/VBUS-absent state resets the
-pending count. The earlier `charging_observed`, >=4150 mV and battery-current
-fallbacks are removed. Once latched, the existing one-shot tone, deferred
-Owner Override/Communicator presentation, and unplug reset are preserved.
-The percent mapping and BatteryGuard cadence are unchanged.
