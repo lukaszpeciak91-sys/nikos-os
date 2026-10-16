@@ -2835,6 +2835,8 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
         return;
     }
     font_renderer_.select(settings_.font_mode);
+    font_renderer_.set_size(standard_size >= 2 && height >= 24
+        ? font_core::Size::Readable : font_core::Size::Compact);
     const auto effective_height = static_cast<std::int16_t>(height < 19 ? 19 : height);
     auto result = font_renderer_.draw(text, {x, y, width, effective_height}, fg, bg);
     if (!result.fits) {
