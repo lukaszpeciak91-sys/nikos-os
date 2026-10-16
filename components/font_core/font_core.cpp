@@ -12,6 +12,12 @@ constexpr std::uint8_t kColumns = 12;
 constexpr std::uint8_t kMaxLines = 7;
 constexpr std::uint8_t kRasterLineHeight = 19;
 constexpr std::uint8_t kLetterGap = 1;
+constexpr bool large_raster(Mode mode, Size size) {
+    return mode == Mode::PreRendered && size == Size::Readable;
+}
+constexpr std::uint8_t scaled(std::uint8_t value) {
+    return static_cast<std::uint8_t>((value * 5U + 3U) / 4U);
+}
 
 struct Decoded { std::uint32_t codepoint; const char* next; bool valid; };
 
@@ -91,11 +97,12 @@ std::uint8_t width_of(Mode mode, std::uint32_t cp, bool& supported) {
 
 // Measures before any draw. Spaces are wrapping opportunities; an overlong
 // word is a reported failure, never clipped or silently truncated.
-Layout prepare(Mode mode, const char* text, std::int16_t max_width,
+Layout prepare(Mode mode, Size size, const char* text, std::int16_t max_width,
                std::int16_t max_height) {
     Layout layout;
     if (!text || max_width <= 0 || max_height <= 0) return layout;
-    const std::uint8_t height = mode == Mode::Standard ? 16 : kRasterLineHeight;
+    const std::uint8_t height = mode == Mode::Standard ? 16 :
+        large_raster(mode, size) ? 24 : kRasterLineHeight;
     const char* cursor = text;
     const char* line_begin = cursor;
     std::int32_t width = 0;
@@ -122,7 +129,8 @@ Layout prepare(Mode mode, const char* text, std::int16_t max_width,
             continue;
         }
         const std::uint8_t advance = static_cast<std::uint8_t>(
-            width_of(mode, item.codepoint, supported)
+            (large_raster(mode, size) ? scaled(width_of(mode, item.codepoint, supported))
+                : width_of(mode, item.codepoint, supported))
             * (mode == Mode::Standard ? item.next - cursor : 1));
         if (separator) {
             break_point = cursor;
@@ -152,18 +160,26 @@ Layout prepare(Mode mode, const char* text, std::int16_t max_width,
     return layout;
 }
 void raster_glyph(board::Board& board, const detail::GlyphAsset& asset,
-                  int x, int y, Region r, board::DisplayColor color) {
+                  int x, int y, Region r, board::DisplayColor color, bool large) {
     for (int row = 0; row < kRows; ++row) {
         const char* bits = asset.rows + row * 3;
         const std::uint16_t mask = static_cast<std::uint16_t>(
             nibble(bits[0]) * 256 + nibble(bits[1]) * 16 + nibble(bits[2]));
         for (int col = 0; col < kColumns; ++col) {
             if (!(mask & (1U << (11 - col)))) continue;
-            const int px = x + col, py = y + row;
-            if (px >= r.x && py >= r.y
-                && px < r.x + r.width && py < r.y + r.height)
-                board.fill_rect(static_cast<std::int16_t>(px),
-                                static_cast<std::int16_t>(py), 1, 1, color);
+            const int px = x + (large ? col * 5 / 4 : col);
+            const int py = y + (large ? row * 5 / 4 : row);
+            const int right = x + (large ? (col + 1) * 5 / 4 : col + 1);
+            const int bottom = y + (large ? (row + 1) * 5 / 4 : row + 1);
+            const int left_clip = std::max(px, static_cast<int>(r.x));
+            const int top_clip = std::max(py, static_cast<int>(r.y));
+            const int right_clip = std::min(right, static_cast<int>(r.x + r.width));
+            const int bottom_clip = std::min(bottom, static_cast<int>(r.y + r.height));
+            if (right_clip > left_clip && bottom_clip > top_clip)
+                board.fill_rect(static_cast<std::int16_t>(left_clip),
+                    static_cast<std::int16_t>(top_clip),
+                    static_cast<std::int16_t>(right_clip - left_clip),
+                    static_cast<std::int16_t>(bottom_clip - top_clip), color);
         }
     }
 }
@@ -188,20 +204,22 @@ void draw_mark(board::Board& board, std::uint8_t mark, int x, int y,
 }
 Metrics Renderer::metrics() const {
     if (mode_ == Mode::Standard) return {16, 16, 0};
+    if (large_raster(mode_, size_)) return {24, 20, 1};
     return {kRasterLineHeight, kRows, kLetterGap};
 }
 std::uint8_t Renderer::advance(std::uint32_t cp) const {
     bool supported = true;
-    return width_of(mode_, cp, supported);
+    const auto width = width_of(mode_, cp, supported);
+    return large_raster(mode_, size_) ? scaled(width) : width;
 }
 Result Renderer::measure(const char* text, std::int16_t w, std::int16_t h) const {
-    return prepare(mode_, text, w, h).result;
+    return prepare(mode_, size_, text, w, h).result;
 }
 Result Renderer::draw(const char* text, Region r, board::DisplayColor fg,
                       board::DisplayColor bg) {
     // The legacy route is retained byte-for-byte in Board; no new global font
     // state is introduced. Experimental glyph data is only used by this call.
-    auto layout = prepare(mode_, text, r.width, r.height);
+    auto layout = prepare(mode_, size_, text, r.width, r.height);
     if (!layout.result.fits || r.x < 0 || r.y < 0
         || r.width <= 0 || r.height <= 0
         || r.x + r.width > 240 || r.y + r.height > 135) {
@@ -243,10 +261,13 @@ Result Renderer::draw(const char* text, Region r, board::DisplayColor fg,
                 : cp.codepoint;
             const auto* image = glyph(actual_cp);
             if (!image) image = glyph('?');
-            raster_glyph(board_, *image, x, y, r, fg);
+            raster_glyph(board_, *image, x, y, r, fg,
+                         large_raster(mode_, size_));
             if (mode_ == Mode::Composed)
                 draw_mark(board_, composed_glyph.mark, x, y, r, fg);
-            x += image->advance + kLetterGap;
+            x += large_raster(mode_, size_)
+                ? scaled(static_cast<std::uint8_t>(image->advance + kLetterGap))
+                : image->advance + kLetterGap;
         }
     }
     return layout.result;
