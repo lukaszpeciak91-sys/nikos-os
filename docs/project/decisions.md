@@ -838,3 +838,15 @@ is scoped to the Font Lab instance and defaults to STANDARD after every
 entry; no persistent selection or global UI migration is authorized yet.
 Physical legibility, speed and accented character placement will determine
 whether the renderer can be piloted on ordinary application screens.
+
+
+### Charging FULL confirmation — percent/termination contract (2026-10)
+
+VBUS + valid battery sample + `PowerStatus.level_percent == 100` +
+`ChargeState::Discharging` for **3 consecutive BatteryGuard samples**
+(about 30 s at the existing 10 s cadence) -> latched FULL / OK.
+Each sampled invalid/unknown/charging/<100%/VBUS-absent state resets the
+pending count. The earlier `charging_observed`, >=4150 mV and battery-current
+fallbacks are removed. Once latched, the existing one-shot tone, deferred
+Owner Override/Communicator presentation, and unplug reset are preserved.
+The percent mapping and BatteryGuard cadence are unchanged.
