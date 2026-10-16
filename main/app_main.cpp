@@ -1018,6 +1018,9 @@ extern "C" void app_main(void)
             }
             auto& renderer = *ctx.renderer;
             renderer.select(ctx.settings->font_mode);
+            renderer.set_size(size >= 2 && h >= 24
+                ? nikos::font_core::Size::Readable
+                : nikos::font_core::Size::Compact);
             const auto m = renderer.measure(value, w, h);
             // Preserve tightly packed HUD/numeric and unsupported glyph
             // layouts on their existing native path.
