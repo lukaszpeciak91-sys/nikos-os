@@ -1012,7 +1012,7 @@ extern "C" void app_main(void)
            nikos::board::DisplayColor bg) -> bool {
             auto& ctx = *static_cast<SystemTextContext*>(user);
             if (ctx.settings->font_mode == nikos::font_core::Mode::Standard
-                || value == nullptr || w <= 0 || h < 19 || x < 0 || y < 0
+                || value == nullptr || size >= 3 || w <= 0 || h < 19 || x < 0 || y < 0
                 || x + w > 240 || y + h > 135) {
                 return false;
             }
