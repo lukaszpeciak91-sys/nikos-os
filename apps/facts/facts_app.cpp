@@ -1,5 +1,6 @@
 #include "facts/facts_app.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
