@@ -575,7 +575,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             tools_selection_ =
-                static_cast<std::uint8_t>((tools_selection_ + 1U) % 4U);
+                static_cast<std::uint8_t>((tools_selection_ + 1U) % 5U);
             render();
             return Action::None;
         }
@@ -589,6 +589,9 @@ Action Launcher::update(const board::InputState& input)
             }
             if (tools_selection_ == 2U) {
                 return Action::OpenSoundMeter;
+            }
+            if (tools_selection_ == 3U) {
+                return Action::OpenConverter;
             }
 
             screen_ = Screen::Main;
@@ -1747,10 +1750,11 @@ void Launcher::render_tools()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kTools[4] = {
+    constexpr const char* kTools[5] = {
         "POWERDIAG",
         "LATARKA",
         "MIERNIK HAŁASU",
+        "KONWERTER",
         "POWRÓT",
     };
 
