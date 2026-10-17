@@ -1625,7 +1625,7 @@ void Launcher::render_main()
         draw_pilot_text(
             18,
             row_y,
-            index == 0 ? 140 : 184,
+            index == 0 ? 145 : 184,
             readable ? 24 : 18,
             kEntries[index].label,
             2,
@@ -1643,14 +1643,14 @@ void Launcher::render_main()
                     : board::DisplayColor::SecondaryText;
 
             board_.fill_circle(
-                164,
+                169,
                 static_cast<std::int16_t>(row_y + 7),
                 4,
                 indicator_color);
 
             if (!active) {
                 board_.fill_circle(
-                    164,
+                    169,
                     static_cast<std::int16_t>(row_y + 7),
                     2,
                     row_background);
@@ -1665,9 +1665,9 @@ void Launcher::render_main()
                 status_text = "DOSTEPNY";
             }
             board_.draw_text_region(
-                173,
+                179,
                 static_cast<std::int16_t>(row_y + 2),
-                58,
+                52,
                 12,
                 status_text,
                 1,
