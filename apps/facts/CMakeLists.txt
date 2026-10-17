@@ -16,6 +16,5 @@ idf_component_register(
     REQUIRES
         board
         font_core
-        settings
         esp_hw_support
 )
