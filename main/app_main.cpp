@@ -103,7 +103,7 @@ void render_entertainment_notice(nikos::board::Board& board,
 }
 void render_entertainment_warning(nikos::board::Board& board) {
     board.clear_screen();
-    board.draw_text_region(6,37,228,25,"JESZCZE 2 MINUTY",2);
+    board.draw_text_region(6,37,228,25,"JESZCZE 2 MINUTY",1);
     board.draw_text_region(22,78,196,22,"POTEM PRZERWA",2);
 }
 
@@ -2134,6 +2134,11 @@ extern "C" void app_main(void)
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator, flashlight);
+            } else if (!entertainment_notice_rendered) {
+                render_entertainment_notice(board, entertainment_notice);
+                entertainment_notice_rendered = true;
+                if (any_user_button_activity(input))
+                    display_lifecycle.suppress_user_gesture_until_release();
             } else if (input.primary_short || input.secondary_short
                        || input.secondary_long) {
                 entertainment_notice = EntertainmentNotice::None;
@@ -2141,9 +2146,6 @@ extern "C" void app_main(void)
                 display_lifecycle.suppress_user_gesture_until_release();
                 launcher.begin_entertainment(
                     communicator_status(communicator_enabled, messaging));
-            } else if (!entertainment_notice_rendered) {
-                render_entertainment_notice(board, entertainment_notice);
-                entertainment_notice_rendered = true;
             }
             vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
             continue;
