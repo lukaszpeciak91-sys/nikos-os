@@ -107,7 +107,7 @@ void SoundMeterApp::render(bool full)
             12, 5, 216, 20, "MIERNIK HAŁASU", 1);
         board_.draw_line(12, 25, 228, 25, board::DisplayColor::Accent);
         board_.draw_text_region(
-            12, 120, 216, 12, "M5 RESET MAX | BOCZNY POWRÓT",
+            12, 120, 216, 12, "M5 RESET MAX | BOCZNY POWROT",
             1, board::DisplayColor::SecondaryText);
         shown_level_ = 255;
         shown_peak_ = 255;
@@ -116,7 +116,7 @@ void SoundMeterApp::render(bool full)
         board_.fill_rect(12, 34, 216, 74, board::DisplayColor::Background);
         board_.draw_text_region(12, 48, 216, 20, "BŁĄD MIKROFONU", 2,
             board::DisplayColor::Danger);
-        board_.draw_text_region(12, 77, 216, 16, "BOCZNY = POWRÓT", 1);
+        board_.draw_text_region(12, 77, 216, 16, "BOCZNY = POWROT", 1);
         return;
     }
     const std::uint8_t current = levels_.level();
