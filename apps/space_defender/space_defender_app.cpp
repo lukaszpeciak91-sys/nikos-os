@@ -22,7 +22,6 @@ void clipped_rect(board::Board& board, int x, int y, int width, int height,
 }
 
 }
-}
 std::uint32_t SpaceDefenderApp::now_ms() {
     return static_cast<std::uint32_t>(esp_timer_get_time()/1000ULL);
 }
