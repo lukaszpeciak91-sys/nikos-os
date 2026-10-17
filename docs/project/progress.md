@@ -322,3 +322,8 @@ Removed duplicate OpenSpaceDefender enum item, guarded the contiguous Launcher E
 ### Entertainment Guard PR #84 R2 audit implementation
 
 R2 replaces enum-range admission with one-shot Launcher Entertainment-origin tagging and explicit recognized-action refusal; unknown tagged routes cannot enter foreground. Mutation-style source regression checks missing origin tagging, recognition, runtime classification, termination, preemption-flag removal and premature warning resume. Guard expiration no longer calls Launcher drawing during Charging Lock or higher-priority overlays, retaining deferred break/Reserve presentation. The policy's trusted/untrusted time and NVS transition model remains unchanged. Host integration and ESP-IDF full firmware build still need execution in a checkout/toolchain-enabled environment.
+
+
+### Entertainment Guard PR #84 R3 final fixes
+
+Replaced per-action Entertainment tagging with category origin captured centrally in Launcher::update; app_main gates non-None actions from that screen. Unknown actions are refused. Owner Override no longer resets the break-notice rendered flag each loop while it exposes normal UI. Updated source/mutation regression and added permanent AGENTS.md architecture safety contract. Host suite, ESP-IDF compilation and physical Owner Override checks remain unverified pending execution.
