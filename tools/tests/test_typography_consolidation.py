@@ -54,6 +54,19 @@ for label in main_labels + ["POWRÓT", "GŁOŚNOŚĆ", "ŁAGODNY",
     assert label == label.upper(), label
     assert all(ord(ch) in supported for ch in label), label
 
+for path in (
+    "components/launcher/launcher.cpp",
+    "apps/power_diag_app/power_diag_app.cpp",
+    "apps/sound_meter/sound_meter_app.cpp",
+    "apps/snake/snake_app.cpp",
+    "apps/mini_racer/mini_racer_app.cpp",
+):
+    for label in re.findall(r'"([^"\\n]*)"', src(path)):
+        # All visible UTF-8 strings in supported normal UI components must
+        # have glyphs in the single shared raster asset set.
+        if any(ord(ch) > 127 for ch in label):
+            assert all(ord(ch) in supported for ch in label), (path, label)
+
 # Preserved adjustable font renderer is still shared and bounded.
 core = src("components/font_core/font_core.cpp")
 assert "Mode::PreRendered" in core
