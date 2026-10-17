@@ -1393,7 +1393,8 @@ extern "C" void app_main(void)
 
         // Policy advances from the main loop even during charging, overlays,
         // Communicator takeover, pause and DisplayOff. No periodic NVS writes.
-        if (charging_mode.active || battery_advisory_visible
+        if ((charging_mode.active && !charging_mode.owner_override_active)
+            || battery_advisory_visible
             || countdown.expired_pending() || clock_glance_active)
             entertainment_notice_rendered = false;
         const auto entertainment_phase = entertainment_guard.phase(loop_now_ms);
@@ -2274,7 +2275,8 @@ extern "C" void app_main(void)
                 // Origin token comes from the Entertainment screen itself.
                 // Unknown Entertainment routes fail closed even when enum
                 // values are reordered or assigned explicitly.
-                const bool guard_entry = launcher.take_entertainment_launch();
+                const bool guard_entry = launcher.take_entertainment_launch()
+                    && action != nikos::launcher::Action::None;
                 const bool recognized_entertainment =
                     action == nikos::launcher::Action::OpenSnake
                     || action == nikos::launcher::Action::OpenMiniRacer
