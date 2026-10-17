@@ -28,5 +28,6 @@ private:
     double base_=293.15;
     Editor editor_{};
     bool active_=false,suspended_=false;
+    bool invalid_temperature_=false;
 };
 }
