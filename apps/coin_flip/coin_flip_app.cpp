@@ -8,14 +8,20 @@ std::uint32_t CoinFlipApp::now_ms() {
 void CoinFlipApp::begin() {
     active_ = true;
     state_.begin(now_ms());
+    board_.clear_screen();
     render();
 }
 void CoinFlipApp::resume() {
     if (!active_) return;
     state_.resume(now_ms());
+    board_.clear_screen();
     render();
 }
-void CoinFlipApp::redraw() { if (active_ && !state_.suspended) render(); }
+void CoinFlipApp::redraw() {
+    if (!active_ || state_.suspended) return;
+    board_.clear_screen();
+    render();
+}
 CoinFlipApp::Result CoinFlipApp::update(const board::InputState& input) {
     if (!active_ || input.secondary_long) return Result::ExitRequested;
     if (state_.suspended) return Result::Running;
