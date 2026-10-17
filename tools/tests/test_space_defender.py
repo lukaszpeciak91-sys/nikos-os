@@ -117,6 +117,8 @@ int main() {
                     for (std::size_t k=j+1;k<kMaxEnemies;++k)
                         if (w.enemies[k].active) {
                             const auto& y=w.enemies[k];
+                            if (x.x_q8 <= (kPlayerX+16)*256 ||
+                                y.x_q8 <= (kPlayerX+16)*256) continue;
                             const auto at_x=arrival_ms(x.x_q8,speed_for(x.type,w.score));
                             const auto at_y=arrival_ms(y.x_q8,speed_for(y.type,w.score));
                             const auto difference=at_x>at_y ? at_x-at_y : at_y-at_x;
