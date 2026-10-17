@@ -47,6 +47,12 @@ public:
             && now_ms-start_ms_>=18U*60U*1000U;
     }
     void acknowledge_warning() { warning_shown_=true; write_pending_=true; }
+    void abort_unpersisted_start() {
+        if (write_pending_ && !warning_shown_) {
+            phase_=Phase::Available; civil_valid_=false;
+            write_pending_=false;
+        }
+    }
     bool pending_write() const { return write_pending_; }
     bool pending_clear() const { return clear_pending_; }
     Snapshot snapshot() const { return {true,civil_valid_,civil_start_,warning_shown_}; }
