@@ -11,10 +11,16 @@ board::DisplayColor enemy_color(rules::Type t) {
         : (t == rules::Type::Armored ? board::DisplayColor::Attention
                                     : board::DisplayColor::Danger);
 }
-void erase_area(board::Board& b, std::int32_t x, int y, int width, int height) {
-    const int left = std::max<int>(0,static_cast<int>(x));
-    const int right = std::min<int>(240,static_cast<int>(x)+width);
-    if (right>left) b.fill_rect(left,y,right-left,height,board::DisplayColor::Background);
+void clipped_rect(board::Board& board, int x, int y, int width, int height,
+                  board::DisplayColor color) {
+    const int left = std::max(0, x);
+    const int right = std::min(240, x + width);
+    const int top = std::max(27, y);
+    const int bottom = std::min(112, y + height);
+    if (right > left && bottom > top)
+        board.fill_rect(left, top, right-left, bottom-top, color);
+}
+
 }
 }
 std::uint32_t SpaceDefenderApp::now_ms() {
@@ -91,52 +97,64 @@ void SpaceDefenderApp::draw_ship(std::uint8_t lane,bool visible) {
     board_.fill_rect(16,y-2,3,5,board::DisplayColor::PrimaryText);
 }
 void SpaceDefenderApp::draw_enemy(const rules::Enemy& e) {
-    const auto x=static_cast<std::int16_t>(e.x_q8/256);
-    const auto y=rules::kLaneY[e.lane];
-    const auto color=enemy_color(e.type);
-    if (e.type==rules::Type::Scout) {
-        board_.fill_rect(x,y-4,15,9,color);
-        board_.fill_rect(x+3,y-6,6,13,color);
-    } else if (e.type==rules::Type::Armored) {
-        board_.fill_rect(x,y-7,20,15,color);
-        board_.draw_line(x+2,y-3,x+18,y-3,board::DisplayColor::SecondaryText);
+    const auto x = static_cast<int>(e.x_q8 / 256);
+    const auto y = rules::kLaneY[e.lane];
+    const auto color = enemy_color(e.type);
+    if (e.type == rules::Type::Scout) {
+        clipped_rect(board_, x, y-4, 15, 9, color);
+        clipped_rect(board_, x+3, y-6, 6, 13, color);
+    } else if (e.type == rules::Type::Armored) {
+        clipped_rect(board_, x, y-7, 20, 15, color);
+        clipped_rect(board_, x+2, y-3, 16, 2, board::DisplayColor::SecondaryText);
     } else {
-        board_.fill_rect(x,y-5,18,11,color);
-        board_.fill_rect(x-4,y-2,5,5,board::DisplayColor::PrimaryText);
-        if (e.warning_ms) board_.draw_line(x-9,y,x-5,y,board::DisplayColor::Accent);
+        clipped_rect(board_, x, y-5, 18, 11, color);
+        clipped_rect(board_, x-4, y-2, 5, 5, board::DisplayColor::PrimaryText);
+        if (e.warning_ms)
+            clipped_rect(board_, x-9, y, 5, 2, board::DisplayColor::Accent);
     }
 }
 void SpaceDefenderApp::render_game(bool full) {
-    if (full || !frame_valid_) {
+    const bool complete = full || !frame_valid_;
+    if (complete) {
         board_.clear_screen();
         board_.draw_line(3,26,237,26,board::DisplayColor::SecondaryText);
         board_.draw_line(3,112,237,112,board::DisplayColor::SecondaryText);
-        for (int x=12;x<238;x+=46) {
-            board_.fill_rect(x,31,2,2,board::DisplayColor::SecondaryText);
-            board_.fill_rect(x+18,108,2,2,board::DisplayColor::SecondaryText);
-        }
         last_hud_score_=0xFFFFFFFFU;last_hud_lives_=255;
-    } else {
-        erase_area(board_,14,rules::kLaneY[previous_.lane]-9,32,18);
-        for (const auto& e:previous_.enemies) if(e.active)
-            erase_area(board_,e.x_q8/256-11,rules::kLaneY[e.lane]-10,36,20);
-        for (const auto& s:previous_.shots) if(s.active)
-            erase_area(board_,s.x_q8/256-2,rules::kLaneY[s.lane]-2,12,5);
-        for (const auto& s:previous_.hostile) if(s.active)
-            erase_area(board_,s.x_q8/256-2,rules::kLaneY[s.lane]-3,10,7);
+    }
+    // Each lane is a small 240x22 redraw band. Clearing entire active
+    // bands avoids z-order erase damage from overlapping sprites; restoring
+    // their decorative stars keeps the static scene intact. No framebuffer.
+    bool dirty[3] = {complete, complete, complete};
+    dirty[world_.lane] = true;
+    if (frame_valid_) dirty[previous_.lane] = true;
+    for (const auto& e : world_.enemies) if (e.active) dirty[e.lane]=true;
+    for (const auto& e : previous_.enemies) if (e.active) dirty[e.lane]=true;
+    for (const auto& shot : world_.shots) if (shot.active) dirty[shot.lane]=true;
+    for (const auto& shot : previous_.shots) if (shot.active) dirty[shot.lane]=true;
+    for (const auto& shot : world_.hostile) if (shot.active) dirty[shot.lane]=true;
+    for (const auto& shot : previous_.hostile) if (shot.active) dirty[shot.lane]=true;
+    for (std::uint8_t lane=0; lane<3; ++lane) {
+        if (!dirty[lane]) continue;
+        const int y=rules::kLaneY[lane];
+        clipped_rect(board_,0,y-11,240,22,board::DisplayColor::Background);
+        // Two sparse immutable stars per lane, below all gameplay sprites.
+        const int sx1=12+static_cast<int>(lane)*23;
+        const int sx2=184-static_cast<int>(lane)*31;
+        clipped_rect(board_,sx1,y-9,2,2,board::DisplayColor::SecondaryText);
+        clipped_rect(board_,sx2,y+7,2,2,board::DisplayColor::SecondaryText);
     }
     const bool visible=!world_.invulnerable_until_ms ||
         world_.time_ms>=world_.invulnerable_until_ms ||
         (world_.time_ms/140U)%2U==0U;
-    draw_ship(world_.lane,visible);
-    for (const auto& e:world_.enemies) if(e.active &&
+    if (dirty[world_.lane]) draw_ship(world_.lane,visible);
+    for (const auto& e:world_.enemies) if (e.active && dirty[e.lane] &&
         e.x_q8>-24*256 && e.x_q8<240*256) draw_enemy(e);
-    for (const auto& s:world_.shots) if(s.active && s.x_q8<240*256)
-        board_.fill_rect(static_cast<std::int16_t>(s.x_q8/256),
-            rules::kLaneY[s.lane]-1,8,3,board::DisplayColor::Accent);
-    for (const auto& s:world_.hostile) if(s.active && s.x_q8>0)
-        board_.fill_rect(static_cast<std::int16_t>(s.x_q8/256),
-            rules::kLaneY[s.lane]-2,6,5,board::DisplayColor::Danger);
+    for (const auto& shot:world_.shots) if (shot.active && dirty[shot.lane])
+        clipped_rect(board_,shot.x_q8/256,rules::kLaneY[shot.lane]-1,
+                     8,3,board::DisplayColor::Accent);
+    for (const auto& shot:world_.hostile) if (shot.active && dirty[shot.lane])
+        clipped_rect(board_,shot.x_q8/256,rules::kLaneY[shot.lane]-2,
+                     6,5,board::DisplayColor::Danger);
     if (world_.score!=last_hud_score_ || world_.lives!=last_hud_lives_ || full) {
         char score[24]{},record[24]{};
         std::snprintf(score,sizeof(score),"WYNIK %lu",
@@ -151,7 +169,9 @@ void SpaceDefenderApp::render_game(bool full) {
                 ? board::DisplayColor::Accent:board::DisplayColor::Surface);
         last_hud_score_=world_.score;last_hud_lives_=world_.lives;
     }
-    previous_=world_;previous_ship_visible_=visible;frame_valid_=true;
+    previous_=world_;
+    previous_ship_visible_=visible;
+    frame_valid_=true;
 }
 void SpaceDefenderApp::render_menu() {
     board_.clear_screen();
