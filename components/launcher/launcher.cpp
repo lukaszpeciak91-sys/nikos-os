@@ -429,6 +429,14 @@ void Launcher::begin_entertainment(
     render();
 }
 
+void Launcher::begin_games(CommunicatorStatus communicator_status)
+{
+    begin_entertainment(communicator_status);
+    screen_ = Screen::Games;
+    games_selection_ = 0;
+    render();
+}
+
 void Launcher::restore_signal_volume_preference(std::uint8_t level)
 {
     settings_.signal_volume_level = level;
@@ -487,7 +495,8 @@ void Launcher::set_communicator_delivery_status(
 Action Launcher::update(const board::InputState& input)
 {
     // Capture the screen at update entry; no per-action tagging required.
-    entertainment_launch_=screen_ == Screen::Entertainment;
+    entertainment_launch_ = screen_ == Screen::Entertainment
+        || screen_ == Screen::Games;
     const std::uint32_t now = now_ms();
     update_clock_sample(now);
     update_battery_sample(now);
@@ -581,19 +590,10 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.primary_short) {
-            if (tools_selection_ == 0U) {
-                return Action::OpenPowerDiag;
-            }
-            if (tools_selection_ == 1U) {
-                return Action::OpenFlashlight;
-            }
-            if (tools_selection_ == 2U) {
-                return Action::OpenSoundMeter;
-            }
-            if (tools_selection_ == 3U) {
-                return Action::OpenConverter;
-            }
-
+            if (tools_selection_ == 0U) return Action::OpenFlashlight;
+            if (tools_selection_ == 1U) return Action::OpenSoundMeter;
+            if (tools_selection_ == 2U) return Action::OpenConverter;
+            if (tools_selection_ == 3U) return Action::OpenPowerDiag;
             screen_ = Screen::Main;
             render();
         }
@@ -607,36 +607,46 @@ Action Launcher::update(const board::InputState& input)
             render();
             return Action::None;
         }
-
         if (input.secondary_short) {
             entertainment_selection_ =
-                static_cast<std::uint8_t>(
-                    (entertainment_selection_ + 1U) % 6U);
+                static_cast<std::uint8_t>((entertainment_selection_ + 1U) % 3U);
             render();
             return Action::None;
         }
-
         if (input.primary_short) {
             if (entertainment_selection_ == 0U) {
-                return Action::OpenSnake;
+                games_selection_ = 0;
+                screen_ = Screen::Games;
+                render();
+                return Action::None;
             }
-            if (entertainment_selection_ == 1U) {
-                return Action::OpenMiniRacer;
-            }
-            if (entertainment_selection_ == 2U) {
-                return Action::OpenFacts;
-            }
-            if (entertainment_selection_ == 3U) {
-                return Action::OpenSpaceDefender;
-            }
-            if (entertainment_selection_ == 4U) {
-                return Action::OpenCoinFlip;
-            }
-
+            if (entertainment_selection_ == 1U) return Action::OpenFacts;
             screen_ = Screen::Main;
             render();
         }
+        return Action::None;
+    }
 
+    if (screen_ == Screen::Games) {
+        if (input.secondary_long) {
+            screen_ = Screen::Entertainment;
+            render();
+            return Action::None;
+        }
+        if (input.secondary_short) {
+            games_selection_ =
+                static_cast<std::uint8_t>((games_selection_ + 1U) % 5U);
+            render();
+            return Action::None;
+        }
+        if (input.primary_short) {
+            if (games_selection_ == 0U) return Action::OpenSnake;
+            if (games_selection_ == 1U) return Action::OpenMiniRacer;
+            if (games_selection_ == 2U) return Action::OpenSpaceDefender;
+            if (games_selection_ == 3U) return Action::OpenCoinFlip;
+            screen_ = Screen::Entertainment;
+            render();
+        }
         return Action::None;
     }
 
@@ -1517,6 +1527,9 @@ void Launcher::render()
         case Screen::Entertainment:
             render_entertainment();
             break;
+        case Screen::Games:
+            render_games();
+            break;
         case Screen::Clock:
             render_clock();
             break;
@@ -1751,10 +1764,10 @@ void Launcher::render_tools()
         board::DisplayColor::Background);
 
     constexpr const char* kTools[5] = {
-        "POWERDIAG",
         "LATARKA",
         "MIERNIK HAŁASU",
-        "KONWERTER",
+        "PRZELICZNIK",
+        "POWERDIAG",
         "POWRÓT",
     };
 
@@ -1816,12 +1829,9 @@ void Launcher::render_entertainment()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[6] = {
-        "SNAKE",
-        "MINI RACER",
+    constexpr const char* kItems[3] = {
+        "GRY",
         "CIEKAWOSTKI",
-        "SPACE DEFENDER",
-        "ORZEŁ / RESZKA",
         "POWRÓT",
     };
 
@@ -1831,6 +1841,71 @@ void Launcher::render_entertainment()
     for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
         const std::uint8_t index = static_cast<std::uint8_t>(first + slot);
         const bool selected = index == entertainment_selection_;
+        const std::int16_t y =
+            static_cast<std::int16_t>(readable ? 34 + slot * 27 : 35 + index * 20);
+
+        draw_pilot_text(
+            22,
+            y,
+            196,
+            25,
+            kItems[index],
+            2,
+            selected
+                ? board::DisplayColor::PrimaryText
+                : board::DisplayColor::SecondaryText,
+            selected
+                ? board::DisplayColor::Surface
+                : board::DisplayColor::Background);
+
+        if (selected) {
+            draw_selection_marker(
+                board_,
+                14,
+                y,
+                readable ? 23 : 18);
+        }
+    }
+
+    board_.draw_text_region(
+        14,
+        116,
+        212,
+        14,
+        "M5 WYBIERZ | BOCZNY DALEJ",
+        1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+}
+
+void Launcher::render_games()
+{
+    clear_shell(board_);
+
+    board_.draw_text_region(
+        14,
+        10,
+        212,
+        20,
+        "GRY",
+        2,
+        board::DisplayColor::PrimaryText,
+        board::DisplayColor::Background);
+
+    constexpr const char* kItems[5] = {
+        "SNAKE",
+        "MINI RACER",
+        "SPACE DEFENDER",
+        "RZUT MONETĄ",
+        "POWRÓT",
+    };
+
+    const bool readable = true;
+    const std::uint8_t first = readable && games_selection_ >= 3U
+        ? static_cast<std::uint8_t>(games_selection_ - 2U) : 0U;
+    for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
+        const std::uint8_t index = static_cast<std::uint8_t>(first + slot);
+        const bool selected = index == games_selection_;
         const std::int16_t y =
             static_cast<std::int16_t>(readable ? 34 + slot * 27 : 35 + index * 20);
 
