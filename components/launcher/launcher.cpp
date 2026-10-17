@@ -15,12 +15,12 @@ struct Entry {
 };
 
 constexpr std::array<Entry, 6> kEntries = {{
-    {"Komunikator"},
-    {"Narzędzia"},
-    {"Rozrywka"},
-    {"Zegar"},
-    {"Ustawienia"},
-    {"Wyłącz"},
+    {"KOMUNIKATOR"},
+    {"NARZĘDZIA"},
+    {"ROZRYWKA"},
+    {"ZEGAR"},
+    {"USTAWIENIA"},
+    {"WYŁĄCZ"},
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
@@ -537,7 +537,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             tools_selection_ =
-                static_cast<std::uint8_t>((tools_selection_ + 1U) % 5U);
+                static_cast<std::uint8_t>((tools_selection_ + 1U) % 4U);
             render();
             return Action::None;
         }
@@ -551,9 +551,6 @@ Action Launcher::update(const board::InputState& input)
             }
             if (tools_selection_ == 2U) {
                 return Action::OpenSoundMeter;
-            }
-            if (tools_selection_ == 3U) {
-                return Action::OpenFontLab;
             }
 
             screen_ = Screen::Main;
@@ -963,7 +960,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             settings_selection_ =
-                static_cast<std::uint8_t>((settings_selection_ + 1U) % 7U);
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 6U);
             render();
             return Action::None;
         }
@@ -986,9 +983,6 @@ Action Launcher::update(const board::InputState& input)
                     orientation_index(settings_.orientation);
                 screen_ = Screen::Orientation;
             } else if (settings_selection_ == 4U) {
-                font_selection_ = static_cast<std::uint8_t>(settings_.font_mode);
-                screen_ = Screen::FontSelector;
-            } else if (settings_selection_ == 5U) {
                 auto_power_off_selection_ =
                     settings_.auto_power_off_enabled ? 0U : 1U;
                 screen_ = Screen::AutoPowerOff;
@@ -1000,22 +994,6 @@ Action Launcher::update(const board::InputState& input)
             render();
         }
 
-        return Action::None;
-    }
-
-    if (screen_ == Screen::FontSelector) {
-        if (input.secondary_long) {
-            screen_ = Screen::Settings;
-        } else if (input.secondary_short) {
-            font_selection_ =
-                static_cast<std::uint8_t>((font_selection_ + 1U) % 3U);
-        } else if (input.primary_short) {
-            settings_.font_mode = static_cast<font_core::Mode>(font_selection_);
-            screen_ = Screen::Settings;
-        } else {
-            return Action::None;
-        }
-        render();
         return Action::None;
     }
 
@@ -1533,9 +1511,6 @@ void Launcher::render()
         case Screen::Settings:
             render_settings();
             break;
-        case Screen::FontSelector:
-            render_font_selector();
-            break;
         case Screen::SoundMenu:
             render_sound_menu();
             break;
@@ -1608,7 +1583,7 @@ void Launcher::render_main()
     render_header_time_if_changed();
     render_battery_if_changed();
 
-    const bool readable = settings_.font_mode != font_core::Mode::Composed;
+    const bool readable = true;
     const std::size_t visible_rows = readable ? 3U : kVisibleLauncherRows;
     std::size_t first_visible = 0;
     if (selected_index_ >= visible_rows) {
@@ -1719,7 +1694,7 @@ void Launcher::render_tools()
     clear_shell(board_);
     // Keep the STANDARD five-row layout; use a scrolled three-row viewport
     // when readable PRE-RENDERED text is selected.
-    const bool experimental_font = settings_.font_mode != font_core::Mode::Composed;
+    const bool experimental_font = true;
 
     draw_pilot_text(
         14,
@@ -1731,12 +1706,11 @@ void Launcher::render_tools()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kTools[5] = {
-        "PowerDiag",
-        "Latarka",
-        "Miernik halasu",
-        "Test fontu",
-        "Powrót",
+    constexpr const char* kTools[4] = {
+        "POWERDIAG",
+        "LATARKA",
+        "MIERNIK HAŁASU",
+        "POWRÓT",
     };
 
     const std::uint8_t first = experimental_font && tools_selection_ >= 3U
@@ -1798,13 +1772,13 @@ void Launcher::render_entertainment()
         board::DisplayColor::Background);
 
     constexpr const char* kItems[4] = {
-        "Snake",
-        "Mini Racer",
-        "Ciekawostki",
+        "SNAKE",
+        "MINI RACER",
+        "CIEKAWOSTKI",
         "Powrót",
     };
 
-    const bool readable = settings_.font_mode != font_core::Mode::Composed;
+    const bool readable = true;
     const std::uint8_t first = readable && entertainment_selection_ >= 3U
         ? static_cast<std::uint8_t>(entertainment_selection_ - 2U) : 0U;
     for (std::uint8_t slot = 0; slot < (readable ? 3U : 4U); ++slot) {
@@ -2779,17 +2753,16 @@ void Launcher::render_settings()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[7] = {
-        "Dźwięk",
-        "Jasność",
-        "Motyw",
-        "Orientacja",
-        "Czcionka",
+    constexpr const char* kItems[6] = {
+        "DŹWIĘK",
+        "JASNOŚĆ",
+        "MOTYW",
+        "ORIENTACJA",
         "AUTO WYŁĄCZ.",
         "Powrót",
     };
 
-    const bool readable = settings_.font_mode != font_core::Mode::Composed;
+    const bool readable = true;
     std::uint8_t first_visible = 0;
     if (settings_selection_ >= (readable ? 3U : 4U)) {
         first_visible =
@@ -2841,54 +2814,15 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
     std::int16_t width, std::int16_t height, const char* text,
     std::uint8_t standard_size, board::DisplayColor fg, board::DisplayColor bg)
 {
-    if (settings_.font_mode == font_core::Mode::Standard) {
-        // Font0 is byte-oriented; accented labels need the existing Polish font.
-        bool non_ascii = false;
-        for (const unsigned char* p =
-                 reinterpret_cast<const unsigned char*>(text); *p; ++p) {
-            if (*p >= 0x80U) { non_ascii = true; break; }
-        }
-        if (non_ascii) {
-            // STANDARD menu rows are now allocated >=24px when using Polish.
-            const std::uint8_t scale = standard_size;
-            board_.draw_polish_ui_text_region(
-                x, y, width, height, text, scale, fg, bg);
-        } else {
-            board_.draw_text_region(x, y, width, height, text, standard_size, fg, bg);
-        }
-        return;
-    }
-    font_renderer_.select(settings_.font_mode);
+    font_renderer_.select(font_core::Mode::PreRendered);
     font_renderer_.set_size(standard_size >= 2 && height >= 24
         ? font_core::Size::Readable : font_core::Size::Compact);
     const auto effective_height = static_cast<std::int16_t>(height < 19 ? 19 : height);
-    auto result = font_renderer_.draw(text, {x, y, width, effective_height}, fg, bg);
-    if (!result.fits) {
+    const auto result = font_renderer_.draw(text, {x, y, width, effective_height}, fg, bg);
+    if (!result.fits || !result.supported) {
         board_.draw_text_region(x, y, width, height,
             "FONT FIT ERROR", 1, board::DisplayColor::Danger, bg);
     }
-}
-
-void Launcher::render_font_selector()
-{
-    clear_shell(board_);
-    draw_pilot_text(14, 8, 212, 21, "CZCIONKA", 2,
-        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
-    constexpr const char* names[3] = {
-        "STANDARD", "COMPOSED", "PRE-RENDERED"
-    };
-    for (std::uint8_t i = 0; i < 3; ++i) {
-        const std::int16_t y = static_cast<std::int16_t>(35 + i * 24);
-        const bool selected = i == font_selection_;
-        draw_pilot_text(22, y, 198, 21, names[i], 2,
-            selected ? board::DisplayColor::PrimaryText :
-                       board::DisplayColor::SecondaryText,
-            selected ? board::DisplayColor::Surface :
-                       board::DisplayColor::Background);
-        if (selected) draw_selection_marker(board_, 14, y, 18);
-    }
-    board_.draw_text_region(14, 117, 212, 14,
-        "M5 WYBIERZ | BOCZNY DALEJ", 1);
 }
 
 void Launcher::render_sound_menu()
