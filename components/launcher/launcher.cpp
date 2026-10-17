@@ -450,7 +450,8 @@ void Launcher::set_communicator_delivery_status(
 
 Action Launcher::update(const board::InputState& input)
 {
-    entertainment_launch_=false;
+    // Capture the screen at update entry; no per-action tagging required.
+    entertainment_launch_=screen_ == Screen::Entertainment;
     const std::uint32_t now = now_ms();
     update_clock_sample(now);
     update_battery_sample(now);
@@ -578,16 +579,16 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.primary_short) {
             if (entertainment_selection_ == 0U) {
-                return entertainment_action(Action::OpenSnake);
+                return Action::OpenSnake;
             }
             if (entertainment_selection_ == 1U) {
-                return entertainment_action(Action::OpenMiniRacer);
+                return Action::OpenMiniRacer;
             }
             if (entertainment_selection_ == 2U) {
-                return entertainment_action(Action::OpenFacts);
+                return Action::OpenFacts;
             }
             if (entertainment_selection_ == 3U) {
-                return entertainment_action(Action::OpenSpaceDefender);
+                return Action::OpenSpaceDefender;
             }
 
             screen_ = Screen::Main;
