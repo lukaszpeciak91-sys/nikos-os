@@ -3448,12 +3448,12 @@ void Launcher::render_shutdown_confirm()
         12,
         200,
         20,
-        "WYLACZYC",
+        "WYŁĄCZYĆ",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    board_.draw_text_region(18, 35, 204, 22, "NIKOS OS?", 2,
+    board_.draw_text_region(18, 35, 204, 22, "NIKOŚ OS?", 2,
         board::DisplayColor::PrimaryText, board::DisplayColor::Background);
     constexpr const char* kChoices[2] = {"TAK", "NIE"};
     for (std::uint8_t index = 0; index < 2; ++index) {
