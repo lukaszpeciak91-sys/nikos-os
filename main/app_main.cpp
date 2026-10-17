@@ -1793,6 +1793,20 @@ extern "C" void app_main(void)
             mini_racer.resume_if_suspended();
         }
 
+        if (state == RuntimeState::CoinFlip
+            && (display_input.power_display_off
+                || display_lifecycle.state()
+                    == nikos::power::DisplayState::DisplayOff)) {
+            coin_flip.suspend();
+        }
+        if (state == RuntimeState::CoinFlip
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+            && !display_input.power_display_off
+            && !entertainment_warning_visible) {
+            coin_flip.resume_if_suspended();
+        }
+
         if (state == RuntimeState::SoundMeter
             && (display_input.power_display_off
                 || display_lifecycle.state()
@@ -2593,6 +2607,7 @@ extern "C" void app_main(void)
 
             if ((resume_snake_after_communicator
                     || resume_mini_racer_after_communicator
+                    || resume_coin_flip_after_communicator
                     || resume_space_defender_after_communicator
                     || resume_flashlight_after_communicator
                     || resume_facts_after_communicator
@@ -2614,6 +2629,7 @@ extern "C" void app_main(void)
                 } else if (resume_coin_flip_after_communicator) {
                     resume_coin_flip_after_communicator = false;
                     state = RuntimeState::CoinFlip;
+                    coin_flip.resume();
                 } else if (resume_space_defender_after_communicator) {
                     resume_space_defender_after_communicator = false;
                     state = RuntimeState::SpaceDefender;
