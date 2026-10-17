@@ -1179,6 +1179,7 @@ extern "C" void app_main(void)
     system_text_context.charging = &charging_mode;
     EntertainmentNotice entertainment_notice = EntertainmentNotice::None;
     bool entertainment_warning_visible = false;
+    bool entertainment_notice_rendered = false;
     std::uint32_t entertainment_warning_started_ms = 0;
     bool clock_glance_active = false;
     std::uint32_t clock_glance_started_ms = 0;
@@ -1384,6 +1385,47 @@ extern "C" void app_main(void)
                 communicator,
                 messaging,
                 radio);
+        }
+
+        // Policy advances from the main loop even during charging, overlays,
+        // Communicator takeover, pause and DisplayOff. No periodic NVS writes.
+        const auto entertainment_phase = entertainment_guard.phase(loop_now_ms);
+        if (entertainment_guard.pending_clear()) {
+            if (!entertainment_store.clear())
+                ESP_LOGW(kTag, "Entertainment cycle clear not persisted");
+            entertainment_guard.settled();
+        }
+        const bool reserve_entertainment =
+            battery_guard.low_battery_reserve_active();
+        const bool entertainment_locked =
+            entertainment_phase == nikos::entertainment_guard::Phase::Cooldown;
+        if (entertainment_locked || reserve_entertainment) {
+            const bool app_was_foreground = is_guarded_entertainment(state);
+            const bool app_was_preempted =
+                resume_snake_after_communicator
+                || resume_mini_racer_after_communicator
+                || resume_facts_after_communicator;
+            if (app_was_foreground || app_was_preempted) {
+                if (state == RuntimeState::Snake || resume_snake_after_communicator)
+                    snake.end();
+                if (state == RuntimeState::MiniRacer
+                    || resume_mini_racer_after_communicator) mini_racer.end();
+                if (state == RuntimeState::Facts || resume_facts_after_communicator)
+                    facts.end();
+                resume_snake_after_communicator = false;
+                resume_mini_racer_after_communicator = false;
+                resume_facts_after_communicator = false;
+                entertainment_warning_visible = false;
+                if (app_was_foreground) {
+                    state = RuntimeState::Launcher;
+                    launcher.begin_entertainment(
+                        communicator_status(communicator_enabled, messaging));
+                    entertainment_notice = reserve_entertainment
+                        ? EntertainmentNotice::LowBattery
+                        : EntertainmentNotice::Break;
+                    entertainment_notice_rendered = false;
+                }
+            }
         }
 
         if (update_charging_full_confirmation(
