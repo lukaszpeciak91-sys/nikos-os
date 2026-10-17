@@ -94,10 +94,19 @@ with tempfile.TemporaryDirectory() as tmp:
 main = (root / "main/app_main.cpp").read_text(encoding="utf-8")
 assert "OpenSnake" in main and "OpenMiniRacer" in main and "OpenFacts" in main
 assert "const bool guard_entry =" in main
-entry_gate = main.split("const bool guard_entry =", 1)[1].split(
-    "bool entry_refused", 1)[0]
-assert all(name in entry_gate for name in ("OpenSnake", "OpenMiniRacer", "OpenFacts", "OpenSpaceDefender"))
-assert "OpenSpaceDefender" in entry_gate
+entry_gate = main.split("const bool guard_entry =", 1)[1].split("bool entry_refused", 1)[0]
+assert "Action::OpenSnake" in entry_gate and "Action::OpenFacts" in entry_gate
+launcher = (root / "components/launcher/launcher.cpp").read_text(encoding="utf-8")
+header = (root / "components/launcher/include/launcher/launcher.hpp").read_text(encoding="utf-8")
+import re
+actions = re.search(r"enum class Action[^{}]*\{([^}]+)\}", header).group(1)
+names = [name.strip() for name in actions.split(",") if name.strip()]
+assert len(names) == len(set(names))
+first, last = names.index("OpenSnake"), names.index("OpenFacts")
+screen = launcher.split("if (screen_ == Screen::Entertainment)", 1)[1].split("if (screen_ == Screen::Clock)", 1)[0]
+routes = re.findall(r"return Action::(Open\w+);", screen)
+assert set(routes) == set(names[first:last+1]), "Unguarded Entertainment route"
+assert set(routes + ["OpenSyntheticEntertainment"]) != set(names[first:last+1])
 assert "snake.end();" in main and "mini_racer.end();" in main
 assert "facts.end();" in main
 assert "space_defender.end();" in main
@@ -134,6 +143,12 @@ assert "is_guarded_entertainment(state)" in main
 assert "entertainment_guard.warning_due(loop_now_ms)" in main
 assert "entertainment_guard.pending_clear()" in main
 assert "entertainment_store.save(" in main
+assert "abort_unpersisted_start()" in main
+assert "entertainment_clear_failed" in main
+assert "if (entertainment_store.clear())" in main
+assert "&& !entertainment_warning_visible" in main
+restoration = main.split("if ((resume_snake_after_communicator",1)[1].split("communicator_result",1)[0]
+assert "resume_space_defender_after_communicator" in restoration
 assert "entertainment_store.clear()" in main
 store = (root / "components/storage/entertainment_cycle_store.cpp").read_text(encoding="utf-8")
 assert "static_assert(sizeof(Record)==12U" in store
