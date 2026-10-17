@@ -1,4 +1,5 @@
 #include "storage/entertainment_cycle_store.hpp"
+#include <cstddef>
 #include "nvs.h"
 #include "esp_log.h"
 namespace nikos::storage {
@@ -31,14 +32,17 @@ bool EntertainmentCycleStore::load(EntertainmentCycle& cycle) const {
     nvs_handle_t handle=0;
     esp_err_t err=nvs_open(kNamespace,NVS_READONLY,&handle);
     if(err==ESP_ERR_NVS_NOT_FOUND)return true;
-    if(err!=ESP_OK)return false;
+    if(err!=ESP_OK) {cycle.active=true;return false;}
     Record record{};
     std::size_t size=sizeof(record);
     err=nvs_get_blob(handle,kKey,&record,&size);
     nvs_close(handle);
     if(err==ESP_ERR_NVS_NOT_FOUND)return true;
     if(err!=ESP_OK || size!=sizeof(record) || record.marker!=kMarker ||
-        (record.civil_valid>1U || record.warning_shown>1U))return false;
+        (record.civil_valid>1U || record.warning_shown>1U)) {
+        cycle.active=true; // unknown persisted state must not unlock Entertainment
+        return false;
+    }
     cycle.active=true;
     cycle.civil_valid=record.civil_valid!=0U;
     cycle.civil_start=record.civil_start;
