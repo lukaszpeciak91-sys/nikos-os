@@ -5,6 +5,7 @@
 Communicator v0.1 core UX over the long-lived messaging infrastructure.
 
 ## Current state
+- System message typography v0.1: system-owned Entertainment break/reserve/near-expiry notices, BatteryGuard advisories/critical shutdown, Timer completion and Charging Lock caption now use the existing PRE-RENDERED Polish UI renderer with Readable/Compact sizing and bounded layouts. Native numeric charging percentages, OK glyphs and clock time remain unchanged; state machines and notice timing are unaffected.
 
 - Repository architecture and working model defined.
 - Native ESP-IDF scaffold implemented for classic ESP32 / ESP32-PICO-D4.
