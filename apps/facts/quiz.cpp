@@ -120,7 +120,7 @@ void Quiz::layout_text_pages(const char* text, std::uint8_t max_lines,
                 if (word_bytes >= sizeof(text_buffer_)) break;
                 std::memcpy(text_buffer_, text + line_start, word_bytes);
                 text_buffer_[word_bytes] = '\0';
-                if (text_width(text_buffer_) > kWidth) break;
+                if (text_width(text_buffer_, size) > kWidth) break;
             }
             accepted = word_end;
             offset = word_end;
