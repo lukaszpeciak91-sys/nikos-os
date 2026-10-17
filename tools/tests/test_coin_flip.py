@@ -56,4 +56,12 @@ with tempfile.TemporaryDirectory() as temp:
                     "-I", str(root / "apps/coin_flip/include"),
                     str(src), "-o", str(exe)], check=True)
     subprocess.run([str(exe)], check=True)
-print("Coin Flip deterministic C++17 state tests PASS")
+app = (root / "apps/coin_flip/coin_flip_app.cpp").read_text(encoding="utf-8")
+assert "if (!active_ || input.secondary_long)" in app
+assert "if (input.primary_short && !animation_at_entry)" in app
+assert "state_.toss(now, esp_random())" in app
+assert "state_.phase == Phase::Result && state_.result == Face::Eagle" in app
+assert 'state_.result == Face::Eagle ? "ORZEŁ!" : "RESZKA!"' in app
+assert "vTaskDelay" not in app and "delay(" not in app
+assert "M5: PONOWNIE" in app and "M5: RZUĆ" in app
+print("Coin Flip deterministic C++17 state and app contract tests PASS")
