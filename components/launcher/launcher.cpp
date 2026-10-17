@@ -431,9 +431,16 @@ void Launcher::begin_entertainment(
 
 void Launcher::begin_games(CommunicatorStatus communicator_status)
 {
-    begin_entertainment(communicator_status);
     screen_ = Screen::Games;
+    communicator_status_ = communicator_status;
+    selected_index_ = 2;
+    entertainment_selection_ = 0;
     games_selection_ = 0;
+    reset_stopwatch_session();
+
+    const std::uint32_t now = now_ms();
+    update_clock_sample(now, true);
+    update_battery_sample(now);
     render();
 }
 
