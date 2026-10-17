@@ -22,6 +22,7 @@ enum class Action : std::uint8_t {
     OpenSoundMeter,
     OpenSnake,
     OpenMiniRacer,
+    OpenCoinFlip,
     OpenSpaceDefender,
     OpenFacts,
     BrightnessChanged,

@@ -608,7 +608,7 @@ Action Launcher::update(const board::InputState& input)
         if (input.secondary_short) {
             entertainment_selection_ =
                 static_cast<std::uint8_t>(
-                    (entertainment_selection_ + 1U) % 5U);
+                    (entertainment_selection_ + 1U) % 6U);
             render();
             return Action::None;
         }
@@ -625,6 +625,9 @@ Action Launcher::update(const board::InputState& input)
             }
             if (entertainment_selection_ == 3U) {
                 return Action::OpenSpaceDefender;
+            }
+            if (entertainment_selection_ == 4U) {
+                return Action::OpenCoinFlip;
             }
 
             screen_ = Screen::Main;
@@ -1809,11 +1812,12 @@ void Launcher::render_entertainment()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[5] = {
+    constexpr const char* kItems[6] = {
         "SNAKE",
         "MINI RACER",
         "CIEKAWOSTKI",
         "SPACE DEFENDER",
+        "ORZEŁ / RESZKA",
         "POWRÓT",
     };
 

@@ -18,6 +18,7 @@
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
 #include "mini_racer/mini_racer_app.hpp"
+#include "coin_flip/coin_flip_app.hpp"
 #include "space_defender/space_defender_app.hpp"
 #include "storage/auto_power_off_store.hpp"
 #include "storage/signal_volume_store.hpp"
@@ -66,6 +67,7 @@ enum class RuntimeState : std::uint8_t {
     Facts,
     Snake,
     MiniRacer,
+    CoinFlip,
     SpaceDefender,
     RadioLab,
 };
@@ -73,6 +75,7 @@ enum class RuntimeState : std::uint8_t {
 bool is_guarded_entertainment(RuntimeState state) {
     return state == RuntimeState::Snake
         || state == RuntimeState::MiniRacer
+        || state == RuntimeState::CoinFlip
         || state == RuntimeState::Facts
         || state == RuntimeState::SpaceDefender;
 }
@@ -733,6 +736,7 @@ void redraw_runtime_ui(
     nikos::facts::FactsApp& facts,
     nikos::snake::SnakeApp& snake,
     nikos::mini_racer::MiniRacerApp& mini_racer,
+    nikos::coin_flip::CoinFlipApp& coin_flip,
     nikos::space_defender::SpaceDefenderApp& space_defender,
     nikos::radiolab::RadioLabApp& radiolab,
     nikos::sound_meter::SoundMeterApp& sound_meter)
@@ -758,6 +762,9 @@ void redraw_runtime_ui(
             break;
         case RuntimeState::MiniRacer:
             mini_racer.redraw();
+            break;
+        case RuntimeState::CoinFlip:
+            coin_flip.redraw();
             break;
         case RuntimeState::SpaceDefender:
             space_defender.redraw();
@@ -785,8 +792,10 @@ void enter_communicator_for_incoming(
     RuntimeState& state,
     bool& resume_snake_after_communicator,
     bool& resume_mini_racer_after_communicator,
+    bool& resume_coin_flip_after_communicator,
     bool& resume_space_defender_after_communicator,
     nikos::mini_racer::MiniRacerApp& mini_racer,
+    nikos::coin_flip::CoinFlipApp& coin_flip,
     nikos::space_defender::SpaceDefenderApp& space_defender,
     bool& resume_flashlight_after_communicator,
     bool& resume_facts_after_communicator,
@@ -798,6 +807,9 @@ void enter_communicator_for_incoming(
     } else if (state == RuntimeState::MiniRacer) {
         mini_racer.suspend();
         resume_mini_racer_after_communicator = true;
+    } else if (state == RuntimeState::CoinFlip) {
+        coin_flip.suspend();
+        resume_coin_flip_after_communicator = true;
     } else if (state == RuntimeState::SpaceDefender) {
         space_defender.suspend();
         resume_space_defender_after_communicator = true;
@@ -814,6 +826,7 @@ void enter_communicator_for_incoming(
         || state == RuntimeState::Facts
         || state == RuntimeState::Snake
         || state == RuntimeState::MiniRacer
+        || state == RuntimeState::CoinFlip
         || state == RuntimeState::SpaceDefender) {
         state = RuntimeState::Communicator;
         communicator.begin();
@@ -1166,6 +1179,7 @@ extern "C" void app_main(void)
     nikos::facts::FactsApp facts(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
     nikos::mini_racer::MiniRacerApp mini_racer(board, display_lifecycle);
+    nikos::coin_flip::CoinFlipApp coin_flip(board);
     nikos::space_defender::SpaceDefenderApp space_defender(board, display_lifecycle);
 
     bool communicator_enabled = false;
@@ -1174,6 +1188,7 @@ extern "C" void app_main(void)
     bool resume_countdown_after_meter = false;
     bool resume_snake_after_communicator = false;
     bool resume_mini_racer_after_communicator = false;
+    bool resume_coin_flip_after_communicator = false;
     bool resume_space_defender_after_communicator = false;
     bool resume_flashlight_after_communicator = false;
     bool resume_facts_after_communicator = false;
@@ -1259,6 +1274,7 @@ extern "C" void app_main(void)
 
         if (charging_cable_event == ChargingCableEvent::Connected) {
             if (state == RuntimeState::MiniRacer) mini_racer.suspend();
+            if (state == RuntimeState::CoinFlip) coin_flip.suspend();
             if (state == RuntimeState::SpaceDefender) space_defender.suspend();
             auto_power_off_due = false;
             auto_power_off_incoming_grace_active = false;
@@ -1283,6 +1299,9 @@ extern "C" void app_main(void)
                 } else if (resume_mini_racer_after_communicator) {
                     resume_mini_racer_after_communicator = false;
                     state = RuntimeState::MiniRacer;
+                } else if (resume_coin_flip_after_communicator) {
+                    resume_coin_flip_after_communicator = false;
+                    state = RuntimeState::CoinFlip;
                 } else if (resume_space_defender_after_communicator) {
                     resume_space_defender_after_communicator = false;
                     state = RuntimeState::SpaceDefender;
@@ -1303,6 +1322,7 @@ extern "C" void app_main(void)
         } else if (
             charging_cable_event == ChargingCableEvent::Disconnected) {
             if (state == RuntimeState::MiniRacer) mini_racer.resume();
+            if (state == RuntimeState::CoinFlip) coin_flip.resume();
             if (state == RuntimeState::SpaceDefender) space_defender.resume();
             auto_power_off_last_local_activity_ms = loop_now_ms;
             auto_power_off_due = false;
@@ -1322,6 +1342,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator = true;
                 } else if (state == RuntimeState::MiniRacer) {
                     resume_mini_racer_after_communicator = true;
+                } else if (state == RuntimeState::CoinFlip) {
+                    resume_coin_flip_after_communicator = true;
                 } else if (state == RuntimeState::SpaceDefender) {
                     resume_space_defender_after_communicator = true;
                 } else if (state == RuntimeState::Flashlight) {
@@ -1353,6 +1375,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                coin_flip,
                 space_defender,
                 radiolab,
                 sound_meter);
@@ -1415,6 +1438,7 @@ extern "C" void app_main(void)
             const bool app_was_preempted =
                 resume_snake_after_communicator
                 || resume_mini_racer_after_communicator
+                || resume_coin_flip_after_communicator
                 || resume_space_defender_after_communicator
                 || resume_facts_after_communicator;
             if (app_was_foreground || app_was_preempted) {
@@ -1422,6 +1446,8 @@ extern "C" void app_main(void)
                     snake.end();
                 if (state == RuntimeState::MiniRacer
                     || resume_mini_racer_after_communicator) mini_racer.end();
+                if (state == RuntimeState::CoinFlip
+                    || resume_coin_flip_after_communicator) coin_flip.end();
                 if (state == RuntimeState::Facts || resume_facts_after_communicator)
                     facts.end();
                 if (state == RuntimeState::SpaceDefender
@@ -1429,6 +1455,7 @@ extern "C" void app_main(void)
                     space_defender.end();
                 resume_snake_after_communicator = false;
                 resume_mini_racer_after_communicator = false;
+                resume_coin_flip_after_communicator = false;
                 resume_space_defender_after_communicator = false;
                 resume_facts_after_communicator = false;
                 entertainment_warning_visible = false;
@@ -1477,6 +1504,7 @@ extern "C" void app_main(void)
                     facts,
                     snake,
                     mini_racer,
+                    coin_flip,
                     space_defender,
                     radiolab,
                     sound_meter);
@@ -1535,7 +1563,10 @@ extern "C" void app_main(void)
                     } else if (resume_mini_racer_after_communicator) {
                         resume_mini_racer_after_communicator = false;
                         state = RuntimeState::MiniRacer;
-                    } else if (resume_space_defender_after_communicator) {
+                    } else if (resume_coin_flip_after_communicator) {
+                    resume_coin_flip_after_communicator = false;
+                    state = RuntimeState::CoinFlip;
+                } else if (resume_space_defender_after_communicator) {
                     resume_space_defender_after_communicator = false;
                     state = RuntimeState::SpaceDefender;
                 } else if (resume_flashlight_after_communicator) {
@@ -1681,6 +1712,7 @@ extern "C" void app_main(void)
                     facts,
                     snake,
                     mini_racer,
+                    coin_flip,
                     space_defender,
                     radiolab,
                     sound_meter);
@@ -1759,6 +1791,20 @@ extern "C" void app_main(void)
             && !display_input.power_display_off
             && !entertainment_warning_visible) {
             mini_racer.resume_if_suspended();
+        }
+
+        if (state == RuntimeState::CoinFlip
+            && (display_input.power_display_off
+                || display_lifecycle.state()
+                    == nikos::power::DisplayState::DisplayOff)) {
+            coin_flip.suspend();
+        }
+        if (state == RuntimeState::CoinFlip
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+            && !display_input.power_display_off
+            && !entertainment_warning_visible) {
+            coin_flip.resume_if_suspended();
         }
 
         if (state == RuntimeState::SoundMeter
@@ -1879,8 +1925,10 @@ extern "C" void app_main(void)
                 state,
                 resume_snake_after_communicator,
                 resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                 resume_space_defender_after_communicator,
                 mini_racer,
+                        coin_flip,
                 space_defender,
                 resume_flashlight_after_communicator,
                 resume_facts_after_communicator,
@@ -1944,6 +1992,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                coin_flip,
                 space_defender,
                 radiolab,
                 sound_meter);
@@ -1977,8 +2026,10 @@ extern "C" void app_main(void)
                 state,
                 resume_snake_after_communicator,
                 resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                 resume_space_defender_after_communicator,
                 mini_racer,
+                        coin_flip,
                 space_defender,
                 resume_flashlight_after_communicator,
                 resume_facts_after_communicator,
@@ -2020,6 +2071,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                coin_flip,
                 space_defender,
                 radiolab,
                 sound_meter);
@@ -2089,8 +2141,10 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
@@ -2125,6 +2179,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                coin_flip,
                 space_defender,
                 radiolab,
                 sound_meter);
@@ -2150,8 +2205,9 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state, resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
-                    mini_racer, space_defender,
+                    mini_racer, coin_flip, space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator, flashlight);
@@ -2184,6 +2240,8 @@ extern "C" void app_main(void)
                     snake.resume_from_entertainment_warning();
                 else if (state == RuntimeState::MiniRacer)
                     mini_racer.resume();
+                else if (state == RuntimeState::CoinFlip)
+                    coin_flip.resume();
                 else if (state == RuntimeState::Facts) facts.redraw();
                 else if (state == RuntimeState::SpaceDefender)
                     space_defender.resume();
@@ -2191,8 +2249,9 @@ extern "C" void app_main(void)
                     enter_communicator_for_incoming(
                         state, resume_snake_after_communicator,
                         resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                         resume_space_defender_after_communicator,
-                        mini_racer, space_defender,
+                        mini_racer, coin_flip, space_defender,
                         resume_flashlight_after_communicator,
                         resume_facts_after_communicator,
                         communicator, flashlight);
@@ -2213,8 +2272,9 @@ extern "C" void app_main(void)
                 enter_communicator_for_incoming(
                     state, resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
-                    mini_racer, space_defender,
+                    mini_racer, coin_flip, space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator, flashlight);
@@ -2236,6 +2296,8 @@ extern "C" void app_main(void)
                     snake.suspend_for_entertainment_warning();
                 else if (state == RuntimeState::MiniRacer)
                     mini_racer.suspend();
+                else if (state == RuntimeState::CoinFlip)
+                    coin_flip.suspend();
                 else if (state == RuntimeState::SpaceDefender)
                     space_defender.suspend();
                 render_entertainment_warning(board);
@@ -2259,8 +2321,10 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
@@ -2280,6 +2344,7 @@ extern "C" void app_main(void)
                 const bool recognized_entertainment =
                     action == nikos::launcher::Action::OpenSnake
                     || action == nikos::launcher::Action::OpenMiniRacer
+                    || action == nikos::launcher::Action::OpenCoinFlip
                     || action == nikos::launcher::Action::OpenSpaceDefender
                     || action == nikos::launcher::Action::OpenFacts;
                 bool entry_refused = guard_entry != recognized_entertainment;
@@ -2422,6 +2487,11 @@ extern "C" void app_main(void)
                     mini_racer.begin();
                     state = RuntimeState::MiniRacer;
                 } else if (
+                    action == nikos::launcher::Action::OpenCoinFlip) {
+                    display_lifecycle.note_visible_activity();
+                    coin_flip.begin();
+                    state = RuntimeState::CoinFlip;
+                } else if (
                     action == nikos::launcher::Action::OpenSpaceDefender) {
                     display_lifecycle.note_visible_activity();
                     space_defender.begin();
@@ -2537,6 +2607,7 @@ extern "C" void app_main(void)
 
             if ((resume_snake_after_communicator
                     || resume_mini_racer_after_communicator
+                    || resume_coin_flip_after_communicator
                     || resume_space_defender_after_communicator
                     || resume_flashlight_after_communicator
                     || resume_facts_after_communicator
@@ -2555,6 +2626,10 @@ extern "C" void app_main(void)
                     resume_mini_racer_after_communicator = false;
                     state = RuntimeState::MiniRacer;
                     mini_racer.resume();
+                } else if (resume_coin_flip_after_communicator) {
+                    resume_coin_flip_after_communicator = false;
+                    state = RuntimeState::CoinFlip;
+                    coin_flip.resume();
                 } else if (resume_space_defender_after_communicator) {
                     resume_space_defender_after_communicator = false;
                     state = RuntimeState::SpaceDefender;
@@ -2600,8 +2675,10 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
@@ -2666,8 +2743,10 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
@@ -2692,8 +2771,10 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
@@ -2716,8 +2797,10 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
@@ -2732,14 +2815,36 @@ extern "C" void app_main(void)
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
+        } else if (state == RuntimeState::CoinFlip) {
+            if (communicator_enabled && communicator.process_incoming()) {
+                enter_communicator_for_incoming(
+                    state, resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    resume_coin_flip_after_communicator,
+                    resume_space_defender_after_communicator,
+                    mini_racer, coin_flip, space_defender,
+                    resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
+                    communicator, flashlight);
+            } else if (display_lifecycle.state()
+                    != nikos::power::DisplayState::DisplayOff
+                    && coin_flip.update(input)
+                        == nikos::coin_flip::CoinFlipApp::Result::ExitRequested) {
+                coin_flip.end();
+                launcher.begin_entertainment(
+                    communicator_status(communicator_enabled, messaging));
+                state = RuntimeState::Launcher;
+            }
         } else if (state == RuntimeState::SpaceDefender) {
             if (communicator_enabled && communicator.process_incoming()) {
                 enter_communicator_for_incoming(
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
@@ -2762,8 +2867,10 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
                     resume_space_defender_after_communicator,
                     mini_racer,
+                        coin_flip,
                     space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
