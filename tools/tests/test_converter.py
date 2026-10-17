@@ -55,6 +55,35 @@ int main(){
  assert(e.next()); // commit position
  e.begin(.5,false);assert(close(e.value(),.5));
  e.increment();assert(close(e.value(),1000.5)); // most significant digit
+ // Visual character positions: sign, four digits, separator, tenths.
+ char label[9]{};
+ e.begin(-20.5,true);e.text(label);
+ assert(std::strcmp(label,"-0020.5")==0);
+ assert(e.character_index()==0);
+ e.increment();e.text(label);assert(label[0]=='+');
+ for(std::uint8_t i=0;i<6;++i) {
+   assert(e.character_index()==(i==0?0:i==5?6:i));
+   if(i<5)assert(!e.next());
+ }
+ assert(e.next());
+ e.begin(1.5,false);e.text(label);
+ assert(std::strcmp(label,"0001.5")==0);
+ for(std::uint8_t i=0;i<5;++i) {
+   assert(e.character_index()==(i==4?5:i));
+   if(i<4)assert(!e.next());
+ }
+ assert(e.next());
+ // Rejected value must not overwrite committed base.
+ assert(to_base(Category::Temperature,0,20.,base));
+ const double committed=base;
+ e.begin(-274.,true);
+ double candidate=0;
+ assert(!to_base(Category::Temperature,0,e.value(),candidate));
+ assert(base==committed);
+ e.increment(); // correct sign without losing digits
+ assert(e.value()==274.);
+ // Discarding the local editor preserves the committed value.
+ assert(base==committed);
  char formatted[24];
  format(100.,formatted);assert(std::strcmp(formatted,"100")==0);
  format(0.00000001,formatted);assert(std::strcmp(formatted,"1.00e-08")==0);
@@ -86,3 +115,12 @@ assert "entertainment_guard" not in app
 assert "Screen::Editing" in app and "editor_.increment()" in app
 assert "screen_=Screen::Categories" in app
 print("Converter production logic and routing guards PASS")
+
+assert "font_.advance(" in app
+assert "editor_.character_index()" in app
+assert "editor_.text(edit)" in app
+assert 'invalid_temperature_=true;editor_.cursor=0;' in app
+assert '"PONIŻEJ ZERA ABS."' in app
+assert "invalid_temperature_=false;render();return Result::Running;" in app
+assert "if(screen_==Screen::Editing)" in app
+assert "SIDE DŁUGO: ANULUJ" in app
