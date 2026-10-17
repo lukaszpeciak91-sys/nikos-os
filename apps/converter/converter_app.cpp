@@ -75,7 +75,7 @@ void ConverterApp::render(){
             board::DisplayColor::Accent,board::DisplayColor::Background);
         // A bright selected glyph plus a thicker underline distinguishes
         // the active position without changing fixed-digit editing.
-        const char focused[] = {edit[selected], '\\0'};
+        const char focused[] = {edit[selected], '\0'};
         font_.draw(focused,{cursor_x,kEditY,cursor_width,24},
             board::DisplayColor::PrimaryText,board::DisplayColor::Background);
         board_.fill_rect(cursor_x,70,cursor_width,4,board::DisplayColor::Accent);
