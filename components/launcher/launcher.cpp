@@ -1965,7 +1965,7 @@ void Launcher::render_timer_setup()
         118,
         196,
         16,
-        "= POWRÓT",
+        "= POWROT",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -3309,36 +3309,25 @@ void Launcher::render_enable_communicator()
 {
     clear_shell(board_);
 
-    board_.draw_text_region(
-        18,
-        16,
-        204,
-        22,
-        "WLACZYC",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        18,
-        39,
-        204,
-        22,
-        "KOMUNIKATOR?",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
+    // Explicit scoped PRE-RENDERED rendering: the global delegate continues
+    // to protect every Launcher Communicator screen from migration.
+    draw_pilot_text(18, 12, 204, 25, "WŁĄCZYĆ", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+    draw_pilot_text(18, 39, 204, 25, "KOMUNIKATOR?", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
 
     constexpr const char* kChoices[2] = {"TAK", "NIE"};
     for (std::uint8_t index = 0; index < 2; ++index) {
         const bool selected = confirmation_selection_ == index;
-        board_.draw_text_region(32, static_cast<std::int16_t>(70 + index * 25),
-            176, 22, kChoices[index], 2,
-            selected ? board::DisplayColor::PrimaryText : board::DisplayColor::SecondaryText,
-            selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+        const std::int16_t y = static_cast<std::int16_t>(67 + index * 26);
+        draw_pilot_text(32, y, 176, 25, kChoices[index], 2,
+            selected ? board::DisplayColor::PrimaryText
+                     : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface
+                     : board::DisplayColor::Background);
         if (selected) {
-            board_.draw_text_region(18, static_cast<std::int16_t>(70 + index * 25),
-                12, 22, ">", 2, board::DisplayColor::Accent,
-                board::DisplayColor::Background);
+            board_.draw_text_region(18, y, 12, 22, ">", 2,
+                board::DisplayColor::Accent, board::DisplayColor::Background);
         }
     }
     board_.draw_text_region(44, 121, 190, 12,
@@ -3417,21 +3406,26 @@ void Launcher::render_active_communicator()
 void Launcher::render_disable_communicator()
 {
     clear_shell(board_);
-    board_.draw_text_region(18, 12, 204, 22, "WYLACZYC", 2,
+
+    // Explicit scoped PRE-RENDERED rendering: the global delegate continues
+    // to protect every Launcher Communicator screen from migration.
+    draw_pilot_text(18, 12, 204, 25, "WYŁĄCZYĆ", 2,
         board::DisplayColor::PrimaryText, board::DisplayColor::Background);
-    board_.draw_text_region(18, 35, 204, 22, "KOMUNIKATOR?", 2,
+    draw_pilot_text(18, 39, 204, 25, "KOMUNIKATOR?", 2,
         board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+
     constexpr const char* kChoices[2] = {"TAK", "NIE"};
     for (std::uint8_t index = 0; index < 2; ++index) {
         const bool selected = confirmation_selection_ == index;
-        board_.draw_text_region(32, static_cast<std::int16_t>(67 + index * 25),
-            176, 22, kChoices[index], 2,
-            selected ? board::DisplayColor::PrimaryText : board::DisplayColor::SecondaryText,
-            selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+        const std::int16_t y = static_cast<std::int16_t>(67 + index * 26);
+        draw_pilot_text(32, y, 176, 25, kChoices[index], 2,
+            selected ? board::DisplayColor::PrimaryText
+                     : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface
+                     : board::DisplayColor::Background);
         if (selected) {
-            board_.draw_text_region(18, static_cast<std::int16_t>(67 + index * 25),
-                12, 22, ">", 2, board::DisplayColor::Accent,
-                board::DisplayColor::Background);
+            board_.draw_text_region(18, y, 12, 22, ">", 2,
+                board::DisplayColor::Accent, board::DisplayColor::Background);
         }
     }
     board_.draw_text_region(44, 121, 190, 12,
@@ -3443,30 +3437,25 @@ void Launcher::render_shutdown_confirm()
 {
     clear_shell(board_);
 
-    board_.draw_text_region(
-        18,
-        12,
-        200,
-        20,
-        "WYŁĄCZYĆ",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(18, 35, 204, 22, "NIKOŚ OS?", 2,
+    // Explicit scoped PRE-RENDERED rendering: the global delegate continues
+    // to protect every Launcher Communicator screen from migration.
+    draw_pilot_text(18, 12, 204, 25, "WYŁĄCZYĆ", 2,
         board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+    draw_pilot_text(18, 39, 204, 25, "NIKOŚ OS?", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+
     constexpr const char* kChoices[2] = {"TAK", "NIE"};
     for (std::uint8_t index = 0; index < 2; ++index) {
         const bool selected = confirmation_selection_ == index;
-        board_.draw_text_region(32, static_cast<std::int16_t>(67 + index * 25),
-            176, 22, kChoices[index], 2,
+        const std::int16_t y = static_cast<std::int16_t>(67 + index * 26);
+        draw_pilot_text(32, y, 176, 25, kChoices[index], 2,
             selected ? (index == 0 ? board::DisplayColor::Danger : board::DisplayColor::PrimaryText)
                      : board::DisplayColor::SecondaryText,
-            selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+            selected ? board::DisplayColor::Surface
+                     : board::DisplayColor::Background);
         if (selected) {
-            board_.draw_text_region(18, static_cast<std::int16_t>(67 + index * 25),
-                12, 22, ">", 2, board::DisplayColor::Accent,
-                board::DisplayColor::Background);
+            board_.draw_text_region(18, y, 12, 22, ">", 2,
+                board::DisplayColor::Accent, board::DisplayColor::Background);
         }
     }
     board_.draw_text_region(44, 121, 190, 12,
