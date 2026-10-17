@@ -136,7 +136,7 @@ predicate = main.split("bool is_guarded_entertainment(",1)[1].split(
 def check_contract(screen_text, update_text, recognized_text, runtime_text):
     # The screen origin is tagged once before dispatch; individual routes
     # must not rely on manual wrapping or enum numeric position.
-    if "entertainment_launch_=screen_ == Screen::Entertainment;" not in update_text:
+    if "entertainment_launch_ = screen_ == Screen::Entertainment\n        || screen_ == Screen::Games;" not in update_text:
         return False
     if "entertainment_action(" in screen_text:
         return False
@@ -150,13 +150,13 @@ def check_contract(screen_text, update_text, recognized_text, runtime_text):
             return False
     return True
 assert check_contract(screen,update_start,recognized,predicate)
-# A synthetic untagged fifth route is automatically covered by screen
+# A synthetic unknown route must be rejected by central recognition
 # provenance; without action/runtime integration it MUST fail validation.
 synthetic = screen.replace("return Action::OpenSnake;",
                            "return Action::OpenSyntheticGame;")
 assert not check_contract(synthetic,update_start,recognized,predicate)
 assert not check_contract(screen,update_start.replace(
-    "entertainment_launch_=screen_ == Screen::Entertainment;",""),
+    "entertainment_launch_ = screen_ == Screen::Entertainment\n        || screen_ == Screen::Games;",""),
     recognized,predicate)
 assert not check_contract(screen,update_start,recognized,
                           predicate.replace("RuntimeState::SpaceDefender",""))
@@ -288,3 +288,40 @@ app = (root / "apps/coin_flip/coin_flip_app.cpp").read_text(encoding="utf-8")
 assert "entertainment_guard" not in app and "nvs_" not in app
 assert "esp_random()" in app
 assert "if (input.primary_short && !animation_at_entry)" in app
+
+# The hierarchy is explicit; entering ROZRYWKA or GRY returns None.
+menu = launcher.split("if (screen_ == Screen::Entertainment)",1)[1].split(
+    "if (screen_ == Screen::Games)",1)[0]
+games = launcher.split("if (screen_ == Screen::Games)",1)[1].split(
+    "if (screen_ == Screen::Clock)",1)[0]
+assert "screen_ = Screen::Games;" in menu
+assert "screen_ = Screen::Entertainment;" in games
+assert "return Action::OpenFacts;" in menu
+assert "Action::OpenSnake" not in menu
+assert "Action::OpenFacts" not in games
+assert "(entertainment_selection_ + 1U) % 3U" in menu
+assert "(games_selection_ + 1U) % 5U" in games
+for action in ("OpenSnake", "OpenMiniRacer", "OpenSpaceDefender", "OpenCoinFlip"):
+    assert ("return Action::"+action+";") in games
+    assert ("Action::"+action) in recognized
+assert "return Action::OpenFacts;" in menu
+assert "launcher.begin_games(" in main
+assert main.count("launcher.begin_games(") == 4
+assert "void Launcher::begin_games(" in launcher
+# Returning to GRY must render only GRY, never flash ROZRYWKA first.
+games_entry = launcher.split("void Launcher::begin_games(",1)[1].split(
+    "void Launcher::restore_signal_volume_preference(",1)[0]
+assert "begin_entertainment(communicator_status);" not in games_entry
+assert games_entry.count("render();") == 1
+assert "screen_ = Screen::Games;" in games_entry
+assert "reset_stopwatch_session();" in games_entry
+assert "update_clock_sample(now, true);" in games_entry
+assert "update_battery_sample(now);" in games_entry
+assert "entertainment_guard.enter(loop_now_ms" in main
+assert "guard_entry != recognized_entertainment" in main
+assert "&& action != nikos::launcher::Action::None;" in main
+assert "if (guard_entry && !entry_refused)" in main
+# Gameplay and warning logic remain centrally guarded; menus never call Guard.
+assert "entertainment_guard" not in games
+assert "entertainment_guard" not in menu
+assert "bool is_guarded_entertainment(" in main

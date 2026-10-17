@@ -59,6 +59,7 @@ public:
     void begin(CommunicatorStatus communicator_status);
     void begin_tools(CommunicatorStatus communicator_status);
     void begin_entertainment(CommunicatorStatus communicator_status);
+    void begin_games(CommunicatorStatus communicator_status);
     void set_communicator_status(
         CommunicatorStatus communicator_status,
         bool render_if_changed = true);
@@ -88,6 +89,7 @@ private:
         Main,
         Tools,
         Entertainment,
+        Games,
         Clock,
         TimerSetup,
         TimerActive,
@@ -130,6 +132,7 @@ private:
     void render_main();
     void render_tools();
     void render_entertainment();
+    void render_games();
     void render_clock();
     void render_timer_setup();
     void render_timer_active();
@@ -177,6 +180,7 @@ private:
     std::uint8_t selected_index_ = 0;
     std::uint8_t tools_selection_ = 0;
     std::uint8_t entertainment_selection_ = 0;
+    std::uint8_t games_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
     std::uint8_t clock_view_start_ = 0;
     std::uint8_t timer_selection_ = 0;
