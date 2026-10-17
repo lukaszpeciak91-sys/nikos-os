@@ -565,3 +565,24 @@ first valid blocks and every 64th completion plus faults, min/max, DC-corrected
 RMS and relative 0–100 level. Microphone and speaker stay exclusive; speaker
 restarts with the configured volume on exit/failure. Level mapping, layout,
 Communicator suspension and all power ownership remain unchanged.
+
+
+### Space Defender v0.1 (2026-10-17)
+
+An independent `apps/space_defender` ESP-IDF component owns fixed arrays of four enemy slots, eight player shots and four hostile shots; `rules.hpp` contains deterministic host-testable game rules. One player ship cycles across three lanes, auto-firing every 350 ms. Enemies unlock at 0/100/250 points (scout/armored/shooter). Shooter projectiles stay on the originating lane. Damage grants 1500 ms immunity. No audio or radio resource is acquired.
+
+The deliberately conservative generator permits at most one active enemy hull at a time and defers further spawns until stray hostile shots leave; this avoids simultaneous independent hazards requiring movement through an occupied intermediate lane. It is not a formal proof against all reaction-time failures. The 120 ms bounded elapsed update is subdivided into 20 ms collision steps. Q8 motion retains fractions. The rendering path erases previous object regions and draws new primitives without framebuffer allocation. Existing entertainment limit is measured against wall clock and includes interruption.
+
+
+### Space Defender PR #83 R1 — concurrent traffic and redraw contract
+
+`rules::spawn` supports two concurrent hulls before score 100, three during 100–249, and up to four from 250 onward, bounded by the existing four-slot array. Each scheduled attempt samples one lane/type and a bounded 80–140px queued gap; attempts that violate timing constraints are discarded without retry loops. Candidate enemy impact times are compared against all active hull and surviving hostile-shot impact times; the minimum nominal separation is 1100ms. This permits at most two required M5 cycles (~300ms per press illustrative budget) between hazard windows, but does not mathematically prove fairness for every human response or mid-flight speed transition. Enemy shots persist after their shooter dies.
+
+Rendering refreshes only gameplay lane bands containing current or previously drawn objects (including the player), restores sparse stars within each cleared band, and redraws all remaining objects in z-order. Moving enemy rectangles, warning indicators and projectiles use bounded screen clipping. The HUD/borders remain outside these bands; no framebuffer or dynamic allocation is introduced.
+
+
+### Space Defender PR #83 R2 — arrival-window constraint
+
+R1 point estimates were not stable under mixed enemy speeds or the score-500 speed increase: an apparently separate pair of collision times could converge. R2 uses a conservative interval per hull: earliest arrival assuming the 500-point boost applies immediately, latest assuming it does not apply before impact. Candidate and existing hull intervals must remain at least 1100 ms apart in either temporal order. This protects the interval against *one* possible +6 px/s threshold crossing without pretending to know when the threshold occurs.
+
+A Shooter announces a future bullet which is absent from the hostile-shot pool at spawn time. To avoid unmodeled projectile/hull overlap, a Shooter does not coexist with another enemy hull; multiple Scout/Armored hulls remain allowed within the 2/3/4 staged caps. Persisting hostile bullets are checked at their constant 27 px/s speed. Rejected spawn attempts are not rerolled or stacked into an unbounded queue. This remains a conservative scheduling heuristic, not a formal human-reaction guarantee: button cadence, player choice, rendering latency and two-event cyclic navigation require physical validation.

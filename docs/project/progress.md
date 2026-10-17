@@ -287,3 +287,18 @@ Still requires host test execution, ESP-IDF 5.5.5 firmware build, and physical
 verification: quiet room → speech → clap → silence → repeated entry/exit →
 buzzer at configured volume and restored Communicator. Capture real RMS before
 changing signal thresholds. Hardware cause remains provisional until tested.
+
+
+### Space Defender v0.1 — PR implementation (2026-10-17)
+
+New independent three-lane game, Launcher integration, lifecycle hooks, fixed object pools and C++ host rules test were added. Remaining acceptance requires running host regressions, compiling under ESP-IDF 5.5.5, confirming linked firmware size and visual hardware checks: enemy silhouettes, automatic shots, three hits/1.5 s immunity, scrolling, pause/restart, time limit, charging lock, incoming Communicator and DisplayOff/wake. No flash or merge was authorized.
+
+
+### Space Defender PR #83 R1 — pending validation
+
+Implemented staged concurrent traffic, candidate arrival-window checks, bounded randomness, clipped lane-band redraw with star restoration, corrected duplicate CMake component registration and expanded C++ host scenarios. The environment cannot clone GitHub or invoke ESP-IDF 5.5.5, so host execution, build and linked firmware size are still unverified. Test hardware for two-button escape timing, late-game hostile shots, sprite overlap/edges, HUD integrity, stars, power/display/charging interruption and Communicator resume before merge.
+
+
+### Space Defender PR #83 R2 — audit response
+
+Deduplicated `space_defender` in `main/CMakeLists.txt`; root and app registration are single entries. Changed only traffic admission: interval-safe mixed-speed checks across the 500-point boost and no Shooter-hull overlap while future hostile fire is pending. Added production `advance`/`substep` scenarios for moving hulls, relative speeds, warning-to-bullet, surviving bullets, collision/invulnerability, pool bounds and legal cycling. Host execution, ESP-IDF build, device input cadence and high-score reachability remain to be verified.

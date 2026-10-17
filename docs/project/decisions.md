@@ -872,3 +872,18 @@ M5Unified 0.2.22 explicitly supports a buffer-release callback and lazy
 startup in `record()`. Prefer the accepted-request result and matching callback
 over a preflight `isRunning()` guard. Preserve the relative 0–100 mapping
 until physical PCM/RMS evidence supports calibration. No new audio framework.
+
+
+### Space Defender v0.1 — conservative difficulty
+
+Ship one standalone arcade module, not a general game engine. Three cycling lanes make simultaneous obstacles less predictable to dodge than two-lane switching, so one enemy hull and no overlapping leftover hostile projectile with a fresh hull is the initial fairness policy. Prioritize clear collision rules, moderate speeds and a bounded renderer; reconsider density only with hardware playtesting.
+
+
+### Space Defender PR #83 R1 — multi-enemy fairness choice
+
+Replace single-hull spawning with staged caps (2/3/4), conservative temporal collision-window separation, bounded random lane/gap choice and explicit surviving hostile-shot checks. An unoccupied lane alone is not treated as proof of one-button cyclic reachability. Use small lane-band restoration rather than independently erasing overlapping sprites, avoiding framebuffers.
+
+
+### Space Defender PR #83 R2 — conservative future-hazard handling
+
+Reserve the entire [fastest, current-speed] impact-time interval when admitting mixed-speed hulls, including a possible 500-point speed transition. Do not overlap an unmodeled future Shooter projectile with a concurrent hull: Shooter is scheduled alone, while multiple Scout/Armored hulls remain possible. The 1100ms cyclic-switch budget is an explicit human-input assumption, not proof of guaranteed reachability.
