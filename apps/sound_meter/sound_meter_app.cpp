@@ -1,7 +1,6 @@
 #include "sound_meter/sound_meter_app.hpp"
 #include <cstdio>
 #include <algorithm>
-#include <cstring>
 #include "esp_log.h"
 
 namespace nikos::sound_meter {
@@ -115,6 +114,13 @@ SoundMeterApp::Result SoundMeterApp::update(
                         ++consecutive_constant_blocks_;
                 } else {
                     consecutive_constant_blocks_ = 0;
+                }
+                if (low == high && low == static_cast<std::int16_t>(0x5A5A)) {
+                    ESP_LOGE(kTag, "Mic completed request but PCM buffer was untouched");
+                    microphone_ok_ = false;
+                    board_.end_microphone();
+                    render(true);
+                    return Result::Running;
                 }
                 if (consecutive_constant_blocks_ >= kConstantBlockLimit) {
                     ESP_LOGE(kTag, "Mic constant PCM: %u successive blocks (%d)",
