@@ -13,6 +13,7 @@ struct Record {
     std::uint8_t warning_shown;
     std::uint8_t reserved[2]{};
 };
+static_assert(sizeof(Record)==12U, "Entertainment cycle NVS record must stay minimal");
 constexpr std::uint32_t kMarker=0x454E5431U;
 bool write(const Record* record) {
     nvs_handle_t handle=0;
