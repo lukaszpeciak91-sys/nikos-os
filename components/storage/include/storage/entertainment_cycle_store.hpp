@@ -5,6 +5,7 @@ struct EntertainmentCycle {
     bool active=false;
     bool civil_valid=false;
     std::uint32_t civil_start=0;
+    bool warning_shown=false;
 };
 class EntertainmentCycleStore {
 public:
