@@ -760,8 +760,8 @@ void enter_communicator_for_incoming(
         || state == RuntimeState::Facts
         || state == RuntimeState::Snake
         || state == RuntimeState::MiniRacer) {
-        communicator.begin();
         state = RuntimeState::Communicator;
+        communicator.begin();
     }
 }
 
@@ -2045,8 +2045,8 @@ extern "C" void app_main(void)
                         communicator_enabled = true;
                         display_lifecycle.note_visible_activity();
 
-                        communicator.begin();
                         state = RuntimeState::Communicator;
+                        communicator.begin();
                     } else {
                         ESP_LOGW(
                             kTag,
@@ -2057,8 +2057,8 @@ extern "C" void app_main(void)
                 } else if (
                     action == nikos::launcher::Action::OpenCommunicator) {
                     display_lifecycle.note_visible_activity();
-                    communicator.begin();
                     state = RuntimeState::Communicator;
+                    communicator.begin();
                 } else if (
                     action == nikos::launcher::Action::StopCommunicator) {
                     communicator.reset_session();
@@ -2140,8 +2140,8 @@ extern "C" void app_main(void)
                 } else if (
                     action == nikos::launcher::Action::OpenFlashlight) {
                     display_lifecycle.note_visible_activity();
-                    flashlight.begin();
                     state = RuntimeState::Flashlight;
+                    flashlight.begin();
                                 } else if (
                     action == nikos::launcher::Action::OpenPowerDiag) {
                     display_lifecycle.note_visible_activity();
