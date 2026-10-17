@@ -962,6 +962,7 @@ extern "C" void app_main(void)
         nikos::font_core::Renderer* renderer;
         nikos::board::Board* board;
         RuntimeState* active_screen = nullptr;
+        nikos::launcher::Launcher* launcher = nullptr;
         ChargingModeState* charging = nullptr;
     } system_text_context{&system_text_renderer, &board};
     board.set_text_delegate(&system_text_context,
@@ -973,6 +974,8 @@ extern "C" void app_main(void)
             if ((ctx.active_screen && (*ctx.active_screen == RuntimeState::Communicator
                      || *ctx.active_screen == RuntimeState::Flashlight))
                 || (ctx.charging && ctx.charging->active)
+                || (ctx.active_screen && *ctx.active_screen == RuntimeState::Launcher
+                    && ctx.launcher && ctx.launcher->showing_communicator_ui())
                 || value == nullptr || size >= 3 || w <= 0 || h <= 0 || x < 0 || y < 0
                 || x + w > 240 || y + h > 135) {
                 return false;
@@ -1015,6 +1018,7 @@ extern "C" void app_main(void)
         countdown,
         settings,
         signal_sound);
+    system_text_context.launcher = &launcher;
 
     if (charging_mode.active) {
         // Keep ordinary boot UI hidden when VBUS is already present. Runtime
