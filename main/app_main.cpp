@@ -16,6 +16,7 @@
 #include "signal_sound/signal_sound_player.hpp"
 #include "snake/snake_app.hpp"
 #include "mini_racer/mini_racer_app.hpp"
+#include "space_defender/space_defender_app.hpp"
 #include "storage/auto_power_off_store.hpp"
 #include "storage/signal_volume_store.hpp"
 #include "storage/rtc_date_configured_store.hpp"
@@ -60,6 +61,7 @@ enum class RuntimeState : std::uint8_t {
     Facts,
     Snake,
     MiniRacer,
+    SpaceDefender,
     RadioLab,
 };
 
@@ -688,6 +690,7 @@ void redraw_runtime_ui(
     nikos::facts::FactsApp& facts,
     nikos::snake::SnakeApp& snake,
     nikos::mini_racer::MiniRacerApp& mini_racer,
+    nikos::space_defender::SpaceDefenderApp& space_defender,
     nikos::radiolab::RadioLabApp& radiolab,
     nikos::sound_meter::SoundMeterApp& sound_meter)
 {
@@ -713,6 +716,9 @@ void redraw_runtime_ui(
         case RuntimeState::MiniRacer:
             mini_racer.redraw();
             break;
+        case RuntimeState::SpaceDefender:
+            space_defender.redraw();
+            break;
         case RuntimeState::RadioLab:
             radiolab.redraw();
             break;
@@ -736,7 +742,9 @@ void enter_communicator_for_incoming(
     RuntimeState& state,
     bool& resume_snake_after_communicator,
     bool& resume_mini_racer_after_communicator,
+    bool& resume_space_defender_after_communicator,
     nikos::mini_racer::MiniRacerApp& mini_racer,
+    nikos::space_defender::SpaceDefenderApp& space_defender,
     bool& resume_flashlight_after_communicator,
     bool& resume_facts_after_communicator,
     nikos::communicator::CommunicatorApp& communicator,
@@ -747,6 +755,9 @@ void enter_communicator_for_incoming(
     } else if (state == RuntimeState::MiniRacer) {
         mini_racer.suspend();
         resume_mini_racer_after_communicator = true;
+    } else if (state == RuntimeState::SpaceDefender) {
+        space_defender.suspend();
+        resume_space_defender_after_communicator = true;
     } else if (state == RuntimeState::Flashlight) {
         flashlight.prepare_for_foreground_takeover();
         resume_flashlight_after_communicator = true;
@@ -759,7 +770,8 @@ void enter_communicator_for_incoming(
         || state == RuntimeState::Flashlight
         || state == RuntimeState::Facts
         || state == RuntimeState::Snake
-        || state == RuntimeState::MiniRacer) {
+        || state == RuntimeState::MiniRacer
+        || state == RuntimeState::SpaceDefender) {
         state = RuntimeState::Communicator;
         communicator.begin();
     }
@@ -1090,6 +1102,7 @@ extern "C" void app_main(void)
     nikos::facts::FactsApp facts(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
     nikos::mini_racer::MiniRacerApp mini_racer(board, display_lifecycle);
+    nikos::space_defender::SpaceDefenderApp space_defender(board, display_lifecycle);
 
     bool communicator_enabled = false;
     bool resume_messaging_after_radiolab = false;
@@ -1097,6 +1110,7 @@ extern "C" void app_main(void)
     bool resume_countdown_after_meter = false;
     bool resume_snake_after_communicator = false;
     bool resume_mini_racer_after_communicator = false;
+    bool resume_space_defender_after_communicator = false;
     bool resume_flashlight_after_communicator = false;
     bool resume_facts_after_communicator = false;
 
@@ -1177,6 +1191,7 @@ extern "C" void app_main(void)
 
         if (charging_cable_event == ChargingCableEvent::Connected) {
             if (state == RuntimeState::MiniRacer) mini_racer.suspend();
+            if (state == RuntimeState::SpaceDefender) space_defender.suspend();
             auto_power_off_due = false;
             auto_power_off_incoming_grace_active = false;
             prepare_flashlight_for_foreground_takeover(
@@ -1217,6 +1232,7 @@ extern "C" void app_main(void)
         } else if (
             charging_cable_event == ChargingCableEvent::Disconnected) {
             if (state == RuntimeState::MiniRacer) mini_racer.resume();
+            if (state == RuntimeState::SpaceDefender) space_defender.resume();
             auto_power_off_last_local_activity_ms = loop_now_ms;
             auto_power_off_due = false;
             auto_power_off_incoming_grace_active = false;
