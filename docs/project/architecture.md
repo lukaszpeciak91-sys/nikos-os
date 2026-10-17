@@ -548,27 +548,20 @@ historical design notes and are superseded as current product policy by this
 section.
 
 
-### Sound Meter v0.1 — microphone completion repair (2026-10-17)
+### Sound Meter v0.1 — PCM capture contract (2026-10-17)
 
-The original UI sampled `samples_` whenever `M5.Mic.isRecording()` returned
-zero, without a completion token for its exact buffer. M5Unified 0.2.22
-provides `Mic.setBufferReleaseCallback()`; the Board adapter now publishes
-that completed buffer pointer through an atomic release/acquire mailbox.
-The app consumes only the matching completed buffer, discards the first two
-startup blocks, rejects untouched sentinel PCM, detects 600 ms capture stalls,
-and errors after repeated constant PCM or recording request rejection.
-The speaker remains exclusive with the mic and is restored with the configured
-notification volume on exit/failure. Existing relative scale and 0–100
-thresholds remain unchanged pending measured physical PCM/RMS data.
+M5Unified **0.2.22**: `Mic.begin()` reports initialized capture; `isRunning()`
+observes its task, not completed samples; `Mic.record(buffer, count, rate)`
+may start the mic lazily and returns acceptance, not completion. Board validates
+buffer/count/rate, calls `record()` directly, and logs rejection with running/
+recording state. The buffer-release callback publishes the exact completed
+PCM buffer pointer through an atomic release/acquire mailbox. UI consumes only
+the matching completed buffer. Requests are serialized by the existing app.
 
-Bounded logs show mic initialization, request rejections, completed blocks,
-timeouts, PCM min/max, DC-corrected RMS and relative level. Successful block
-summaries appear for the first three post-warmup blocks and every 64th block.
-No new task, dB conversion or audio framework is introduced.
-
-**Hardware verification checklist:** (1) quiet room; (2) speech; (3) clap;
-(4) return to quiet; (5) repeat entry/exit; (6) confirm buzzer volume and
-Communicator resume. Compare PCM min/max and RMS under each condition. If RMS
-tracks real sound but the mapped 0–100 level does not, tune the relative floor
-in a separate evidence-driven follow-up. An initialized mic alone does not
-prove audio acquisition.
+Two startup blocks are discarded; untouched sentinel PCM, eight successive
+constant blocks, three rejected requests and capture exceeding 600 ms result
+in visible microphone error, not a stale level. Diagnostic logs are bounded:
+first valid blocks and every 64th completion plus faults, min/max, DC-corrected
+RMS and relative 0–100 level. Microphone and speaker stay exclusive; speaker
+restarts with the configured volume on exit/failure. Level mapping, layout,
+Communicator suspension and all power ownership remain unchanged.
