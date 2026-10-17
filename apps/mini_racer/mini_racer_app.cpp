@@ -197,6 +197,30 @@ void MiniRacerApp::render_playing(bool full) {
     }
 }
 void MiniRacerApp::render_menu(bool game_over) {
+    if (!game_over) {
+        // Space Guard's approved pause hierarchy, without sharing game logic.
+        board_.clear_screen();
+        board_.draw_text_region(14, 10, 212, 26, "PAUZA", 2);
+        char summary[34]{};
+        std::snprintf(summary, sizeof(summary), "WYNIK %lu  MAX %lu",
+            static_cast<unsigned long>(score_),
+            static_cast<unsigned long>(record_));
+        board_.draw_text_region(12, 41, 220, 17, summary, 1,
+            board::DisplayColor::Accent);
+        board_.draw_text_region(18, 65, 208, 25, "WZNÓW GRĘ", 2,
+            menu_selection_ == 0 ? board::DisplayColor::PrimaryText
+                                 : board::DisplayColor::SecondaryText,
+            menu_selection_ == 0 ? board::DisplayColor::Surface
+                                 : board::DisplayColor::Background);
+        board_.draw_text_region(18, 93, 208, 25, "WYJDŹ", 2,
+            menu_selection_ == 1 ? board::DisplayColor::PrimaryText
+                                 : board::DisplayColor::SecondaryText,
+            menu_selection_ == 1 ? board::DisplayColor::Surface
+                                 : board::DisplayColor::Background);
+        board_.draw_text_region(12, 125, 224, 10, "SIDE ZMIANA   M5 OK", 1);
+        return;
+    }
+
     board_.clear_screen();
     board_.draw_text_region(5, 3, 94, 15, "MINI RACER", 1);
     char summary[30]{};
