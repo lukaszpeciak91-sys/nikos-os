@@ -287,3 +287,8 @@ Still requires host test execution, ESP-IDF 5.5.5 firmware build, and physical
 verification: quiet room → speech → clap → silence → repeated entry/exit →
 buzzer at configured volume and restored Communicator. Capture real RMS before
 changing signal thresholds. Hardware cause remains provisional until tested.
+
+
+### Space Defender v0.1 — PR implementation (2026-10-17)
+
+New independent three-lane game, Launcher integration, lifecycle hooks, fixed object pools and C++ host rules test were added. Remaining acceptance requires running host regressions, compiling under ESP-IDF 5.5.5, confirming linked firmware size and visual hardware checks: enemy silhouettes, automatic shots, three hits/1.5 s immunity, scrolling, pause/restart, time limit, charging lock, incoming Communicator and DisplayOff/wake. No flash or merge was authorized.
