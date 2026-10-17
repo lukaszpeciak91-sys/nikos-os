@@ -91,4 +91,18 @@ for func in menu_calls:
         "void Launcher::", 1)[0]
     assert "clear_shell(board_);" in body
 
+
+# Use the actual generated glyph advances, not approximate character widths,
+# for every dynamic Clock timer label supported by the product.
+glyphs = (root / "components/font_core/glyph_assets.hpp").read_text(encoding="utf-8")
+advances = {int(cp): int(advance) for cp, advance in
+            re.findall(r'\\{(\\d+),\\s*(\\d+),\\s*"', glyphs)}
+def readable_width(value):
+    return sum(((advances[ord(char)] + 1) * 5 + 3) // 4 for char in value)
+
+for label in ("MINUTNIK", "MINUTNIK KONIEC", "MINUTNIK 00:30",
+              "MINUTNIK 15:00"):
+    assert readable_width(label) <= 196, (label, readable_width(label))
+assert "font_renderer_.draw(label, {22, y, 196, height}" in launcher
+
 print("Settings/Clock, sound selection and Mini Racer pause layout guards PASS")
