@@ -1218,10 +1218,6 @@ extern "C" void app_main(void)
                 } else if (resume_space_defender_after_communicator) {
                     resume_space_defender_after_communicator = false;
                     state = RuntimeState::SpaceDefender;
-                } else if (resume_space_defender_after_communicator) {
-                    resume_space_defender_after_communicator = false;
-                    state = RuntimeState::SpaceDefender;
-                    space_defender.resume();
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
@@ -1355,7 +1351,6 @@ extern "C" void app_main(void)
                     snake,
                     mini_racer,
                     space_defender,
-                space_defender,
                     radiolab,
                     sound_meter);
             }
@@ -1560,7 +1555,6 @@ extern "C" void app_main(void)
                     snake,
                     mini_racer,
                     space_defender,
-                space_defender,
                     radiolab,
                     sound_meter);
 
@@ -1967,10 +1961,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
                     resume_space_defender_after_communicator,
-                resume_space_defender_after_communicator,
                     mini_racer,
                     space_defender,
-                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2033,10 +2025,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
                     resume_space_defender_after_communicator,
-                resume_space_defender_after_communicator,
                     mini_racer,
                     space_defender,
-                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2274,10 +2264,6 @@ extern "C" void app_main(void)
                 } else if (resume_space_defender_after_communicator) {
                     resume_space_defender_after_communicator = false;
                     state = RuntimeState::SpaceDefender;
-                } else if (resume_space_defender_after_communicator) {
-                    resume_space_defender_after_communicator = false;
-                    state = RuntimeState::SpaceDefender;
-                    space_defender.resume();
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
@@ -2312,10 +2298,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
                     resume_space_defender_after_communicator,
-                resume_space_defender_after_communicator,
                     mini_racer,
                     space_defender,
-                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2380,10 +2364,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
                     resume_space_defender_after_communicator,
-                resume_space_defender_after_communicator,
                     mini_racer,
                     space_defender,
-                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2408,10 +2390,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
                     resume_space_defender_after_communicator,
-                resume_space_defender_after_communicator,
                     mini_racer,
                     space_defender,
-                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2434,10 +2414,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
                     resume_space_defender_after_communicator,
-                resume_space_defender_after_communicator,
                     mini_racer,
                     space_defender,
-                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2482,10 +2460,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
                     resume_space_defender_after_communicator,
-                resume_space_defender_after_communicator,
                     mini_racer,
                     space_defender,
-                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
