@@ -72,12 +72,12 @@ void ConverterApp::render(){
         font_.draw(edit,{kEditX,kEditY,190,24},
             board::DisplayColor::Accent,board::DisplayColor::Background);
         board_.fill_rect(cursor_x,70,cursor_width,3,board::DisplayColor::Accent);
-        draw(units(category_)[unit_].label,34,81,170);
+        draw(units(category_)[unit_].label,34,75,170);
         if(invalid_temperature_)
-            draw("PONIŻEJ ZERA ABS.",12,102,216,board::DisplayColor::Attention);
+            draw("PONIŻEJ ZERA ABS.",12,96,216,board::DisplayColor::Attention);
         else
-            draw("SIDE +1  M5 DALEJ",12,102,216);
-        draw("SIDE DŁUGO: ANULUJ",12,117,216);
+            draw("SIDE +1  M5 DALEJ",12,96,216);
+        draw("SIDE DŁUGO: ANULUJ",12,116,216);
         return;
     }
     double input=0;
