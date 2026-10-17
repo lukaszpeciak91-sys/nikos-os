@@ -50,8 +50,8 @@ std::array<char, 128> FactsApp::wrapped_title_{};
 std::array<char, 320> FactsApp::wrapped_body_{};
 std::array<char, 320> FactsApp::measure_scratch_{};
 
-FactsApp::FactsApp(board::Board& board, settings::State& settings)
-    : board_(board), settings_(settings), renderer_(board), quiz_(board, settings)
+FactsApp::FactsApp(board::Board& board)
+    : board_(board), renderer_(board), quiz_(board)
 {
 }
 
