@@ -2142,8 +2142,37 @@ extern "C" void app_main(void)
                 }
 
                 const nikos::launcher::Action action = launcher.update(input);
-
-                if (action == nikos::launcher::Action::SignalVolumeChanged) {
+                const bool guard_entry =
+                    action == nikos::launcher::Action::OpenSnake
+                    || action == nikos::launcher::Action::OpenMiniRacer
+                    || action == nikos::launcher::Action::OpenFacts;
+                bool entry_refused = false;
+                if (guard_entry) {
+                    if (battery_guard.low_battery_reserve_active()) {
+                        entertainment_notice = EntertainmentNotice::LowBattery;
+                        entry_refused = true;
+                    } else {
+                        std::uint32_t civil_minute = 0;
+                        const bool trusted =
+                            trusted_civil_minute(clock_service, civil_minute);
+                        if (!entertainment_guard.enter(loop_now_ms, trusted, civil_minute)) {
+                            entertainment_notice = EntertainmentNotice::Break;
+                            entry_refused = true;
+                        }
+                        if (entertainment_guard.pending_write()) {
+                            const auto cycle = entertainment_guard.snapshot();
+                            if (!entertainment_store.save(
+                                    {cycle.active,cycle.civil_valid,cycle.civil_start}))
+                                ESP_LOGW(kTag, "Entertainment cycle start not persisted");
+                            entertainment_guard.settled();
+                        }
+                    }
+                }
+                if (entry_refused) {
+                    entertainment_notice_rendered = true;
+                    render_entertainment_notice(board,entertainment_notice);
+                    display_lifecycle.suppress_user_gesture_until_release();
+                } else if (action == nikos::launcher::Action::SignalVolumeChanged) {
                     const std::uint8_t requested = settings.signal_volume_level;
                     if (!signal_volume_store.save_level(requested)) {
                         settings.signal_volume_level = persisted_signal_volume_level;
