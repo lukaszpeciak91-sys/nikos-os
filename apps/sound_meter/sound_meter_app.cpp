@@ -1,10 +1,17 @@
 #include "sound_meter/sound_meter_app.hpp"
 #include <cstdio>
+#include <algorithm>
+#include <cstring>
+#include "esp_log.h"
 
 namespace nikos::sound_meter {
 namespace {
 constexpr std::uint32_t kSampleRate = 17000;
 constexpr std::uint32_t kCaptureIntervalMs = 80;
+constexpr std::uint32_t kCaptureTimeoutMs = 600;
+constexpr std::uint32_t kWarmupBlocks = 2;
+constexpr std::uint8_t kConstantBlockLimit = 8;
+constexpr const char* kTag = "SoundMeter";
 board::DisplayColor level_color(std::uint8_t level)
 {
     if (level < 25) return board::DisplayColor::StatusActive;
@@ -27,6 +34,11 @@ void SoundMeterApp::begin()
     suspended_ = false;
     capture_pending_ = false;
     last_capture_ms_ = 0;
+    capture_started_ms_ = 0;
+    completed_blocks_ = 0;
+    accepted_requests_ = 0;
+    rejected_requests_ = 0;
+    consecutive_constant_blocks_ = 0;
     shown_level_ = 255;
     shown_peak_ = 255;
     levels_.reset();
@@ -58,6 +70,11 @@ void SoundMeterApp::resume()
     microphone_ok_ = board_.begin_microphone();
     capture_pending_ = false;
     last_capture_ms_ = 0;
+    capture_started_ms_ = 0;
+    completed_blocks_ = 0;
+    accepted_requests_ = 0;
+    rejected_requests_ = 0;
+    consecutive_constant_blocks_ = 0;
     render(true);
 }
 
@@ -79,20 +96,78 @@ SoundMeterApp::Result SoundMeterApp::update(
     if (!microphone_ok_) return Result::Running;
 
     if (capture_pending_) {
-        if (!board_.microphone_recording()) {
+        if (board_.microphone_capture_completed(samples_)) {
             capture_pending_ = false;
-            levels_.consume(samples_, sizeof(samples_) / sizeof(samples_[0]), now_ms);
-            render(false);
+            ++completed_blocks_;
+            const auto bounds = std::minmax_element(
+                samples_, samples_ + sizeof(samples_) / sizeof(samples_[0]));
+            const std::int16_t low = *bounds.first;
+            const std::int16_t high = *bounds.second;
+
+            // The first two buffers after Mic.begin() may contain startup
+            // transients. Do not feed them to the displayed peak or level.
+            if (completed_blocks_ <= kWarmupBlocks) {
+                ESP_LOGI(kTag, "Mic warmup block %lu min=%d max=%d",
+                    static_cast<unsigned long>(completed_blocks_), low, high);
+            } else {
+                if (low == high) {
+                    if (consecutive_constant_blocks_ < kConstantBlockLimit)
+                        ++consecutive_constant_blocks_;
+                } else {
+                    consecutive_constant_blocks_ = 0;
+                }
+                if (consecutive_constant_blocks_ >= kConstantBlockLimit) {
+                    ESP_LOGE(kTag, "Mic constant PCM: %u successive blocks (%d)",
+                        consecutive_constant_blocks_, low);
+                    microphone_ok_ = false;
+                    board_.end_microphone();
+                    render(true);
+                    return Result::Running;
+                }
+                levels_.consume(samples_, sizeof(samples_) / sizeof(samples_[0]), now_ms);
+                if (completed_blocks_ <= kWarmupBlocks + 3
+                    || completed_blocks_ % 64U == 0U) {
+                    ESP_LOGI(kTag,
+                        "Mic PCM blocks=%lu requests=%lu rejected=%u min=%d max=%d rms=%.1f level=%u",
+                        static_cast<unsigned long>(completed_blocks_),
+                        static_cast<unsigned long>(accepted_requests_),
+                        static_cast<unsigned>(rejected_requests_),
+                        low, high, static_cast<double>(levels_.last_rms()),
+                        static_cast<unsigned>(levels_.level()));
+                }
+                render(false);
+            }
+        } else if (now_ms - capture_started_ms_ >= kCaptureTimeoutMs) {
+            ESP_LOGE(kTag, "Mic capture timeout (%lu ms, requests=%lu completed=%lu)",
+                static_cast<unsigned long>(now_ms - capture_started_ms_),
+                static_cast<unsigned long>(accepted_requests_),
+                static_cast<unsigned long>(completed_blocks_));
+            microphone_ok_ = false;
+            capture_pending_ = false;
+            board_.end_microphone();
+            render(true);
         }
     } else if (last_capture_ms_ == 0
                || now_ms - last_capture_ms_ >= kCaptureIntervalMs) {
         last_capture_ms_ = now_ms;
+        // Sentinel prevents a stale/untouched buffer being treated as valid
+        // PCM on a failed or prematurely released capture.
+        std::fill_n(samples_, sizeof(samples_) / sizeof(samples_[0]),
+            static_cast<std::int16_t>(0x5A5A));
         if (!board_.record_microphone(samples_,
                 sizeof(samples_) / sizeof(samples_[0]), kSampleRate)) {
-            microphone_ok_ = false;
-            board_.end_microphone();
-            render(true);
+            ++rejected_requests_;
+            ESP_LOGW(kTag, "Mic request rejected (%u consecutive)",
+                static_cast<unsigned>(rejected_requests_));
+            if (rejected_requests_ >= 3) {
+                microphone_ok_ = false;
+                board_.end_microphone();
+                render(true);
+            }
         } else {
+            ++accepted_requests_;
+            rejected_requests_ = 0;
+            capture_started_ms_ = now_ms;
             capture_pending_ = true;
         }
     }
