@@ -980,20 +980,8 @@ extern "C" void app_main(void)
                 || x + w > 240 || y + h > 135) {
                 return false;
             }
-            // Very small metadata regions cannot contain a 19px raster line.
-            // Keep native compact layout, but never feed Polish UTF-8 to Font0.
-            if (h < 19) {
-                bool accented = false;
-                for (const unsigned char* p =
-                         reinterpret_cast<const unsigned char*>(value); *p; ++p) {
-                    if (*p >= 0x80U) { accented = true; break; }
-                }
-                if (accented) {
-                    ctx.board->draw_polish_ui_text_region(x, y, w, h, value, 1, fg, bg);
-                    return true;
-                }
-                return false;
-            }
+            // Preserve every native size-1 instructional/HUD path unchanged.
+            if (size <= 1 || h < 19) return false;
             auto& renderer = *ctx.renderer;
             renderer.select(nikos::font_core::Mode::PreRendered);
             renderer.set_size(size >= 2 && h >= 24
