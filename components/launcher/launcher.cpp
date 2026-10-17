@@ -1043,10 +1043,9 @@ Action Launcher::update(const board::InputState& input)
             signal_sound_.stop();
             screen_ = Screen::Settings;
         } else if (input.secondary_short) {
-            const auto previous = sound_menu_selection_;
             sound_menu_selection_ =
                 static_cast<std::uint8_t>((sound_menu_selection_ + 1U) % 3U);
-            redraw_sound_selection_rows(previous);
+            render();
             return Action::None;
         } else if (input.primary_short) {
             if (sound_menu_selection_ == 0U) {
@@ -1072,10 +1071,9 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         }
         if (input.secondary_short) {
-            const auto previous = signal_volume_selection_;
             signal_volume_selection_ =
                 static_cast<std::uint8_t>((signal_volume_selection_ + 1U) % 6U);
-            redraw_sound_selection_rows(previous);
+            render();
             return Action::None;
         }
         if (!input.primary_short) return Action::None;
@@ -1100,10 +1098,9 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_short) {
-            const auto previous = signal_sound_selection_;
             signal_sound_selection_ =
                 static_cast<std::uint8_t>((signal_sound_selection_ + 1U) % 4U);
-            redraw_sound_selection_rows(previous);
+            render();
             return Action::None;
         }
 
@@ -2846,67 +2843,6 @@ void Launcher::render_signal_sound()
     board_.draw_text_region(14, 116, 212, 14,
         "M5 WYBIERZ | BOCZNY DALEJ", 1,
         board::DisplayColor::SecondaryText);
-}
-
-void Launcher::redraw_sound_selection_rows(std::uint8_t previous)
-{
-    if (screen_ == Screen::SignalVolume) {
-        const auto first_for = [](std::uint8_t selection) -> std::uint8_t {
-            return selection >= 4U ? static_cast<std::uint8_t>(selection - 3U) : 0U;
-        };
-        if (first_for(previous) != first_for(signal_volume_selection_)) {
-            render_signal_volume();
-            return;
-        }
-    }
-
-    constexpr const char* kMenu[3] = {"MELODIA", "GŁOŚNOŚĆ", "POWRÓT"};
-    constexpr const char* kVolume[6] = {"0%", "25%", "50%", "75%", "100%", "POWRÓT"};
-    constexpr const char* kSounds[4] = {"ŁAGODNY", "KLASYCZNY", "PAGER", "POWRÓT"};
-    const std::uint8_t current = screen_ == Screen::SoundMenu ? sound_menu_selection_
-        : screen_ == Screen::SignalVolume ? signal_volume_selection_ : signal_sound_selection_;
-    for (const auto index : {previous, current}) {
-        std::int16_t y = 0;
-        const char* label = nullptr;
-        std::int16_t width = 194;
-        std::int16_t height = 20;
-        std::int16_t marker_height = 18;
-        if (screen_ == Screen::SoundMenu) {
-            y = static_cast<std::int16_t>(39 + index * 23);
-            label = kMenu[index];
-        } else if (screen_ == Screen::SignalVolume) {
-            const std::uint8_t first = current >= 4U
-                ? static_cast<std::uint8_t>(current - 3U) : 0U;
-            y = static_cast<std::int16_t>(31 + (index - first) * 20);
-            label = kVolume[index];
-            width = 184;
-            height = 18;
-            marker_height = 16;
-        } else {
-            y = static_cast<std::int16_t>(36 + index * 19);
-            label = kSounds[index];
-            width = 196;
-            height = 18;
-            marker_height = 16;
-        }
-        board_.fill_rect(12, y, 210, height, board::DisplayColor::Background);
-        const bool selected = index == current;
-        board_.draw_text_region(22, y, width, height, label, 2,
-            selected ? board::DisplayColor::PrimaryText
-                     : board::DisplayColor::SecondaryText,
-            selected ? board::DisplayColor::Surface
-                     : board::DisplayColor::Background);
-        if (selected) draw_selection_marker(board_, 14, y, marker_height);
-        if (screen_ == Screen::SignalVolume && index == settings_.signal_volume_level) {
-            board_.fill_circle(211, static_cast<std::int16_t>(y + 7), 3,
-                board::DisplayColor::Accent);
-        }
-        if (screen_ == Screen::SignalSound && index < 3U
-            && index == signal_sound_index(settings_.signal_sound)) {
-            board_.fill_circle(211, static_cast<std::int16_t>(y + 7), 3,
-                board::DisplayColor::Accent);
-        }
-    }
 }
 
 void Launcher::render_brightness()
