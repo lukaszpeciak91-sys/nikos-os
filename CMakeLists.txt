@@ -9,6 +9,7 @@ set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/apps/sound_meter"
     "${CMAKE_CURRENT_LIST_DIR}/apps/snake"
     "${CMAKE_CURRENT_LIST_DIR}/apps/mini_racer"
+    "${CMAKE_CURRENT_LIST_DIR}/apps/space_defender"
     "${CMAKE_CURRENT_LIST_DIR}/apps/facts"
 )
 
