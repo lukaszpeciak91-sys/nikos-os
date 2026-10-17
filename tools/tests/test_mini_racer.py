@@ -15,6 +15,7 @@ source = r"""
 #include <cassert>
 #include <cstdint>
 #include <algorithm>
+#include <cstdlib>
 #include "mini_racer/traffic_rules.hpp"
 using namespace nikos::mini_racer::rules;
 int main() {
