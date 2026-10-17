@@ -312,3 +312,8 @@ Added a small policy component, narrow NVS record, trusted ClockService civil-mi
 ### Entertainment Guard PR #84 audit iteration — Space Defender and deferred Break
 
 Space Defender now shares guarded entry, warning suspend/resume, 20-minute lifecycle termination, cooldown and authoritative Low Battery Reserve with Snake/Mini Racer/Facts. Its local 10-minute timeout uses neutral KONIEC SESJI / 10 MIN GRY wording. A global expiration while one of these applications is preempted by Communicator ends the retained app and clears its resume flag, while queuing a Break notice without taking foreground; the notice is shown when Communicator exits and dismisses to ROZRYWKA. The existing RTC/NVS cycle timings and non-entertainment ownership remain unchanged. Source regression coverage was extended; full host suite, ESP-IDF build and physical timing tests remain pending.
+
+
+### Entertainment Guard PR #84 R1 audit repairs
+
+Removed duplicate OpenSpaceDefender enum item, guarded the contiguous Launcher Entertainment action range and added a structural regression requiring all Entertainment launcher routes to match the range and protected runtime. First NVS write failure now aborts admission and rolls back the unpersisted policy start; a failed expiry clear remains latched and is retried only on explicit protected launch. Entertainment warning ownership blocks premature Mini Racer/Space Defender lifecycle resume. The Communicator restoration condition now includes Space Defender. Host regression extended with failure-injection and synthetic Entertainment route coverage; full repository host suite and ESP-IDF build remain unverified until available.
