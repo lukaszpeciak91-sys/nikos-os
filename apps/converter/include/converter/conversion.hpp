@@ -18,6 +18,11 @@ inline std::uint8_t count(Category c) {
     switch(c) {case Category::Temperature:return 3;case Category::Length:return 7;
     case Category::Mass:return 4;case Category::Volume:return 3;}return 3;
 }
+// Guard editor admission before constructing its fixed-width digit buffer.
+inline bool editable_value(Category c, double value) {
+    return std::isfinite(value) && value >= (c == Category::Temperature ? -9999.9 : 0.0)
+        && value <= 9999.9;
+}
 inline bool to_base(Category c,std::uint8_t unit,double value,double& out) {
     if(unit>=count(c)||!std::isfinite(value)||value>9999.9||value< -9999.9) return false;
     if(c!=Category::Temperature&&value<0) return false;
