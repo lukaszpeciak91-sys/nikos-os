@@ -1955,7 +1955,7 @@ void Launcher::render_timer_setup()
         101,
         196,
         16,
-        "BOCZNY DŁUGO",
+        "BOCZNY DLUGO",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2072,7 +2072,7 @@ void Launcher::render_stopwatch()
             94,
             196,
             18,
-            "BOCZNY POWRÓT",
+            "BOCZNY POWROT",
             2,
             board::DisplayColor::SecondaryText,
             board::DisplayColor::Background);
@@ -2082,7 +2082,7 @@ void Launcher::render_stopwatch()
             121,
             212,
             12,
-            "BOCZNY DŁUGO = POWRÓT",
+            "BOCZNY DLUGO = POWROT",
             1,
             board::DisplayColor::SecondaryText,
             board::DisplayColor::Background);
@@ -2192,7 +2192,7 @@ void Launcher::render_clock_editor(bool editing_hour)
         119,
         212,
         12,
-        "BOCZNY DŁUGO = POWRÓT",
+        "BOCZNY DLUGO = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2225,7 +2225,7 @@ void Launcher::render_clock_set_failed()
         108,
         180,
         14,
-        "M5 / BOCZNY = POWRÓT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2295,7 +2295,7 @@ void Launcher::render_date_editor()
         119,
         212,
         12,
-        "BOCZNY DŁUGO = POWRÓT",
+        "BOCZNY DLUGO = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2328,7 +2328,7 @@ void Launcher::render_date_set_failed()
         108,
         180,
         14,
-        "M5 / BOCZNY = POWRÓT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2371,7 +2371,7 @@ void Launcher::render_date_needs_time()
         112,
         180,
         14,
-        "M5 / BOCZNY = POWRÓT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
