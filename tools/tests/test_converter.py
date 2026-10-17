@@ -112,7 +112,7 @@ int main(){
  assert(close(out,20000.0)); // unchanged after switching back
  // Negative temperature outside the range can be edited after a unit switch.
  assert(to_base(Category::Temperature,0,-9999.9,base)==false);
- assert(to_base(Category::Temperature,2,1000,base));
+ assert(to_base(Category::Temperature,2,6000,base));
  assert(from_base(Category::Temperature,1,base,out));
  assert(!editable_value(Category::Temperature,out));
  assert(from_base(Category::Temperature,2,base,out));
