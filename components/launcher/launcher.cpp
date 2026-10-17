@@ -3298,6 +3298,13 @@ void Launcher::render_auto_power_off()
         board::DisplayColor::Background);
 }
 
+bool Launcher::showing_communicator_ui() const
+{
+    return screen_ == Screen::EnableCommunicator
+        || screen_ == Screen::ActiveCommunicator
+        || screen_ == Screen::DisableCommunicator;
+}
+
 void Launcher::render_enable_communicator()
 {
     clear_shell(board_);
@@ -3307,7 +3314,7 @@ void Launcher::render_enable_communicator()
         16,
         204,
         22,
-        "WŁĄCZYĆ",
+        "WLACZYC",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
@@ -3364,7 +3371,7 @@ void Launcher::render_active_communicator()
 
     constexpr const char* kChoices[2] = {
         "WEJDZ",
-        "WYŁĄCZ",
+        "WYLACZ",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
