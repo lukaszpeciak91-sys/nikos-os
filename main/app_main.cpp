@@ -960,9 +960,10 @@ extern "C" void app_main(void)
     nikos::font_core::Renderer system_text_renderer(board);
     struct SystemTextContext {
         nikos::font_core::Renderer* renderer;
+        nikos::board::Board* board;
         RuntimeState* active_screen = nullptr;
         ChargingModeState* charging = nullptr;
-    } system_text_context{&system_text_renderer};
+    } system_text_context{&system_text_renderer, &board};
     board.set_text_delegate(&system_text_context,
         [](void* user, std::int16_t x, std::int16_t y,
            std::int16_t w, std::int16_t h, const char* value,
@@ -985,7 +986,7 @@ extern "C" void app_main(void)
                     if (*p >= 0x80U) { accented = true; break; }
                 }
                 if (accented) {
-                    board.draw_polish_ui_text_region(x, y, w, h, value, 1, fg, bg);
+                    ctx.board->draw_polish_ui_text_region(x, y, w, h, value, 1, fg, bg);
                     return true;
                 }
                 return false;
