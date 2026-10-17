@@ -117,6 +117,7 @@ with tempfile.TemporaryDirectory() as tmp:
 
 main = (root / "main/app_main.cpp").read_text(encoding="utf-8")
 assert "OpenSnake" in main and "OpenMiniRacer" in main and "OpenFacts" in main
+assert "OpenCoinFlip" in main
 assert "const bool guard_entry = launcher.take_entertainment_launch()" in main
 assert "&& action != nikos::launcher::Action::None;" in main
 assert "guard_entry != recognized_entertainment" in main
@@ -140,7 +141,7 @@ def check_contract(screen_text, update_text, recognized_text, runtime_text):
     if "entertainment_action(" in screen_text:
         return False
     routes = re.findall(r"return\s+Action::(Open\w+)\s*;", screen_text)
-    if len(routes)!=4 or len(routes)!=len(set(routes)):
+    if len(routes)!=5 or len(routes)!=len(set(routes)):
         return False
     for action in routes:
         if "Action::"+action not in recognized_text:
@@ -171,7 +172,8 @@ warning = main.split("if (entertainment_warning_visible &&",1)[1].split(
 def lifecycle_covered(termination_text, resume_text, warning_text):
     for name, variable in (
         ("Snake","snake"), ("MiniRacer","mini_racer"),
-        ("SpaceDefender","space_defender"), ("Facts","facts")):
+        ("SpaceDefender","space_defender"), ("CoinFlip","coin_flip"),
+        ("Facts","facts")):
         flag = "resume_" + variable + "_after_communicator"
         if variable+".end();" not in termination_text:
             return False
@@ -181,6 +183,7 @@ def lifecycle_covered(termination_text, resume_text, warning_text):
             return False
     for operation in ("mini_racer.suspend();", "space_defender.suspend();",
                       "mini_racer.resume();", "space_defender.resume();",
+                      "coin_flip.suspend();", "coin_flip.resume();",
                       "snake.suspend_for_entertainment_warning();",
                       "snake.resume_from_entertainment_warning()", "facts.redraw()"):
         if operation not in warning_text:
@@ -201,20 +204,24 @@ assert "entertainment_notice_rendered = false;" in termination
 assert "(charging_mode.active && !charging_mode.owner_override_active)" in main
 assert "render_entertainment_notice(board, entertainment_notice);" in main
 # The existing DisplayLifecycle wake path must not resume during warning.
-for name in ("mini_racer", "space_defender"):
+for name in ("mini_racer", "space_defender", "coin_flip"):
     path = main.split(name+".resume_if_suspended();",1)[0].rsplit("if (",1)[1]
     assert "!entertainment_warning_visible" in path
 
 assert "snake.end();" in main and "mini_racer.end();" in main
 assert "facts.end();" in main
 assert "space_defender.end();" in main
+assert "coin_flip.end();" in main
 predicate = main.split("bool is_guarded_entertainment(", 1)[1].split(
     "bool trusted_civil_minute", 1)[0]
 assert "RuntimeState::SpaceDefender" in predicate
+assert "RuntimeState::CoinFlip" in predicate
 termination = main.split("if (entertainment_locked || reserve_entertainment)", 1)[1].split(
     "if (update_charging_full_confirmation(", 1)[0]
 assert "resume_space_defender_after_communicator" in termination
+assert "resume_coin_flip_after_communicator" in termination
 assert "space_defender.end();" in termination
+assert "coin_flip.end();" in termination
 assert "EntertainmentNotice::Break" in termination
 assert "app_was_preempted" in termination
 assert "resume_space_defender_after_communicator = false;" in termination
@@ -224,6 +231,7 @@ warning = main.split("if (entertainment_warning_visible &&", 1)[1].split(
 assert "space_defender.suspend();" in warning
 assert "space_defender.resume();" in warning
 assert "space_defender.begin();" in main
+assert "coin_flip.begin();" in main
 communicator_exit = main.split("communicator_result", 1)[1]
 assert "entertainment_notice != EntertainmentNotice::None" in communicator_exit
 assert "launcher.begin_entertainment(" in communicator_exit
@@ -247,6 +255,7 @@ assert "if (entertainment_store.clear())" in main
 assert "&& !entertainment_warning_visible" in main
 restoration = main.split("if ((resume_snake_after_communicator",1)[1].split("communicator_result",1)[0]
 assert "resume_space_defender_after_communicator" in restoration
+assert "resume_coin_flip_after_communicator" in restoration
 assert "entertainment_store.clear()" in main
 store = (root / "components/storage/entertainment_cycle_store.cpp").read_text(encoding="utf-8")
 assert "static_assert(sizeof(Record)==12U" in store
@@ -254,6 +263,7 @@ assert 'kKey[]="ent_cycle"' in store
 assert "warning_shown" in store
 assert "resume_snake_after_communicator = false;" in main
 assert "resume_mini_racer_after_communicator = false;" in main
+assert "resume_coin_flip_after_communicator = false;" in main
 assert "resume_facts_after_communicator = false;" in main
 assert "kAutoPowerOffIdleMs = 20U * 60U * 1000U;" in main
 for game in ("snake", "mini_racer"):
@@ -261,3 +271,20 @@ for game in ("snake", "mini_racer"):
     assert "KONIEC SESJI" in code
     assert "10 MIN GRY" in code
 print("Entertainment Guard policy and integration host tests PASS")
+
+# Every entertainment action including CoinFlip is covered by the one-use
+# provenance gate and central guard admission. No direct unguarded entry.
+assert "action == nikos::launcher::Action::OpenCoinFlip" in recognized
+assert "return Action::OpenCoinFlip;" in screen
+assert "coin_flip.begin();" in main
+assert "resume_coin_flip_after_communicator" in main
+assert "if (entertainment_locked || reserve_entertainment)" in main
+assert "entertainment_guard.warning_due(loop_now_ms)" in main
+assert "coin_flip.suspend();" in warning
+assert "coin_flip.resume();" in warning
+assert "coin_flip.end();" in termination
+# Repeated tosses are confined to the app; it never starts a new guard window.
+app = (root / "apps/coin_flip/coin_flip_app.cpp").read_text(encoding="utf-8")
+assert "entertainment_guard" not in app and "nvs_" not in app
+assert "esp_random()" in app
+assert "if (input.primary_short && !animation_at_entry)" in app
