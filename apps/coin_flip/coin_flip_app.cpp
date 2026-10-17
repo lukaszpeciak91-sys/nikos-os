@@ -84,9 +84,9 @@ void CoinFlipApp::render() {
     font_.set_size(font_core::Size::Compact);
     font_.draw(heading, {12, 5, 216, 19},
         board::DisplayColor::PrimaryText, board::DisplayColor::Background);
-    board_.draw_text_region(40, 114, 160, 19,
-        state_.phase == Phase::Result ? "M5: PONOWNIE"
-        : state_.phase == Phase::Idle ? "M5: RZUĆ" : "",
-        1, board::DisplayColor::SecondaryText, board::DisplayColor::Background);
+    const char* footer = state_.phase == Phase::Result ? "M5: PONOWNIE"
+        : state_.phase == Phase::Idle ? "M5: RZUĆ" : "";
+    font_.draw(footer, {40, 114, 160, 19},
+        board::DisplayColor::SecondaryText, board::DisplayColor::Background);
 }
 }
