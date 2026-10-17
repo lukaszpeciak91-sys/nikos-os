@@ -459,7 +459,7 @@ void SnakeApp::render_time_limit()
         25,
         190,
         20,
-        "CZAS NA PRZERWE",
+        "CZAS NA PRZERWĘ",
         2,
         board::DisplayColor::Attention,
         board::DisplayColor::Background);

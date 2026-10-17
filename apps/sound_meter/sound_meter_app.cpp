@@ -114,7 +114,7 @@ void SoundMeterApp::render(bool full)
     }
     if (!microphone_ok_) {
         board_.fill_rect(12, 34, 216, 74, board::DisplayColor::Background);
-        board_.draw_text_region(12, 48, 216, 20, "BLAD MIKROFONU", 2,
+        board_.draw_text_region(12, 48, 216, 20, "BŁĄD MIKROFONU", 2,
             board::DisplayColor::Danger);
         board_.draw_text_region(12, 77, 216, 16, "BOCZNY = POWROT", 1);
         return;

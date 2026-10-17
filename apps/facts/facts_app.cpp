@@ -50,8 +50,8 @@ std::array<char, 128> FactsApp::wrapped_title_{};
 std::array<char, 320> FactsApp::wrapped_body_{};
 std::array<char, 320> FactsApp::measure_scratch_{};
 
-FactsApp::FactsApp(board::Board& board, settings::State& settings)
-    : board_(board), settings_(settings), renderer_(board), quiz_(board, settings)
+FactsApp::FactsApp(board::Board& board)
+    : board_(board), renderer_(board), quiz_(board)
 {
 }
 
@@ -460,18 +460,13 @@ void FactsApp::advance_reader()
 
 std::uint8_t FactsApp::text_line_height() const
 {
-    return settings_.font_mode == font_core::Mode::Standard ? 24U :
-        settings_.font_mode == font_core::Mode::PreRendered ? 24U : 19U;
+    return 24U;
 }
 
 std::uint16_t FactsApp::text_width(const char* text) const
 {
-    if (settings_.font_mode == font_core::Mode::Standard) {
-        return static_cast<std::uint16_t>(
-            2 * board_.polish_ui_text_width(text));
-    }
     auto& renderer = const_cast<font_core::Renderer&>(renderer_);
-    renderer.select(settings_.font_mode);
+    renderer.select(font_core::Mode::PreRendered);
     renderer.set_size(font_core::Size::Readable);
     return renderer.measure(text, 30000, 30000).width_px;
 }
@@ -529,12 +524,7 @@ void FactsApp::render_readable(const char* text, std::int16_t x,
     std::int16_t y, std::int16_t width, std::int16_t height,
     board::DisplayColor foreground, board::DisplayColor background)
 {
-    if (settings_.font_mode == font_core::Mode::Standard) {
-        board_.draw_polish_ui_text_region(
-            x, y, width, height, text, 2, foreground, background);
-        return;
-    }
-    renderer_.select(settings_.font_mode);
+    renderer_.select(font_core::Mode::PreRendered);
     renderer_.set_size(font_core::Size::Readable);
     const auto result = renderer_.draw(
         text, {x, y, width, height}, foreground, background);

@@ -219,12 +219,12 @@ void MiniRacerApp::render_menu(bool game_over) {
                                  board::DisplayColor::Accent);
     }
     board_.draw_text_region(22, 76, 210, 23,
-          game_over ? "Zagraj ponownie" : "Wznow gre", 2,
+          game_over ? "ZAGRAJ PONOWNIE" : "WZNÓW GRĘ", 2,
           menu_selection_ == 0 ? board::DisplayColor::Background
                                 : board::DisplayColor::PrimaryText,
           menu_selection_ == 0 ? board::DisplayColor::Accent
                                 : board::DisplayColor::Background);
-    board_.draw_text_region(22, 101, 210, 23, "Wyjdz", 2,
+    board_.draw_text_region(22, 101, 210, 23, "WYJDŹ", 2,
           menu_selection_ == 1 ? board::DisplayColor::Background
                                 : board::DisplayColor::PrimaryText,
           menu_selection_ == 1 ? board::DisplayColor::Accent
@@ -238,7 +238,7 @@ void MiniRacerApp::render() {
     case State::GameOver: render_menu(true); break;
     case State::TimeLimit:
         board_.clear_screen();
-        board_.draw_text_region(18, 36, 218, 30, "CZAS NA PRZERWE", 2);
+        board_.draw_text_region(18, 36, 218, 30, "CZAS NA PRZERWĘ", 2);
         board_.draw_text_region(18, 79, 218, 24, "M5 / SIDE: POWROT", 2);
         break;
     }

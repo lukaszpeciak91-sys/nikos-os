@@ -485,7 +485,7 @@ glyph placement remains mandatory.
 
 `Rozrywka > Mini Racer` launches a dedicated, fixed-memory, two-lane game composed alongside Snake. Launcher owns only the entry and navigation. Mini Racer owns the lane selection, one oncoming vehicle, bounded acceleration, elapsed-time score, RAM-only session record, pause/result menus and 10-minute wall-clock session limit (including pauses). The one-opponent generator leaves at least 200 px of warning distance at the 70 px/s maximum speed, and movement uses swept horizontal overlap checks. Gameplay uses monotonic milliseconds rather than loop counts, with a capped frame update and roughly 13 fps rendering. System overlays preserve its retained state; incoming Communicator and charging-time ownership suspend play and foreground return resets the movement timestamp. It shares the Board 240×135 logical display and global orientation/power policy; no network or new rendering engine is added.
 
-### Font Lab v0.1 (temporary diagnostic)
+### Historical: Font Lab v0.1 (retired from product)
 Tools hosts a temporary Font Lab runtime with a candidate-selection menu and
 six identical UTF-8 test samples. It does not modify the global Board text
 configuration or other application fonts. The small module renders Polish
@@ -498,7 +498,7 @@ diagnostic and its list/page selection is retained for return, including
 Charging Lock handoffs. POWER, DisplayLifecycle, and BatteryGuard remain
 system-owned. No background task, heap framebuffer, network, or persistence.
 
-### Font rendering core v0.1 — experimental, Font Lab only
+### Historical: Font rendering core v0.1 (superseded)
 
 The `font_core` component offers one small per-client `Renderer` with
 `Standard`, `Composed`, and `PreRendered` modes, UTF-8 decoding, glyph
@@ -522,3 +522,27 @@ consumer of this shared core in v0.1; existing Launcher, Settings,
 Communicator, Facts and Quiz continue to use their previous renderers.
 No NVS, theme, orientation, radio or power policy is changed.
 
+
+### Typography Consolidation v1 — approved hardware baseline (2026-10-17)
+
+The physical M5StickC Plus SE comparison selected **PRE-RENDERED** as the
+normal typography for ordinary Nikoś OS application and system UI. The
+shared bounded `font_core` renderer remains authoritative; no duplicated
+bitmap assets or independent font engine was introduced.
+
+The formerly user-selectable STANDARD / COMPOSED / PRE-RENDERED controls
+(`USTAWIENIA > CZCIONKA`) and `NARZĘDZIA > TEST FONTU` were removed.
+Font Lab and its resume/action paths are no longer composed into the firmware,
+but the comparison sources and host validation tooling remain in the repo.
+Product menu headings and selectable labels now use uppercase Polish copy,
+including supported accents; prose, Facts data and Quiz data are unchanged.
+
+**Explicit scope exclusions:** Flashlight, Communicator and Charging Lock /
+FULL / OK retain their existing presentation, navigation and lifecycle.
+The Board text adapter bypasses migration for these foregrounds, as well as
+while Charging Mode is active. Compact metadata keeps measured existing
+geometry and uses Polish-capable rendering for accented strings when needed.
+Facts and Quiz use PRE-RENDERED directly while the later visual and content
+polishing stage is deferred. The legacy experiment descriptions above are
+historical design notes and are superseded as current product policy by this
+section.
