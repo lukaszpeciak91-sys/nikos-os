@@ -960,6 +960,8 @@ extern "C" void app_main(void)
     nikos::font_core::Renderer system_text_renderer(board);
     struct SystemTextContext {
         nikos::font_core::Renderer* renderer;
+        RuntimeState* active_screen = nullptr;
+        ChargingModeState* charging = nullptr;
     } system_text_context{&system_text_renderer};
     board.set_text_delegate(&system_text_context,
         [](void* user, std::int16_t x, std::int16_t y,
@@ -967,7 +969,10 @@ extern "C" void app_main(void)
            std::uint8_t size, nikos::board::DisplayColor fg,
            nikos::board::DisplayColor bg) -> bool {
             auto& ctx = *static_cast<SystemTextContext*>(user);
-            if (value == nullptr || size >= 3 || w <= 0 || h < 19 || x < 0 || y < 0
+            if ((ctx.active_screen && (*ctx.active_screen == RuntimeState::Communicator
+                     || *ctx.active_screen == RuntimeState::Flashlight))
+                || (ctx.charging && ctx.charging->active)
+                || value == nullptr || size >= 3 || w <= 0 || h < 19 || x < 0 || y < 0
                 || x + w > 240 || y + h > 135) {
                 return false;
             }
@@ -1089,6 +1094,8 @@ extern "C" void app_main(void)
     bool resume_facts_after_communicator = false;
 
     RuntimeState state = RuntimeState::Launcher;
+    system_text_context.active_screen = &state;
+    system_text_context.charging = &charging_mode;
     bool clock_glance_active = false;
     std::uint32_t clock_glance_started_ms = 0;
     bool timer_alert_visible = false;
