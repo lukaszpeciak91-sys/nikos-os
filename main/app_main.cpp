@@ -419,10 +419,7 @@ void render_charging_presentation(
         fill_height,
         nikos::board::DisplayColor::Accent);
 
-    board.draw_text_region(
-        39, 96, 134, 24, "LADOWANIE", 2,
-        nikos::board::DisplayColor::PrimaryText,
-        nikos::board::DisplayColor::Background);
+    notice_text(board,"ŁADOWANIE",39,96,134);
     if (battery_percent >= 0 && battery_percent < 100) {
         char level[6]{};
         std::snprintf(level, sizeof(level), "%d%%", battery_percent);
