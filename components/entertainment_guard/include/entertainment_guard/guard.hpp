@@ -2,7 +2,7 @@
 #include <cstdint>
 namespace nikos::entertainment_guard {
 enum class Phase : std::uint8_t { Available, Window, Cooldown };
-struct Snapshot { bool active=false; bool civil_valid=false; std::uint32_t civil_start=0; };
+struct Snapshot { bool active=false; bool civil_valid=false; std::uint32_t civil_start=0; bool warning_shown=false; };
 class Guard {
 public:
     static constexpr std::uint32_t kWindowMs=20U*60U*1000U;
@@ -11,6 +11,7 @@ public:
     void restore(Snapshot saved, std::uint32_t now_ms, bool clock_trusted,
                  std::uint32_t civil_now) {
         if (!saved.active) return;
+        warning_shown_=saved.warning_shown;
         if (!saved.civil_valid || !clock_trusted || civil_now<saved.civil_start) {
             phase_=Phase::Cooldown; start_ms_=now_ms; fallback_=true;
             return;
@@ -45,10 +46,10 @@ public:
         return phase(now_ms)==Phase::Window && !warning_shown_
             && now_ms-start_ms_>=18U*60U*1000U;
     }
-    void acknowledge_warning() { warning_shown_=true; }
+    void acknowledge_warning() { warning_shown_=true; write_pending_=true; }
     bool pending_write() const { return write_pending_; }
     bool pending_clear() const { return clear_pending_; }
-    Snapshot snapshot() const { return {true,civil_valid_,civil_start_}; }
+    Snapshot snapshot() const { return {true,civil_valid_,civil_start_,warning_shown_}; }
     void settled() { write_pending_=false;clear_pending_=false; }
 private:
     Phase phase_=Phase::Available;
