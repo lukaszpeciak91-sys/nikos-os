@@ -972,8 +972,22 @@ extern "C" void app_main(void)
             if ((ctx.active_screen && (*ctx.active_screen == RuntimeState::Communicator
                      || *ctx.active_screen == RuntimeState::Flashlight))
                 || (ctx.charging && ctx.charging->active)
-                || value == nullptr || size >= 3 || w <= 0 || h < 19 || x < 0 || y < 0
+                || value == nullptr || size >= 3 || w <= 0 || h <= 0 || x < 0 || y < 0
                 || x + w > 240 || y + h > 135) {
+                return false;
+            }
+            // Very small metadata regions cannot contain a 19px raster line.
+            // Keep native compact layout, but never feed Polish UTF-8 to Font0.
+            if (h < 19) {
+                bool accented = false;
+                for (const unsigned char* p =
+                         reinterpret_cast<const unsigned char*>(value); *p; ++p) {
+                    if (*p >= 0x80U) { accented = true; break; }
+                }
+                if (accented) {
+                    board.draw_polish_ui_text_region(x, y, w, h, value, 1, fg, bg);
+                    return true;
+                }
                 return false;
             }
             auto& renderer = *ctx.renderer;
