@@ -75,10 +75,6 @@ public:
     }
 
 private:
-    Action entertainment_action(Action action) {
-        entertainment_launch_=true;
-        return action;
-    }
     bool entertainment_launch_=false;
     enum class StopwatchState : std::uint8_t {
         Idle,
