@@ -2932,7 +2932,7 @@ extern "C" void app_main(void)
                        && mini_racer.update(input)
                           == nikos::mini_racer::MiniRacerApp::UpdateResult::ExitRequested) {
                 mini_racer.end();
-                launcher.begin_entertainment(
+                launcher.begin_games(
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
@@ -2954,7 +2954,7 @@ extern "C" void app_main(void)
                     && coin_flip.update(input)
                         == nikos::coin_flip::CoinFlipApp::Result::ExitRequested) {
                 coin_flip.end();
-                launcher.begin_entertainment(
+                launcher.begin_games(
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
@@ -2980,7 +2980,7 @@ extern "C" void app_main(void)
                        && space_defender.update(input)
                            == nikos::space_defender::SpaceDefenderApp::Result::ExitRequested) {
                 space_defender.end();
-                launcher.begin_entertainment(
+                launcher.begin_games(
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
@@ -3010,7 +3010,7 @@ extern "C" void app_main(void)
                     == nikos::snake::SnakeApp::UpdateResult::ExitRequested) {
                 snake.end();
                 display_lifecycle.note_visible_activity();
-                launcher.begin_entertainment(
+                launcher.begin_games(
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
