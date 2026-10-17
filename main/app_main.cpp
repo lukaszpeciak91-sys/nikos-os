@@ -1433,8 +1433,8 @@ extern "C" void app_main(void)
                 entertainment_warning_visible = false;
                 if (app_was_foreground) {
                     state = RuntimeState::Launcher;
-                    launcher.begin_entertainment(
-                        communicator_status(communicator_enabled, messaging));
+                    // Do not draw Launcher under Charging Lock, Timer,
+                    // Communicator or any higher-priority overlay.
                     entertainment_notice = reserve_entertainment
                         ? EntertainmentNotice::LowBattery
                         : EntertainmentNotice::Break;
@@ -2271,14 +2271,21 @@ extern "C" void app_main(void)
                 }
 
                 const nikos::launcher::Action action = launcher.update(input);
-                // Launcher Entertainment actions are a contiguous closed
-                // range. Any new Entertainment action must be added inside
-                // the range and covered by the structural regression test.
-                const bool guard_entry =
-                    action >= nikos::launcher::Action::OpenSnake
-                    && action <= nikos::launcher::Action::OpenFacts;
-                bool entry_refused = false;
-                if (guard_entry) {
+                // Origin token comes from the Entertainment screen itself.
+                // Unknown Entertainment routes fail closed even when enum
+                // values are reordered or assigned explicitly.
+                const bool guard_entry = launcher.take_entertainment_launch();
+                const bool recognized_entertainment =
+                    action == nikos::launcher::Action::OpenSnake
+                    || action == nikos::launcher::Action::OpenMiniRacer
+                    || action == nikos::launcher::Action::OpenSpaceDefender
+                    || action == nikos::launcher::Action::OpenFacts;
+                bool entry_refused = guard_entry != recognized_entertainment;
+                if (entry_refused) {
+                    ESP_LOGW(kTag, "Entertainment launch contract rejected");
+                    entertainment_notice = EntertainmentNotice::Break;
+                }
+                if (guard_entry && !entry_refused) {
                     // Retry a failed expiry clear only on explicit admission,
                     // never in the 20ms OS loop. Deny while NVS is uncertain.
                     if (entertainment_clear_failed) {
