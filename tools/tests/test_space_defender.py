@@ -61,7 +61,7 @@ int main() {
     e.active=true;e.type=Type::Armored;e.hp=3;e.lane=1;e.x_q8=88*256;
     for(int i=0;i<3;++i) {
         Shot& shot=w.shots[i];
-        shot=Shot{true,1,68*256};
+        shot=Shot{true,1,76*256};
         advance(w,100);
         assert(e.active==(i<2));
         assert(e.hp==2-i);
