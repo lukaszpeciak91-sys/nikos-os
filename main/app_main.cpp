@@ -2264,6 +2264,7 @@ extern "C" void app_main(void)
                 } else if (resume_space_defender_after_communicator) {
                     resume_space_defender_after_communicator = false;
                     state = RuntimeState::SpaceDefender;
+                    space_defender.resume();
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
