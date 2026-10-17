@@ -88,21 +88,68 @@ inline void fire(World& w) {
         break;
     }
 }
-inline void spawn(World& w) {
-    // Deliberately conservative: only one live hull; avoid combining
-    // a new hull with stray hostile shots from a destroyed shooter.
-    for (const auto& e : w.enemies) if (e.active) return;
-    for (const auto& s : w.hostile) if (s.active) return;
-    for (auto& e : w.enemies) if (!e.active) {
-        e = Enemy{};
-        e.active = true;
-        e.type = choose_type(w.rng, w.score);
-        e.hp = hp_for(e.type);
-        e.lane = static_cast<std::uint8_t>(w.rng.range(3));
-        e.x_q8 = 244 * 256;
-        e.next_shot_ms = w.time_ms + 1100;
-        break;
+// Conservative one-button reachability budget: the worst possible lane
+// transition needs two M5 presses. Require >=1100ms between arrivals of
+// different hazards; even at the fastest 44px/s, this is >48px separation.
+inline std::uint8_t concurrent_limit(std::uint32_t score) {
+    return score < 100 ? 2U : (score < 250 ? 3U : 4U);
+}
+inline std::uint32_t active_enemies(const World& w) {
+    std::uint32_t count = 0;
+    for (const auto& e : w.enemies) if (e.active) ++count;
+    return count;
+}
+inline std::uint32_t arrival_ms(std::int32_t x_q8, std::uint32_t speed) {
+    const std::int32_t remaining = x_q8 - (kPlayerX + 16) * 256;
+    return remaining > 0
+        ? static_cast<std::uint32_t>(
+            static_cast<std::uint64_t>(remaining) * 1000U / (speed * 256U))
+        : 0;
+}
+inline bool safe_spawn(const World& w, std::uint8_t lane, Type type,
+                       std::int32_t x_q8) {
+    constexpr std::uint32_t kTwoPressBudgetMs = 1100;
+    const std::uint32_t candidate = arrival_ms(x_q8, speed_for(type,w.score));
+    // Model arrival at the collision envelope, not merely free lanes in a
+    // screen snapshot. Avoid overlapping intervals even on the same lane.
+    for (const auto& e : w.enemies) if (e.active) {
+        const auto arrival = arrival_ms(e.x_q8, speed_for(e.type,w.score));
+        const auto difference = candidate > arrival
+            ? candidate - arrival : arrival - candidate;
+        if (difference < kTwoPressBudgetMs) return false;
     }
+    // A hostile projectile can outlive its shooter. Never schedule a new
+    // hull into its immediate impact window, regardless of its lane.
+    for (const auto& shot : w.hostile) if (shot.active) {
+        const auto arrival = arrival_ms(shot.x_q8, 27U);
+        const auto difference = candidate > arrival
+            ? candidate - arrival : arrival - candidate;
+        if (difference < kTwoPressBudgetMs) return false;
+    }
+    (void)lane; // lane selection stays uniform; timing ensures cyclic access.
+    return true;
+}
+inline void spawn(World& w) {
+    if (active_enemies(w) >= concurrent_limit(w.score)) return;
+    Enemy* slot = nullptr;
+    for (auto& e : w.enemies) if (!e.active) { slot = &e; break; }
+    if (!slot) return;
+    // One randomized candidate per scheduled attempt: no unbounded rerolls.
+    const Type type = choose_type(w.rng, w.score);
+    const auto lane = static_cast<std::uint8_t>(w.rng.range(3));
+    // Initial spawn is visible near the right edge. Following hulls may
+    // queue farther right so their arrival windows remain separated.
+    std::int32_t x = 244 * 256;
+    for (const auto& e : w.enemies) if (e.active && e.x_q8 >= x - 80*256)
+        x = e.x_q8 + (80 + static_cast<std::int32_t>(w.rng.range(61))) * 256;
+    if (x > 560 * 256 || !safe_spawn(w, lane, type, x)) return;
+    *slot = Enemy{};
+    slot->active = true;
+    slot->type = type;
+    slot->hp = hp_for(type);
+    slot->lane = lane;
+    slot->x_q8 = x;
+    slot->next_shot_ms = w.time_ms + 1100;
 }
 inline void substep(World& w, std::uint32_t dt) {
     if (w.phase != Phase::Playing || dt == 0) return;
