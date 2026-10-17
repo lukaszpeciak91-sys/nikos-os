@@ -317,3 +317,8 @@ Space Defender now shares guarded entry, warning suspend/resume, 20-minute lifec
 ### Entertainment Guard PR #84 R1 audit repairs
 
 Removed duplicate OpenSpaceDefender enum item, guarded the contiguous Launcher Entertainment action range and added a structural regression requiring all Entertainment launcher routes to match the range and protected runtime. First NVS write failure now aborts admission and rolls back the unpersisted policy start; a failed expiry clear remains latched and is retried only on explicit protected launch. Entertainment warning ownership blocks premature Mini Racer/Space Defender lifecycle resume. The Communicator restoration condition now includes Space Defender. Host regression extended with failure-injection and synthetic Entertainment route coverage; full repository host suite and ESP-IDF build remain unverified until available.
+
+
+### Entertainment Guard PR #84 R2 audit implementation
+
+R2 replaces enum-range admission with one-shot Launcher Entertainment-origin tagging and explicit recognized-action refusal; unknown tagged routes cannot enter foreground. Mutation-style source regression checks missing origin tagging, recognition, runtime classification, termination, preemption-flag removal and premature warning resume. Guard expiration no longer calls Launcher drawing during Charging Lock or higher-priority overlays, retaining deferred break/Reserve presentation. The policy's trusted/untrusted time and NVS transition model remains unchanged. Host integration and ESP-IDF full firmware build still need execution in a checkout/toolchain-enabled environment.
