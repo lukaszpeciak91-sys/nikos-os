@@ -2,12 +2,11 @@
 #include <cstdint>
 #include "board/board.hpp"
 #include "font_core/font_core.hpp"
-#include "settings/settings.hpp"
 namespace nikos::facts {
 class Quiz final {
 public:
-    Quiz(board::Board& board, settings::State& settings)
-        : board_(board), settings_(settings), renderer_(board) {}
+    explicit Quiz(board::Board& board)
+        : board_(board), renderer_(board) {}
     void start();
     void redraw();
     bool update(const board::InputState& input); // true = return to Facts menu
@@ -25,7 +24,6 @@ private:
         std::int16_t y, std::int16_t width, std::int16_t height,
         board::DisplayColor foreground, board::DisplayColor background);
     board::Board& board_;
-    settings::State& settings_;
     font_core::Renderer renderer_;
     std::uint8_t text_page_ = 0;
     std::uint8_t text_page_count_ = 1;
