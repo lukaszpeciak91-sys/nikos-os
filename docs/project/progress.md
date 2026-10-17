@@ -297,3 +297,8 @@ New independent three-lane game, Launcher integration, lifecycle hooks, fixed ob
 ### Space Defender PR #83 R1 — pending validation
 
 Implemented staged concurrent traffic, candidate arrival-window checks, bounded randomness, clipped lane-band redraw with star restoration, corrected duplicate CMake component registration and expanded C++ host scenarios. The environment cannot clone GitHub or invoke ESP-IDF 5.5.5, so host execution, build and linked firmware size are still unverified. Test hardware for two-button escape timing, late-game hostile shots, sprite overlap/edges, HUD integrity, stars, power/display/charging interruption and Communicator resume before merge.
+
+
+### Space Defender PR #83 R2 — audit response
+
+Deduplicated `space_defender` in `main/CMakeLists.txt`; root and app registration are single entries. Changed only traffic admission: interval-safe mixed-speed checks across the 500-point boost and no Shooter-hull overlap while future hostile fire is pending. Added production `advance`/`substep` scenarios for moving hulls, relative speeds, warning-to-bullet, surviving bullets, collision/invulnerability, pool bounds and legal cycling. Host execution, ESP-IDF build, device input cadence and high-score reachability remain to be verified.
