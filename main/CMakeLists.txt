@@ -24,5 +24,6 @@ idf_component_register(
         sound_meter
         snake
         mini_racer
+        space_defender
         storage
 )
