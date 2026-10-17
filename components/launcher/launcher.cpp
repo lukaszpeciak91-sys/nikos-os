@@ -25,10 +25,10 @@ constexpr std::array<Entry, 6> kEntries = {{
 
 constexpr std::size_t kVisibleLauncherRows = 4;
 constexpr std::uint8_t kClockMenuItemCount = 6;
-constexpr std::uint8_t kClockVisibleRows = 4;
+constexpr std::uint8_t kClockVisibleRows = 2;
 constexpr std::uint8_t kClockTimerIndex = 3;
-constexpr std::int16_t kClockMenuFirstY = 56;
-constexpr std::int16_t kClockMenuRowHeight = 16;
+constexpr std::int16_t kClockMenuFirstY = 57;
+constexpr std::int16_t kClockMenuRowHeight = 27;
 static_assert(((6U + 31U - 1U) / 7U) == 5U);
 
 constexpr const char* kMonthLabels[12] = {
@@ -214,6 +214,42 @@ void draw_selection_marker(
         static_cast<std::int16_t>(x + 1),
         bottom,
         color);
+}
+
+
+// Use actual PRE-RENDERED raster metrics for selectable rows only.
+// Three 24 px rows plus 3 px gaps fit above the preserved 116 px footer.
+void draw_readable_menu(nikos::board::Board& board,
+    nikos::font_core::Renderer& renderer, const char* const* items,
+    std::uint8_t count, std::uint8_t selection, std::int16_t top,
+    std::uint8_t visible, std::int16_t width = 184,
+    int active = -1)
+{
+    renderer.select(nikos::font_core::Mode::PreRendered);
+    renderer.set_size(nikos::font_core::Size::Readable);
+    const auto row_height = static_cast<std::int16_t>(renderer.metrics().line_height);
+    const auto stride = static_cast<std::int16_t>(row_height + 3);
+    const std::uint8_t first = selection >= visible
+        ? static_cast<std::uint8_t>(selection - visible + 1U) : 0U;
+    for (std::uint8_t slot = 0; slot < visible && first + slot < count; ++slot) {
+        const std::uint8_t index = static_cast<std::uint8_t>(first + slot);
+        const auto y = static_cast<std::int16_t>(top + slot * stride);
+        const bool selected = index == selection;
+        const auto bg = selected ? nikos::board::DisplayColor::Surface
+                                 : nikos::board::DisplayColor::Background;
+        const auto fg = selected ? nikos::board::DisplayColor::PrimaryText
+                                 : nikos::board::DisplayColor::SecondaryText;
+        const auto result = renderer.draw(items[index],
+            {22, y, width, row_height}, fg, bg);
+        if (result.fits && result.supported && result.lines == 1U) {
+            if (selected) draw_selection_marker(board, 14, y, row_height);
+            if (active == index) {
+                board.fill_circle(211,
+                    static_cast<std::int16_t>(y + row_height / 2), 3,
+                    nikos::board::DisplayColor::Accent);
+            }
+        }
+    }
 }
 
 void clear_logo_area(nikos::board::Board& board)
@@ -1833,77 +1869,32 @@ void Launcher::render_clock()
     rendered_clock_screen_text_[0] = '\0';
     rendered_clock_timer_valid_ = false;
     update_clock_viewport();
-
-    board_.draw_text_region(
-        14,
-        4,
-        212,
-        18,
-        "ZEGAR",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
+    board_.draw_text_region(14, 4, 212, 18, "ZEGAR", 2);
     render_clock_time_if_changed();
-
     constexpr const char* kItems[kClockMenuItemCount] = {
-        "USTAW CZAS",
-        "USTAW DATE",
-        "KALENDARZ",
-        nullptr,
-        "STOPER",
-        "POWRÓT",
+        "USTAW CZAS", "USTAW DATE", "KALENDARZ", nullptr, "STOPER", "POWRÓT",
     };
-
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Readable);
+    const auto height = static_cast<std::int16_t>(font_renderer_.metrics().line_height);
     for (std::uint8_t slot = 0; slot < kClockVisibleRows; ++slot) {
-        const std::uint8_t index =
-            static_cast<std::uint8_t>(clock_view_start_ + slot);
-        if (index >= kClockMenuItemCount) {
-            break;
-        }
-        if (index == kClockTimerIndex) {
-            continue;
-        }
-
+        const auto index = static_cast<std::uint8_t>(clock_view_start_ + slot);
+        if (index >= kClockMenuItemCount) break;
+        if (index == kClockTimerIndex) continue;
+        const auto y = static_cast<std::int16_t>(kClockMenuFirstY
+            + slot * (height + 3));
         const bool selected = index == clock_selection_;
-        const std::int16_t y =
-            static_cast<std::int16_t>(
-                kClockMenuFirstY + slot * kClockMenuRowHeight);
-
-        board_.draw_text_region(
-            22,
-            y,
-            196,
-            16,
-            kItems[index],
-            2,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(
-                board_,
-                14,
-                y,
-                14);
-        }
+        const auto result = font_renderer_.draw(kItems[index],
+            {22, y, 196, height},
+            selected ? board::DisplayColor::PrimaryText : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+        if (selected && result.fits && result.supported)
+            draw_selection_marker(board_, 14, y, height);
     }
-
     render_clock_timer_if_changed();
-
-    board_.draw_text_region(
-        14,
-        122,
-        212,
-        12,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 122, 212, 12,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_timer_setup()
@@ -2664,27 +2655,14 @@ void Launcher::render_clock_timer_if_changed()
     const bool selected =
         clock_selection_ == kClockTimerIndex;
 
-    board_.draw_text_region(
-        22,
-        y,
-        196,
-        16,
-        label,
-        2,
-        selected
-            ? board::DisplayColor::PrimaryText
-            : board::DisplayColor::SecondaryText,
-        selected
-            ? board::DisplayColor::Surface
-            : board::DisplayColor::Background);
-
-    if (selected) {
-        draw_selection_marker(
-            board_,
-            14,
-            y,
-            14);
-    }
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Readable);
+    const auto height = static_cast<std::int16_t>(font_renderer_.metrics().line_height);
+    const auto result = font_renderer_.draw(label, {22, y, 196, height},
+        selected ? board::DisplayColor::PrimaryText : board::DisplayColor::SecondaryText,
+        selected ? board::DisplayColor::Surface : board::DisplayColor::Background);
+    if (selected && result.fits && result.supported)
+        draw_selection_marker(board_, 14, y, height);
 }
 
 void Launcher::render_timer_countdown_if_changed()
@@ -2834,119 +2812,42 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
 void Launcher::render_sound_menu()
 {
     clear_shell(board_);
-    board_.draw_text_region(14, 12, 212, 20, "DŹWIĘK", 2);
-    constexpr const char* kItems[3] = {"MELODIA", "GŁOŚNOŚĆ", "POWRÓT"};
-    for (std::uint8_t i = 0; i < 3; ++i) {
-        const std::int16_t y = static_cast<std::int16_t>(39 + i * 23);
-        const bool selected = i == sound_menu_selection_;
-        board_.draw_text_region(22, y, 194, 20, kItems[i], 2,
-            selected ? board::DisplayColor::PrimaryText
-                     : board::DisplayColor::SecondaryText,
-            selected ? board::DisplayColor::Surface
-                     : board::DisplayColor::Background);
-        if (selected) draw_selection_marker(board_, 14, y, 18);
-    }
-    board_.draw_text_region(14, 116, 212, 14, "M5 WYBIERZ | BOCZNY DALEJ",
-        1, board::DisplayColor::SecondaryText);
+    board_.draw_text_region(14, 8, 212, 20, "DŹWIĘK", 2);
+    constexpr const char* kItems[] = {"MELODIA", "GŁOŚNOŚĆ", "POWRÓT"};
+    draw_readable_menu(board_, font_renderer_, kItems,
+        3U, sound_menu_selection_, 35, 3,
+        184, -1);
+    board_.draw_text_region(14, 116, 212, 14,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_signal_volume()
 {
     clear_shell(board_);
-    board_.draw_text_region(14, 7, 212, 20, "GŁOŚNOŚĆ", 2);
-    constexpr const char* kItems[6] = {"0%", "25%", "50%", "75%", "100%", "POWRÓT"};
-    std::uint8_t first = signal_volume_selection_ >= 4U
-        ? static_cast<std::uint8_t>(signal_volume_selection_ - 3U) : 0U;
-    for (std::uint8_t slot = 0; slot < 4U; ++slot) {
-        const std::uint8_t i = static_cast<std::uint8_t>(first + slot);
-        const std::int16_t y = static_cast<std::int16_t>(31 + slot * 20);
-        const bool selected = i == signal_volume_selection_;
-        board_.draw_text_region(22, y, 184, 18, kItems[i], 2,
-            selected ? board::DisplayColor::PrimaryText
-                     : board::DisplayColor::SecondaryText,
-            selected ? board::DisplayColor::Surface
-                     : board::DisplayColor::Background);
-        if (selected) draw_selection_marker(board_, 14, y, 16);
-        if (i == settings_.signal_volume_level)
-            board_.fill_circle(211, static_cast<std::int16_t>(y + 7), 3,
-                board::DisplayColor::Accent);
-    }
-    board_.draw_text_region(14, 116, 212, 14, "M5 WYBIERZ | BOCZNY DALEJ",
-        1, board::DisplayColor::SecondaryText);
+    board_.draw_text_region(14, 8, 212, 20, "GŁOŚNOŚĆ", 2);
+    constexpr const char* kItems[] = {"0%", "25%", "50%", "75%", "100%", "POWRÓT"};
+    draw_readable_menu(board_, font_renderer_, kItems,
+        6U, signal_volume_selection_, 35, 3,
+        184, settings_.signal_volume_level);
+    board_.draw_text_region(14, 116, 212, 14,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_signal_sound()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        12,
-        212,
-        18,
-        "DŹWIĘK SYGNAŁU",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    constexpr const char* kItems[4] = {
-        "ŁAGODNY",
-        "KLASYCZNY",
-        "PAGER",
-        "POWRÓT",
-    };
-
-    for (std::uint8_t index = 0; index < 4; ++index) {
-        const bool selected = index == signal_sound_selection_;
-        const bool active =
-            index < 3U
-            && signal_sound_index(settings_.signal_sound) == index;
-        const std::int16_t y =
-            static_cast<std::int16_t>(36 + index * 19);
-
-        board_.draw_text_region(
-            22,
-            y,
-            196,
-            18,
-            kItems[index],
-            2,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(
-                board_,
-                14,
-                y,
-                16);
-        }
-
-        if (active) {
-            board_.fill_circle(
-                211,
-                static_cast<std::int16_t>(y + 7),
-                3,
-                board::DisplayColor::Accent);
-        }
-    }
-
-    board_.draw_text_region(
-        14,
-        116,
-        212,
-        14,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 8, 212, 20, "DŹWIĘK SYGNAŁU", 2);
+    constexpr const char* kItems[] = {"ŁAGODNY", "KLASYCZNY", "PAGER", "POWRÓT"};
+    draw_readable_menu(board_, font_renderer_, kItems,
+        4U, signal_sound_selection_, 35, 3,
+        184, signal_sound_index(settings_.signal_sound));
+    board_.draw_text_region(14, 116, 212, 14,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
-// Selection changes redraw only the old and new rows. Full redraw remains
-// available for screen transitions, volume viewport scrolling and wake/restore.
+
 void Launcher::redraw_sound_selection_rows(std::uint8_t previous)
 {
     if (screen_ == Screen::SignalVolume) {
@@ -3011,297 +2912,55 @@ void Launcher::redraw_sound_selection_rows(std::uint8_t previous)
 void Launcher::render_brightness()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        12,
-        212,
-        18,
-        "JASNOŚĆ",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    constexpr const char* kItems[4] = {
-        "NISKA",
-        "ŚREDNIA",
-        "WYSOKA",
-        "POWRÓT",
-    };
-
-    for (std::uint8_t index = 0; index < 4; ++index) {
-        const bool selected = index == brightness_selection_;
-        const bool active =
-            index < 3U
-            && brightness_index(settings_.brightness) == index;
-        const std::int16_t y =
-            static_cast<std::int16_t>(36 + index * 19);
-
-        board_.draw_text_region(
-            22,
-            y,
-            196,
-            18,
-            kItems[index],
-            2,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(
-                board_,
-                14,
-                y,
-                16);
-        }
-
-        if (active) {
-            board_.fill_circle(
-                211,
-                static_cast<std::int16_t>(y + 7),
-                3,
-                board::DisplayColor::Accent);
-        }
-    }
-
-    board_.draw_text_region(
-        14,
-        116,
-        212,
-        14,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 8, 212, 20, "JASNOŚĆ", 2);
+    constexpr const char* kItems[] = {"NISKA", "ŚREDNIA", "WYSOKA", "POWRÓT"};
+    draw_readable_menu(board_, font_renderer_, kItems,
+        4U, brightness_selection_, 35, 3,
+        184, brightness_index(settings_.brightness));
+    board_.draw_text_region(14, 116, 212, 14,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_theme()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        12,
-        212,
-        18,
-        "MOTYW",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    constexpr const char* kItems[6] = {
-        "NIKOŚ",
-        "BURSZTYN",
-        "MATRIX",
-        "LAVA",
-        "NOIR",
-        "POWRÓT",
-    };
-
-    std::uint8_t first_visible = 0;
-    if (theme_selection_ >= 4U) {
-        first_visible = static_cast<std::uint8_t>(theme_selection_ - 3U);
-    }
-
-    for (std::uint8_t slot = 0; slot < 4; ++slot) {
-        const std::uint8_t index =
-            static_cast<std::uint8_t>(first_visible + slot);
-        const bool selected = index == theme_selection_;
-        const bool active =
-            index < 5U
-            && theme_index(settings_.theme) == index;
-        const std::int16_t y =
-            static_cast<std::int16_t>(36 + slot * 19);
-
-        board_.draw_text_region(
-            22,
-            y,
-            196,
-            18,
-            kItems[index],
-            2,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(
-                board_,
-                14,
-                y,
-                16);
-        }
-
-        if (active) {
-            board_.fill_circle(
-                211,
-                static_cast<std::int16_t>(y + 7),
-                3,
-                board::DisplayColor::Accent);
-        }
-    }
-
-    board_.draw_text_region(
-        14,
-        116,
-        212,
-        14,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 8, 212, 20, "MOTYW", 2);
+    constexpr const char* kItems[] = {"NIKOŚ", "BURSZTYN", "MATRIX", "LAVA", "NOIR", "POWRÓT"};
+    draw_readable_menu(board_, font_renderer_, kItems,
+        6U, theme_selection_, 35, 3,
+        184, theme_index(settings_.theme));
+    board_.draw_text_region(14, 116, 212, 14,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
-
 
 void Launcher::render_orientation()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        12,
-        212,
-        18,
-        "ORIENTACJA",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    constexpr const char* kItems[3] = {
-        "PRAWA",
-        "LEWA",
-        "POWRÓT",
-    };
-
-    for (std::uint8_t index = 0; index < 3; ++index) {
-        const bool selected = index == orientation_selection_;
-        const bool active =
-            index < 2U
-            && orientation_index(settings_.orientation) == index;
-        const std::int16_t y =
-            static_cast<std::int16_t>(40 + index * 23);
-
-        board_.draw_text_region(
-            22,
-            y,
-            196,
-            20,
-            kItems[index],
-            2,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(
-                board_,
-                14,
-                y,
-                17);
-        }
-
-        if (active) {
-            board_.fill_circle(
-                211,
-                static_cast<std::int16_t>(y + 8),
-                3,
-                board::DisplayColor::Accent);
-        }
-    }
-
-    board_.draw_text_region(
-        14,
-        116,
-        212,
-        14,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 8, 212, 20, "ORIENTACJA", 2);
+    constexpr const char* kItems[] = {"PRAWA", "LEWA", "POWRÓT"};
+    draw_readable_menu(board_, font_renderer_, kItems,
+        3U, orientation_selection_, 35, 3,
+        184, orientation_index(settings_.orientation));
+    board_.draw_text_region(14, 116, 212, 14,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_auto_power_off()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        10,
-        212,
-        18,
-        "AUTO WYŁĄCZANIE",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-
-    constexpr const char* kItems[3] = {
-        "WŁĄCZONE",
-        "WYŁĄCZONE",
-        "POWRÓT",
-    };
-
-    for (std::uint8_t index = 0; index < 3U; ++index) {
-        const bool selected = index == auto_power_off_selection_;
-        const bool active =
-            index < 2U
-            && settings_.auto_power_off_enabled == (index == 0U);
-        const std::int16_t y =
-            static_cast<std::int16_t>(35 + index * 21);
-
-        board_.draw_text_region(
-            22,
-            y,
-            196,
-            19,
-            kItems[index],
-            2,
-            selected
-                ? board::DisplayColor::PrimaryText
-                : board::DisplayColor::SecondaryText,
-            selected
-                ? board::DisplayColor::Surface
-                : board::DisplayColor::Background);
-
-        if (selected) {
-            draw_selection_marker(board_, 14, y, 17);
-        }
-        if (active) {
-            board_.fill_circle(
-                211,
-                static_cast<std::int16_t>(y + 8),
-                3,
-                board::DisplayColor::Accent);
-        }
-    }
-
-    board_.draw_text_region(
-        14,
-        100,
-        212,
-        12,
-        "PO 20 MIN BEZCZYNNOSCI",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        14,
-        119,
-        212,
-        14,
-        "M5 WYBIERZ | BOCZNY DALEJ",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    board_.draw_text_region(14, 8, 212, 20, "AUTO WYŁĄCZANIE", 2);
+    constexpr const char* kItems[] = {"WŁĄCZONE", "WYŁĄCZONE", "POWRÓT"};
+    draw_readable_menu(board_, font_renderer_, kItems,
+        3U, auto_power_off_selection_, 31, 3,
+        184, settings_.auto_power_off_enabled ? 0 : 1);
+    board_.draw_text_region(14, 113, 212, 10, "PO 20 MIN BEZCZYNNOSCI", 1,
+        board::DisplayColor::SecondaryText);
+    board_.draw_text_region(14, 123, 212, 11,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText);
 }
 
 bool Launcher::showing_communicator_ui() const
