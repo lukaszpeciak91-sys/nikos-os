@@ -84,6 +84,39 @@ int main(){
  assert(e.value()==274.);
  // Discarding the local editor preserves the committed value.
  assert(base==committed);
+ // Editor admission must never clamp a displayed physical quantity.
+ assert(editable_value(Category::Temperature,-9999.9));
+ assert(editable_value(Category::Temperature,9999.9));
+ assert(!editable_value(Category::Temperature,-10000.0));
+ assert(!editable_value(Category::Temperature,10000.0));
+ assert(!editable_value(Category::Temperature,INFINITY));
+ assert(!editable_value(Category::Mass,-0.1));
+ assert(editable_value(Category::Length,0.0));
+ assert(editable_value(Category::Length,9999.9));
+ assert(!editable_value(Category::Length,10000.0));
+ // Large physical quantity in mm cannot be edited; switch to m without
+ // changing the base quantity, then return to mm and observe the same value.
+ assert(to_base(Category::Length,2,20.0,base));
+ const double original_base=base;
+ assert(from_base(Category::Length,0,base,out));
+ assert(close(out,20000.0));
+ assert(!editable_value(Category::Length,out));
+ assert(base==original_base);
+ assert(from_base(Category::Length,2,base,out));
+ assert(close(out,20.0));
+ assert(editable_value(Category::Length,out));
+ Editor restored;restored.begin(out,false);
+ assert(close(restored.value(),20.0));
+ assert(base==original_base);
+ assert(from_base(Category::Length,0,base,out));
+ assert(close(out,20000.0)); // unchanged after switching back
+ // Negative temperature outside the range can be edited after a unit switch.
+ assert(to_base(Category::Temperature,0,-9999.9,base)==false);
+ assert(to_base(Category::Temperature,2,1000,base));
+ assert(from_base(Category::Temperature,1,base,out));
+ assert(!editable_value(Category::Temperature,out));
+ assert(from_base(Category::Temperature,2,base,out));
+ assert(editable_value(Category::Temperature,out));
  char formatted[24];
  format(100.,formatted);assert(std::strcmp(formatted,"100")==0);
  format(0.00000001,formatted);assert(std::strcmp(formatted,"1.00e-08")==0);
@@ -124,3 +157,9 @@ assert '"PONIŻEJ ZERA ABS."' in app
 assert "invalid_temperature_=false;render();return Result::Running;" in app
 assert "if(screen_==Screen::Editing)" in app
 assert "SIDE DŁUGO: ANULUJ" in app
+
+assert "editable_value(category_,value)" in app
+assert '"ZA DUŻA WARTOŚĆ"' in app
+assert "editable_value(category_,input)" in app
+assert "editor_.begin(value,category_==Category::Temperature)" in app
+assert "unit_=static_cast<std::uint8_t>((unit_+1)%count(category_))" in app
