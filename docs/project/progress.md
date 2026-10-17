@@ -302,3 +302,8 @@ Implemented staged concurrent traffic, candidate arrival-window checks, bounded 
 ### Space Defender PR #83 R2 — audit response
 
 Deduplicated `space_defender` in `main/CMakeLists.txt`; root and app registration are single entries. Changed only traffic admission: interval-safe mixed-speed checks across the 500-point boost and no Shooter-hull overlap while future hostile fire is pending. Added production `advance`/`substep` scenarios for moving hulls, relative speeds, warning-to-bullet, surviving bullets, collision/invulnerability, pool bounds and legal cycling. Host execution, ESP-IDF build, device input cadence and high-score reachability remain to be verified.
+
+
+### Entertainment Guard v0.1 — implementation status
+
+Added a small policy component, narrow NVS record, trusted ClockService civil-minute composition, three protected entry gates, a shared window/break and one-time warning, Reserve interruption, and app_main foreground/presentation coordination. Snake's warning-only pause preserves movement phase; Mini Racer uses its existing suspend/resume, while Facts/Quiz is redrawn without changing state. Existing local 10-minute screens now say KONIEC SESJI / 10 MIN GRY. Host policy tests were added. Still requires host test execution and ESP-IDF 5.5.5 build, plus physical verification of warning/foreground restoration, charging/Communicator priority, and boot restoration with trusted/untrusted RTC. No merge was authorized.
