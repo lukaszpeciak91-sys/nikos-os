@@ -61,7 +61,7 @@ for path in (
     "apps/snake/snake_app.cpp",
     "apps/mini_racer/mini_racer_app.cpp",
 ):
-    for label in re.findall(r'"([^"\\n]*)"', src(path)):
+    for label in re.findall(r'"([^"]*)"', src(path)):
         # All visible UTF-8 strings in supported normal UI components must
         # have glyphs in the single shared raster asset set.
         if any(ord(ch) > 127 for ch in label):
