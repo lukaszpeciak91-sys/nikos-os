@@ -1187,7 +1187,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::AutoPowerOff) {
         if (input.secondary_long) {
-            settings_selection_ = 5U;
+            settings_selection_ = 4U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -1206,7 +1206,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (auto_power_off_selection_ == 2U) {
-            settings_selection_ = 5U;
+            settings_selection_ = 4U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
@@ -1791,7 +1791,7 @@ void Launcher::render_entertainment()
             22,
             y,
             196,
-            readable ? 25 : (settings_.font_mode == font_core::Mode::Standard ? 21 : 20),
+            25,
             kItems[index],
             2,
             selected
@@ -1846,7 +1846,7 @@ void Launcher::render_clock()
         "KALENDARZ",
         nullptr,
         "STOPER",
-        "POWROT",
+        "POWRÓT",
     };
 
     for (std::uint8_t slot = 0; slot < kClockVisibleRows; ++slot) {
@@ -1995,7 +1995,7 @@ void Launcher::render_timer_active()
     const char* actions[3] = {
         primary_action,
         "RESETUJ",
-        "POWROT",
+        "POWRÓT",
     };
 
     for (std::uint8_t index = 0; index < 3; ++index) {
@@ -2092,7 +2092,7 @@ void Launcher::render_stopwatch()
     constexpr const char* kActions[3] = {
         "WZNOW",
         "RESETUJ",
-        "POWROT",
+        "POWRÓT",
     };
 
     for (std::uint8_t index = 0; index < 3; ++index) {
@@ -2403,7 +2403,7 @@ void Launcher::render_calendar()
 
         constexpr const char* kActions[2] = {
             "USTAW DATE",
-            "POWROT",
+            "POWRÓT",
         };
         for (std::uint8_t index = 0; index < 2U; ++index) {
             const bool selected =
@@ -2527,7 +2527,7 @@ void Launcher::render_calendar()
     constexpr const char* kActions[3] = {
         "< MIES",
         "> MIES",
-        "POWROT",
+        "POWRÓT",
     };
     constexpr std::int16_t kActionX[3] = {5, 83, 161};
     for (std::uint8_t index = 0; index < 3U; ++index) {
@@ -2828,8 +2828,8 @@ void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
 void Launcher::render_sound_menu()
 {
     clear_shell(board_);
-    board_.draw_text_region(14, 12, 212, 20, "DZWIEK", 2);
-    constexpr const char* kItems[3] = {"Melodia", "Glosnosc", "Powrot"};
+    board_.draw_text_region(14, 12, 212, 20, "DŹWIĘK", 2);
+    constexpr const char* kItems[3] = {"Melodia", "GŁOŚNOŚĆ", "POWRÓT"};
     for (std::uint8_t i = 0; i < 3; ++i) {
         const std::int16_t y = static_cast<std::int16_t>(39 + i * 23);
         const bool selected = i == sound_menu_selection_;
@@ -2847,8 +2847,8 @@ void Launcher::render_sound_menu()
 void Launcher::render_signal_volume()
 {
     clear_shell(board_);
-    board_.draw_text_region(14, 7, 212, 20, "GLOSNOSC", 2);
-    constexpr const char* kItems[6] = {"0%", "25%", "50%", "75%", "100%", "Powrot"};
+    board_.draw_text_region(14, 7, 212, 20, "GŁOŚNOŚĆ", 2);
+    constexpr const char* kItems[6] = {"0%", "25%", "50%", "75%", "100%", "POWRÓT"};
     std::uint8_t first = signal_volume_selection_ >= 4U
         ? static_cast<std::uint8_t>(signal_volume_selection_ - 3U) : 0U;
     for (std::uint8_t slot = 0; slot < 4U; ++slot) {
@@ -2878,16 +2878,16 @@ void Launcher::render_signal_sound()
         12,
         212,
         18,
-        "DZWIEK SYGNALU",
+        "DŹWIĘK SYGNAŁU",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
     constexpr const char* kItems[4] = {
-        "Lagodny",
+        "ŁAGODNY",
         "Klasyczny",
         "Pager",
-        "Powrot",
+        "POWRÓT",
     };
 
     for (std::uint8_t index = 0; index < 4; ++index) {
@@ -2953,9 +2953,9 @@ void Launcher::redraw_sound_selection_rows(std::uint8_t previous)
         }
     }
 
-    constexpr const char* kMenu[3] = {"Melodia", "Glosnosc", "Powrot"};
-    constexpr const char* kVolume[6] = {"0%", "25%", "50%", "75%", "100%", "Powrot"};
-    constexpr const char* kSounds[4] = {"Lagodny", "Klasyczny", "Pager", "Powrot"};
+    constexpr const char* kMenu[3] = {"Melodia", "GŁOŚNOŚĆ", "POWRÓT"};
+    constexpr const char* kVolume[6] = {"0%", "25%", "50%", "75%", "100%", "POWRÓT"};
+    constexpr const char* kSounds[4] = {"ŁAGODNY", "Klasyczny", "Pager", "POWRÓT"};
     const std::uint8_t current = screen_ == Screen::SoundMenu ? sound_menu_selection_
         : screen_ == Screen::SignalVolume ? signal_volume_selection_ : signal_sound_selection_;
     for (const auto index : {previous, current}) {
@@ -3020,7 +3020,7 @@ void Launcher::render_brightness()
         "Niska",
         "Srednia",
         "Wysoka",
-        "Powrot",
+        "POWRÓT",
     };
 
     for (std::uint8_t index = 0; index < 4; ++index) {
@@ -3093,7 +3093,7 @@ void Launcher::render_theme()
         "Matrix",
         "Lava",
         "Noir",
-        "Powrot",
+        "POWRÓT",
     };
 
     std::uint8_t first_visible = 0;
@@ -3171,7 +3171,7 @@ void Launcher::render_orientation()
     constexpr const char* kItems[3] = {
         "PRAWA",
         "LEWA",
-        "POWROT",
+        "POWRÓT",
     };
 
     for (std::uint8_t index = 0; index < 3; ++index) {
@@ -3233,15 +3233,15 @@ void Launcher::render_auto_power_off()
         10,
         212,
         18,
-        "AUTO WYLACZANIE",
+        "AUTO WYŁĄCZANIE",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
     constexpr const char* kItems[3] = {
-        "WLACZONE",
-        "WYLACZONE",
-        "POWROT",
+        "WŁĄCZONE",
+        "WYŁĄCZONE",
+        "POWRÓT",
     };
 
     for (std::uint8_t index = 0; index < 3U; ++index) {
@@ -3307,7 +3307,7 @@ void Launcher::render_enable_communicator()
         16,
         204,
         22,
-        "WLACZYC",
+        "WŁĄCZYĆ",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
@@ -3364,7 +3364,7 @@ void Launcher::render_active_communicator()
 
     constexpr const char* kChoices[2] = {
         "WEJDZ",
-        "WYLACZ",
+        "WYŁĄCZ",
     };
 
     for (std::uint8_t index = 0; index < 2; ++index) {
