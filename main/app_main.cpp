@@ -2532,8 +2532,16 @@ extern "C" void app_main(void)
                 communicator.end();
 
                 display_lifecycle.note_visible_activity();
-                launcher.begin(
-                    communicator_status(communicator_enabled, messaging));
+                if (entertainment_notice != EntertainmentNotice::None) {
+                    // A protected application expired during preemption.
+                    // Return to Entertainment only after Communicator exits.
+                    launcher.begin_entertainment(
+                        communicator_status(communicator_enabled, messaging));
+                    entertainment_notice_rendered = false;
+                } else {
+                    launcher.begin(
+                        communicator_status(communicator_enabled, messaging));
+                }
                 state = RuntimeState::Launcher;
             } else if (
                 delivery_feedback_changed
