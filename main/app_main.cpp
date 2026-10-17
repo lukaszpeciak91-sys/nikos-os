@@ -73,7 +73,8 @@ enum class RuntimeState : std::uint8_t {
 bool is_guarded_entertainment(RuntimeState state) {
     return state == RuntimeState::Snake
         || state == RuntimeState::MiniRacer
-        || state == RuntimeState::Facts;
+        || state == RuntimeState::Facts
+        || state == RuntimeState::SpaceDefender;
 }
 bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out) {
     const auto time = clock.read();
@@ -1407,6 +1408,7 @@ extern "C" void app_main(void)
             const bool app_was_preempted =
                 resume_snake_after_communicator
                 || resume_mini_racer_after_communicator
+                || resume_space_defender_after_communicator
                 || resume_facts_after_communicator;
             if (app_was_foreground || app_was_preempted) {
                 if (state == RuntimeState::Snake || resume_snake_after_communicator)
@@ -1415,8 +1417,12 @@ extern "C" void app_main(void)
                     || resume_mini_racer_after_communicator) mini_racer.end();
                 if (state == RuntimeState::Facts || resume_facts_after_communicator)
                     facts.end();
+                if (state == RuntimeState::SpaceDefender
+                    || resume_space_defender_after_communicator)
+                    space_defender.end();
                 resume_snake_after_communicator = false;
                 resume_mini_racer_after_communicator = false;
+                resume_space_defender_after_communicator = false;
                 resume_facts_after_communicator = false;
                 entertainment_warning_visible = false;
                 if (app_was_foreground) {
@@ -1427,10 +1433,11 @@ extern "C" void app_main(void)
                         ? EntertainmentNotice::LowBattery
                         : EntertainmentNotice::Break;
                     entertainment_notice_rendered = false;
-                } else if (app_was_preempted && reserve_entertainment) {
-                    // Defer the Reserve notice until Communicator releases
-                    // the screen; its foreground ownership is authoritative.
-                    entertainment_notice = EntertainmentNotice::LowBattery;
+                } else if (app_was_preempted) {
+                    // Queue a notice without taking Communicator foreground.
+                    entertainment_notice = reserve_entertainment
+                        ? EntertainmentNotice::LowBattery
+                        : EntertainmentNotice::Break;
                     entertainment_notice_rendered = false;
                 }
             }
@@ -2169,6 +2176,8 @@ extern "C" void app_main(void)
                 else if (state == RuntimeState::MiniRacer)
                     mini_racer.resume();
                 else if (state == RuntimeState::Facts) facts.redraw();
+                else if (state == RuntimeState::SpaceDefender)
+                    space_defender.resume();
                 if (incoming) {
                     enter_communicator_for_incoming(
                         state, resume_snake_after_communicator,
@@ -2214,6 +2223,8 @@ extern "C" void app_main(void)
                     snake.suspend_for_entertainment_warning();
                 else if (state == RuntimeState::MiniRacer)
                     mini_racer.suspend();
+                else if (state == RuntimeState::SpaceDefender)
+                    space_defender.suspend();
                 render_entertainment_warning(board);
                 display_lifecycle.suppress_user_gesture_until_release();
             }
@@ -2251,7 +2262,8 @@ extern "C" void app_main(void)
                 const bool guard_entry =
                     action == nikos::launcher::Action::OpenSnake
                     || action == nikos::launcher::Action::OpenMiniRacer
-                    || action == nikos::launcher::Action::OpenFacts;
+                    || action == nikos::launcher::Action::OpenFacts
+                    || action == nikos::launcher::Action::OpenSpaceDefender;
                 bool entry_refused = false;
                 if (guard_entry) {
                     if (battery_guard.low_battery_reserve_active()) {
