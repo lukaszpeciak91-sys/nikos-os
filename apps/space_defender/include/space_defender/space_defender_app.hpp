@@ -27,6 +27,10 @@ private:
     board::Board& board_;
     power::DisplayLifecycle& display_;
     rules::World world_{};
+    rules::World previous_{};
+    bool previous_ship_visible_ = true;
+    std::uint32_t last_hud_score_ = 0xFFFFFFFFU;
+    std::uint8_t last_hud_lives_ = 255;
     bool active_ = false, suspended_ = false, frame_valid_ = false;
     std::uint8_t menu_selection_ = 0;
     std::uint32_t session_started_ms_ = 0, last_tick_ms_ = 0, last_frame_ms_ = 0;
