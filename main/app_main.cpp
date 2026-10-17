@@ -1736,7 +1736,8 @@ extern "C" void app_main(void)
         }
         if (state == RuntimeState::SpaceDefender
             && display_lifecycle.state() != nikos::power::DisplayState::DisplayOff
-            && !display_input.power_display_off) {
+            && !display_input.power_display_off
+            && !entertainment_warning_visible) {
             space_defender.resume_if_suspended();
         }
         if (state == RuntimeState::MiniRacer
@@ -1748,7 +1749,8 @@ extern "C" void app_main(void)
         if (state == RuntimeState::MiniRacer
             && display_lifecycle.state()
                 != nikos::power::DisplayState::DisplayOff
-            && !display_input.power_display_off) {
+            && !display_input.power_display_off
+            && !entertainment_warning_visible) {
             mini_racer.resume_if_suspended();
         }
 
@@ -2259,11 +2261,12 @@ extern "C" void app_main(void)
                 }
 
                 const nikos::launcher::Action action = launcher.update(input);
+                // Launcher Entertainment actions are a contiguous closed
+                // range. Any new Entertainment action must be added inside
+                // the range and covered by the structural regression test.
                 const bool guard_entry =
-                    action == nikos::launcher::Action::OpenSnake
-                    || action == nikos::launcher::Action::OpenMiniRacer
-                    || action == nikos::launcher::Action::OpenFacts
-                    || action == nikos::launcher::Action::OpenSpaceDefender;
+                    action >= nikos::launcher::Action::OpenSnake
+                    && action <= nikos::launcher::Action::OpenFacts;
                 bool entry_refused = false;
                 if (guard_entry) {
                     if (battery_guard.low_battery_reserve_active()) {
@@ -2280,9 +2283,15 @@ extern "C" void app_main(void)
                         if (entertainment_guard.pending_write()) {
                             const auto cycle = entertainment_guard.snapshot();
                             if (!entertainment_store.save(
-                                    {cycle.active,cycle.civil_valid,cycle.civil_start,cycle.warning_shown}))
-                                ESP_LOGW(kTag, "Entertainment cycle start not persisted");
-                            entertainment_guard.settled();
+                                    {cycle.active,cycle.civil_valid,
+                                     cycle.civil_start,cycle.warning_shown})) {
+                                ESP_LOGW(kTag, "Entertainment cycle start not persisted; denying entry");
+                                entertainment_guard.abort_unpersisted_start();
+                                entertainment_notice = EntertainmentNotice::Break;
+                                entry_refused = true;
+                            } else {
+                                entertainment_guard.settled();
+                            }
                         }
                     }
                 }
@@ -2496,6 +2505,7 @@ extern "C" void app_main(void)
 
             if ((resume_snake_after_communicator
                     || resume_mini_racer_after_communicator
+                    || resume_space_defender_after_communicator
                     || resume_flashlight_after_communicator
                     || resume_facts_after_communicator
                     )
