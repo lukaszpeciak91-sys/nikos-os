@@ -115,7 +115,9 @@ bool Board::begin()
 {
     auto config = M5.config();
     config.internal_imu = false;
-    config.internal_mic = false;
+    // Register M5Unified's StickCPlus microphone power callback (AXP192 LDO0).
+    // Mic capture still starts only in begin_microphone(), not at boot.
+    config.internal_mic = true;
     config.internal_rtc = false;
     config.internal_spk = true;
 
