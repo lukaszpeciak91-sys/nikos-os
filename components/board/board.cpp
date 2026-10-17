@@ -351,20 +351,34 @@ void Board::stop_tone()
     M5.Speaker.stop();
 }
 
+void Board::microphone_buffer_released(
+    void* context, void* buffer, std::size_t /*length*/)
+{
+    // M5Unified calls this on its capture task after filling the buffer.
+    // Atomic release/acquire keeps the PCM samples visible to the UI task.
+    auto* self = static_cast<Board*>(context);
+    self->completed_microphone_buffer_.store(buffer, std::memory_order_release);
+}
+
 bool Board::begin_microphone()
 {
     M5.Speaker.stop();
     M5.Speaker.end();
-    // Board::begin keeps internal_mic disabled at boot to preserve normal
-    // buzzer behavior. Configure the verified PDM pins only for this tool.
+    // Speaker and onboard PDM mic are exclusive on M5StickC Plus SE.
     auto mic_config = M5.Mic.config();
     mic_config.pin_data_in = 34;
     mic_config.pin_ws = 0;
     mic_config.sample_rate = 17000;
     M5.Mic.config(mic_config);
-    if (M5.Mic.begin()) return true;
+    completed_microphone_buffer_.store(nullptr, std::memory_order_relaxed);
+    M5.Mic.setBufferReleaseCallback(this, microphone_buffer_released);
+    if (M5.Mic.begin()) {
+        ESP_LOGI(kTag, "Microphone initialized (PDM data=34 clk=0 rate=17000)");
+        return true;
+    }
     ESP_LOGE(kTag, "Microphone initialization failed");
     M5.Mic.end();
+    M5.Mic.setBufferReleaseCallback(nullptr, nullptr);
     if (!M5.Speaker.begin()) ESP_LOGE(kTag, "Speaker recovery failed");
     set_notification_volume_level(notification_volume_level_);
     return false;
@@ -372,7 +386,9 @@ bool Board::begin_microphone()
 
 bool Board::record_microphone(std::int16_t* buffer, std::size_t count, std::uint32_t hz)
 {
-    return M5.Mic.isRunning() && M5.Mic.record(buffer, count, hz);
+    if (!buffer || count == 0 || !M5.Mic.isRunning()) return false;
+    completed_microphone_buffer_.store(nullptr, std::memory_order_relaxed);
+    return M5.Mic.record(buffer, count, hz);
 }
 
 bool Board::microphone_recording() const
@@ -380,9 +396,18 @@ bool Board::microphone_recording() const
     return M5.Mic.isRecording();
 }
 
+bool Board::microphone_capture_completed(const std::int16_t* buffer)
+{
+    return buffer && completed_microphone_buffer_.exchange(
+        nullptr, std::memory_order_acquire) == buffer;
+}
+
 void Board::end_microphone()
 {
+    // M5Unified end() waits for its worker; callbacks cannot outlive this.
     M5.Mic.end();
+    M5.Mic.setBufferReleaseCallback(nullptr, nullptr);
+    completed_microphone_buffer_.store(nullptr, std::memory_order_relaxed);
     if (!M5.Speaker.begin()) {
         ESP_LOGE(kTag, "Speaker recovery after mic failed");
     }
