@@ -158,6 +158,48 @@ assert not check_entertainment_contract(
 assert not check_entertainment_contract(
     screen,recognized,predicate.replace("RuntimeState::SpaceDefender",""))
 assert "bool take_entertainment_launch()" in header
+termination = main.split("if (entertainment_locked || reserve_entertainment)",1)[1].split(
+    "if (update_charging_full_confirmation(",1)[0]
+resume = main.split("if ((resume_snake_after_communicator",1)[1].split(
+    "communicator_result",1)[0]
+warning = main.split("if (entertainment_warning_visible &&",1)[1].split(
+    "if (state == RuntimeState::Launcher)",1)[0]
+def lifecycle_covered(termination_text, resume_text, warning_text):
+    for name, variable in (
+        ("Snake","snake"), ("MiniRacer","mini_racer"),
+        ("SpaceDefender","space_defender"), ("Facts","facts")):
+        flag = "resume_" + variable + "_after_communicator"
+        if variable+".end();" not in termination_text:
+            return False
+        if flag+" = false;" not in termination_text:
+            return False
+        if flag not in resume_text:
+            return False
+    for operation in ("mini_racer.suspend();", "space_defender.suspend();",
+                      "mini_racer.resume();", "space_defender.resume();",
+                      "snake.suspend_for_entertainment_warning();",
+                      "snake.resume_from_entertainment_warning()", "facts.redraw()"):
+        if operation not in warning_text:
+            return False
+    return True
+assert lifecycle_covered(termination, resume, warning)
+assert not lifecycle_covered(termination.replace("space_defender.end();",""),
+                             resume, warning)
+assert not lifecycle_covered(termination.replace(
+    "resume_space_defender_after_communicator = false;",""),resume,warning)
+assert not lifecycle_covered(termination,resume.replace(
+    "resume_space_defender_after_communicator",""),warning)
+assert not lifecycle_covered(termination,resume,warning.replace(
+    "space_defender.suspend();",""))
+# No rendering of Launcher is allowed in the early global-expiry branch.
+assert "launcher.begin_entertainment(" not in termination
+assert "entertainment_notice_rendered = false;" in termination
+assert "render_entertainment_notice(board, entertainment_notice);" in main
+# The existing DisplayLifecycle wake path must not resume during warning.
+for name in ("mini_racer", "space_defender"):
+    path = main.split(name+".resume_if_suspended();",1)[0].rsplit("if (",1)[1]
+    assert "!entertainment_warning_visible" in path
+
 assert "snake.end();" in main and "mini_racer.end();" in main
 assert "facts.end();" in main
 assert "space_defender.end();" in main
