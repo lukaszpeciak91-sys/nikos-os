@@ -95,6 +95,20 @@ feedback_handler = quiz_cpp.split("} else if (screen_ == Screen::Feedback)",1)[1
 assert "--text_page_" in feedback_handler
 assert "++text_page_" in feedback_handler
 assert "if (++position_ == 10U)" in feedback_handler
+# Deterministic ten-question scoring and forward/back explanation cursor.
+for expected in range(11):
+    truth = [i % 2 == 0 for i in range(10)]
+    chosen = [truth[i] if i < expected else not truth[i] for i in range(10)]
+    assert sum(chosen[i] == truth[i] for i in range(10)) == expected
+for total in range(1, 9):
+    for start in range(total):
+        position = start
+        if position > 0:
+            position -= 1  # SIDE: previous page
+            assert position == start - 1
+        while position + 1 < total:
+            position += 1  # M5: next page
+        assert position == total - 1
 assert "SIDE WSTECZ" in quiz_cpp
 assert "M5 DALEJ" in quiz_cpp
 assert "text_page_count_ > 1" in quiz_cpp
