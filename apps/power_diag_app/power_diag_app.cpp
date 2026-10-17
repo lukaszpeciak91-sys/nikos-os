@@ -134,7 +134,7 @@ void draw_footer(nikos::board::Board& board)
         122,
         198,
         12,
-        "BOCZNY > | DLUGO POWROT",
+        "BOCZNY > | DŁUGO POWRÓT",
         1,
         nikos::board::DisplayColor::SecondaryText,
         nikos::board::DisplayColor::Background);
@@ -599,7 +599,7 @@ void PowerDiagApp::render_new_test_confirm()
         123,
         210,
         11,
-        "BOCZNY ZMIEN | DLUGO ANULUJ",
+        "BOCZNY ZMIEŃ | DŁUGO ANULUJ",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
