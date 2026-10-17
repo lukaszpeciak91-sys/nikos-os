@@ -98,14 +98,17 @@ private:
     font_core::Renderer renderer_;
     Quiz quiz_;
     std::uint8_t text_line_height() const;
-    std::uint16_t text_width(const char* text) const;
+    std::uint16_t text_width(const char* text,
+        font_core::Size size = font_core::Size::Readable) const;
     bool wrap_pixels(const char* text, std::size_t start, std::size_t end,
         std::uint16_t max_width, std::uint8_t max_lines,
-        char* dest, std::size_t dest_size) const;
+        char* dest, std::size_t dest_size,
+        font_core::Size size = font_core::Size::Readable) const;
     void render_readable(const char* text, std::int16_t x,
         std::int16_t y, std::int16_t width, std::int16_t height,
         board::DisplayColor foreground = board::DisplayColor::PrimaryText,
-        board::DisplayColor background = board::DisplayColor::Background);
+        board::DisplayColor background = board::DisplayColor::Background,
+        font_core::Size size = font_core::Size::Readable);
 
     View view_ = View::MainMenu;
     bool active_ = false;
