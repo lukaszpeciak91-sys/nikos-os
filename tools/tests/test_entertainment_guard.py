@@ -117,7 +117,8 @@ with tempfile.TemporaryDirectory() as tmp:
 
 main = (root / "main/app_main.cpp").read_text(encoding="utf-8")
 assert "OpenSnake" in main and "OpenMiniRacer" in main and "OpenFacts" in main
-assert "const bool guard_entry = launcher.take_entertainment_launch();" in main
+assert "const bool guard_entry = launcher.take_entertainment_launch()" in main
+assert "&& action != nikos::launcher::Action::None;" in main
 assert "guard_entry != recognized_entertainment" in main
 assert "if (guard_entry && !entry_refused)" in main
 launcher = (root / "components/launcher/launcher.cpp").read_text(encoding="utf-8")
@@ -125,39 +126,42 @@ header = (root / "components/launcher/include/launcher/launcher.hpp").read_text(
 import re
 screen = launcher.split("if (screen_ == Screen::Entertainment)",1)[1].split(
     "if (screen_ == Screen::Clock)",1)[0]
+update_start = launcher.split("Action Launcher::update(",1)[1].split(
+    "if (screen_ == Screen::Main)",1)[0]
 recognized = main.split("const bool recognized_entertainment =",1)[1].split(
     "bool entry_refused",1)[0]
 predicate = main.split("bool is_guarded_entertainment(",1)[1].split(
     "bool trusted_civil_minute",1)[0]
-def check_entertainment_contract(screen_text, recognized_text, runtime_text):
-    # All Entertainment-screen launches MUST produce a tagged admission
-    # request, not merely a matching enum value.
-    raw = re.findall(r"return\s+Action::(Open\w+)\s*;", screen_text)
-    tagged = re.findall(
-        r"return\s+entertainment_action\(Action::(Open\w+)\)\s*;",
-        screen_text)
-    if raw or not tagged or len(tagged)!=len(set(tagged)):
+def check_contract(screen_text, update_text, recognized_text, runtime_text):
+    # The screen origin is tagged once before dispatch; individual routes
+    # must not rely on manual wrapping or enum numeric position.
+    if "entertainment_launch_=screen_ == Screen::Entertainment;" not in update_text:
         return False
-    if re.search(r"return\s+(?:Action::Open|entertainment_action)", screen_text) is None:
+    if "entertainment_action(" in screen_text:
         return False
-    for action in tagged:
+    routes = re.findall(r"return\\s+Action::(Open\\w+)\\s*;", screen_text)
+    if len(routes)!=4 or len(routes)!=len(set(routes)):
+        return False
+    for action in routes:
         if "Action::"+action not in recognized_text:
             return False
         if "RuntimeState::"+action.removeprefix("Open") not in runtime_text:
             return False
     return True
-assert check_entertainment_contract(screen,recognized,predicate)
-# Negative/mutation regressions must actually reject a new unguarded route,
-# an unclassified runtime and an unrecognized Entertainment admission.
-assert not check_entertainment_contract(
-    screen.replace("return entertainment_action(Action::OpenSnake);",
-                   "return Action::OpenSyntheticGame;"), recognized,predicate)
-assert not check_entertainment_contract(
-    screen.replace("Action::OpenSnake","Action::OpenSyntheticGame"),
+assert check_contract(screen,update_start,recognized,predicate)
+# A synthetic untagged fifth route is automatically covered by screen
+# provenance; without action/runtime integration it MUST fail validation.
+synthetic = screen.replace("return Action::OpenSnake;",
+                           "return Action::OpenSyntheticGame;")
+assert not check_contract(synthetic,update_start,recognized,predicate)
+assert not check_contract(screen,update_start.replace(
+    "entertainment_launch_=screen_ == Screen::Entertainment;",""),
     recognized,predicate)
-assert not check_entertainment_contract(
-    screen,recognized,predicate.replace("RuntimeState::SpaceDefender",""))
+assert not check_contract(screen,update_start,recognized,
+                          predicate.replace("RuntimeState::SpaceDefender",""))
+assert "return Action::None;" in screen  # BACK/navigation does not authorize
 assert "bool take_entertainment_launch()" in header
+
 termination = main.split("if (entertainment_locked || reserve_entertainment)",1)[1].split(
     "if (update_charging_full_confirmation(",1)[0]
 resume = main.split("if ((resume_snake_after_communicator",1)[1].split(
@@ -194,6 +198,7 @@ assert not lifecycle_covered(termination,resume,warning.replace(
 # No rendering of Launcher is allowed in the early global-expiry branch.
 assert "launcher.begin_entertainment(" not in termination
 assert "entertainment_notice_rendered = false;" in termination
+assert "(charging_mode.active && !charging_mode.owner_override_active)" in main
 assert "render_entertainment_notice(board, entertainment_notice);" in main
 # The existing DisplayLifecycle wake path must not resume during warning.
 for name in ("mini_racer", "space_defender"):
