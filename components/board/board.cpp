@@ -386,9 +386,23 @@ bool Board::begin_microphone()
 
 bool Board::record_microphone(std::int16_t* buffer, std::size_t count, std::uint32_t hz)
 {
-    if (!buffer || count == 0 || !M5.Mic.isRunning()) return false;
+    if (!buffer || count == 0 || hz == 0) {
+        ESP_LOGW(kTag, "Mic record invalid request: buffer=%p count=%u rate=%lu",
+            static_cast<void*>(buffer), static_cast<unsigned>(count),
+            static_cast<unsigned long>(hz));
+        return false;
+    }
+    // In M5Unified 0.2.22 record() can lazily start capture and returns
+    // whether it accepted this buffer. isRunning() is not a prerequisite.
     completed_microphone_buffer_.store(nullptr, std::memory_order_relaxed);
-    return M5.Mic.record(buffer, count, hz);
+    const bool accepted = M5.Mic.record(buffer, count, hz);
+    if (!accepted) {
+        ESP_LOGW(kTag, "Mic record rejected: running=%u recording=%u count=%u rate=%lu",
+            static_cast<unsigned>(M5.Mic.isRunning()),
+            static_cast<unsigned>(M5.Mic.isRecording()),
+            static_cast<unsigned>(count), static_cast<unsigned long>(hz));
+    }
+    return accepted;
 }
 
 bool Board::microphone_recording() const
