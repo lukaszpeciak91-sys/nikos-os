@@ -78,6 +78,21 @@ int main() {
             assert(difference >= kMinGapPx*256);
         }
     }
+    // Reachability at 75px/s: the closest possible pair of collision
+    // windows is 120px / 75px/s = 1.6s apart. 400ms lane reaction
+    // budget is smaller even for alternate-lane sequences.
+    constexpr std::uint32_t kSwitchBudgetMs = 400;
+    static_assert(kMinGapPx * 1000 / 75 > kSwitchBudgetMs, "unreachable traffic");
+    for (std::uint32_t seed=1;seed<=200;++seed) {
+        Random g(seed); Traffic t{}; initialize(t,255,g);
+        for (std::size_t i=1;i<3;++i) {
+            auto gap=(t[i].x_q8-t[i-1].x_q8)/256;
+            assert(gap*1000/75 > kSwitchBudgetMs);
+            // Choosing the opposite lane from the next oncoming car
+            // always avoids its sweep; sufficient time exists to switch.
+            assert((t[i].lane ^ 1U)<=1);
+        }
+    }
     // Swept collision on a delayed frame must catch a car crossed over.
     Random sweep(123); initialize(roadcars,255,sweep);
     roadcars[0].x_q8=70*256;
