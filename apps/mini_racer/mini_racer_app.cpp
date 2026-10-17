@@ -239,7 +239,7 @@ void MiniRacerApp::render() {
     case State::TimeLimit:
         board_.clear_screen();
         board_.draw_text_region(18, 36, 218, 30, "CZAS NA PRZERWĘ", 2);
-        board_.draw_text_region(18, 79, 218, 24, "M5 / SIDE: POWRÓT", 2);
+        board_.draw_text_region(18, 79, 218, 24, "M5 / SIDE: POWROT", 2);
         break;
     }
 }
