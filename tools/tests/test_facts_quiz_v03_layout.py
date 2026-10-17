@@ -89,10 +89,10 @@ item_height_block = facts_cpp.split("std::uint8_t FactsApp::title_item_height(",
 assert "lines * 19U + 3U" in item_height_block
 assert "font_core::Size::Compact" in item_height_block
 assert "wrapped_title_.size(), font_core::Size::Compact" in list_block
-assert re.search(r"render_readable\\(wrapped_title_\\.data\\(\\),\\s*12,\\s*y,\\s*224,\\s*height,\\s*"
-                 r"selected \\? board::DisplayColor::PrimaryText\\s*"
-                 r": board::DisplayColor::SecondaryText,\\s*bg,\\s*"
-                 r"font_core::Size::Compact\\);", list_block), "list renderer silently defaults to READABLE"
+assert re.search(r"render_readable\(wrapped_title_\.data\(\),\s*12,\s*y,\s*224,\s*height,\s*"
+                 r"selected \? board::DisplayColor::PrimaryText\s*"
+                 r": board::DisplayColor::SecondaryText,\s*bg,\s*"
+                 r"font_core::Size::Compact\);", list_block), "list renderer silently defaults to READABLE"
 assert "if (y + height > 115) break;" in list_block
 assert "y += height;" in list_block
 # Contract with existing font_core: COMPACT raster is 19px per line,
