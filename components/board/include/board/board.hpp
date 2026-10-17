@@ -25,6 +25,7 @@ enum class DisplayColor : std::uint8_t {
     PrimaryText,
     SecondaryText,
     Accent,
+    CoinGold,
     StatusActive,
     StatusInactive,
     Attention,
