@@ -3,6 +3,7 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES
         battery_guard
+        entertainment_guard
         board
         clock
         communicator
