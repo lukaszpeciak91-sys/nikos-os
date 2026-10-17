@@ -1427,6 +1427,11 @@ extern "C" void app_main(void)
                         ? EntertainmentNotice::LowBattery
                         : EntertainmentNotice::Break;
                     entertainment_notice_rendered = false;
+                } else if (app_was_preempted && reserve_entertainment) {
+                    // Defer the Reserve notice until Communicator releases
+                    // the screen; its foreground ownership is authoritative.
+                    entertainment_notice = EntertainmentNotice::LowBattery;
+                    entertainment_notice_rendered = false;
                 }
             }
         }
