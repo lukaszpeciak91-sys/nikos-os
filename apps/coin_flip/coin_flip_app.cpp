@@ -43,7 +43,7 @@ void CoinFlipApp::draw_coin(std::uint8_t frame) {
     // remain lightweight ellipses so the existing flip motion is preserved.
     if (half >= 32) {
         board_.fill_circle(cx, cy, radius, board::DisplayColor::PrimaryText);
-        board_.fill_circle(cx, cy, radius - 3, board::DisplayColor::Attention);
+        board_.fill_circle(cx, cy, radius - 3, board::DisplayColor::CoinGold);
         board_.draw_line(cx - 14, cy - 25, cx + 10, cy - 25,
             board::DisplayColor::PrimaryText);
     } else {
@@ -53,7 +53,7 @@ void CoinFlipApp::draw_coin(std::uint8_t frame) {
             while ((x + 1) * (x + 1) * radius * radius
                     <= half * half * distance) ++x;
             board_.draw_line(cx - x, cy + y, cx + x, cy + y,
-                board::DisplayColor::Attention);
+                board::DisplayColor::CoinGold);
         }
     }
     if (half < 28) return;
@@ -72,11 +72,11 @@ void CoinFlipApp::draw_coin(std::uint8_t frame) {
         board_.fill_rect(118, 54, 4, 5, board::DisplayColor::PrimaryText);
     } else {
         board_.draw_text_region(106, 53, 29, 27, "1", 3,
-            board::DisplayColor::PrimaryText, board::DisplayColor::Attention);
+            board::DisplayColor::PrimaryText, board::DisplayColor::CoinGold);
         font_.select(font_core::Mode::PreRendered);
         font_.set_size(font_core::Size::Compact);
         font_.draw("ZŁ", {105, 79, 36, 19},
-            board::DisplayColor::PrimaryText, board::DisplayColor::Attention);
+            board::DisplayColor::PrimaryText, board::DisplayColor::CoinGold);
     }
 }
 void CoinFlipApp::render() {
