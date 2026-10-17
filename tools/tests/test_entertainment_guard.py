@@ -30,6 +30,9 @@ int main() {
     assert(!g.warning_due(717*minute+59999));
     assert(g.warning_due(718*minute));
     g.acknowledge_warning();
+    assert(g.pending_write());
+    assert(g.snapshot().warning_shown);
+    g.settled();
     assert(!g.warning_due(718*minute));
     assert(!g.warning_due(719*minute));
     assert(g.phase(720*minute)==Phase::Cooldown);
@@ -45,6 +48,9 @@ int main() {
     fresh.restore({true,true,20000},1500000,true,20005);
     assert(fresh.phase(1500000)==Phase::Window);
     assert(fresh.warning_due(1500000+13*minute));
+    Guard restored_warning;
+    restored_warning.restore({true,true,20000,true},1500000,true,20018);
+    assert(!restored_warning.warning_due(1500000));
     Guard locked;
     locked.restore({true,true,20000},1500000,true,20030);
     assert(locked.phase(1500000)==Phase::Cooldown);
@@ -88,6 +94,14 @@ with tempfile.TemporaryDirectory() as tmp:
 main = (root / "main/app_main.cpp").read_text(encoding="utf-8")
 assert "OpenSnake" in main and "OpenMiniRacer" in main and "OpenFacts" in main
 assert "const bool guard_entry =" in main
+entry_gate = main.split("const bool guard_entry =", 1)[1].split(
+    "bool entry_refused", 1)[0]
+assert all(name in entry_gate for name in ("OpenSnake", "OpenMiniRacer", "OpenFacts"))
+assert "OpenSpaceDefender" not in entry_gate
+assert "snake.end();" in main and "mini_racer.end();" in main
+assert "facts.end();" in main
+assert "entertainment_warning_visible" in main
+assert "render_entertainment_notice" in main
 assert "battery_guard.low_battery_reserve_active()" in main
 assert "entertainment_guard.enter(loop_now_ms" in main
 assert "is_guarded_entertainment(state)" in main
@@ -95,6 +109,10 @@ assert "entertainment_guard.warning_due(loop_now_ms)" in main
 assert "entertainment_guard.pending_clear()" in main
 assert "entertainment_store.save(" in main
 assert "entertainment_store.clear()" in main
+store = (root / "components/storage/entertainment_cycle_store.cpp").read_text(encoding="utf-8")
+assert "static_assert(sizeof(Record)==12U" in store
+assert 'kKey[]="ent_cycle"' in store
+assert "warning_shown" in store
 assert "resume_snake_after_communicator = false;" in main
 assert "resume_mini_racer_after_communicator = false;" in main
 assert "resume_facts_after_communicator = false;" in main
