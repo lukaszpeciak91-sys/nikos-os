@@ -2599,7 +2599,17 @@ extern "C" void app_main(void)
                     // or the charging-lock presentation.
                     bool audio_ownership_ready =
                         !countdown.expired_pending()
-                        && !charging_mode.active;
+                        && (!charging_mode.active
+                            || charging_mode.owner_override_active);
+                    ESP_LOGI(kTag,
+                        "SoundMeter request usb=%u owner_unlocked=%u transport=%u "
+                        "communicator=%u timer_pending=%u audio_ready=%u",
+                        static_cast<unsigned>(charging_mode.active),
+                        static_cast<unsigned>(charging_mode.owner_override_active),
+                        static_cast<unsigned>(messaging.transport_active()),
+                        static_cast<unsigned>(communicator_enabled),
+                        static_cast<unsigned>(countdown.expired_pending()),
+                        static_cast<unsigned>(audio_ownership_ready));
                     if (audio_ownership_ready
                         && resume_messaging_after_meter
                         && !messaging.pause_transport()) {
