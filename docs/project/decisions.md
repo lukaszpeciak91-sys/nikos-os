@@ -887,3 +887,8 @@ Replace single-hull spawning with staged caps (2/3/4), conservative temporal col
 ### Space Defender PR #83 R2 — conservative future-hazard handling
 
 Reserve the entire [fastest, current-speed] impact-time interval when admitting mixed-speed hulls, including a possible 500-point speed transition. Do not overlap an unmodeled future Shooter projectile with a concurrent hull: Shooter is scheduled alone, while multiple Scout/Armored hulls remain possible. The 1100ms cyclic-switch budget is an explicit human-input assumption, not proof of guaranteed reachability.
+
+
+### Entertainment Guard v0.1 — bounded availability, not parental controls
+
+Use one shared 20-minute wall-clock Entertainment window followed by 60 minutes of rest. This intentionally avoids accumulated playtime accounting, daily totals, per-fact quotas, role management, a generic scheduler or multiple application-specific guards. The policy owns no display, RTC or NVS access; app_main owns composition, system priority and NVS transition calls. Trusted civil time supports reboot resistance; untrusted restoration uses conservative current-boot cooldown. Retain independent local 10-minute limits for Snake/Mini Racer/Space Defender and reuse authoritative Low Battery Reserve without new voltage thresholds.

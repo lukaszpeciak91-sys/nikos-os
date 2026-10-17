@@ -235,8 +235,9 @@ void MiniRacerApp::render() {
     case State::GameOver: render_menu(true); break;
     case State::TimeLimit:
         board_.clear_screen();
-        board_.draw_text_region(18, 36, 218, 30, "CZAS NA PRZERWĘ", 2);
-        board_.draw_text_region(18, 79, 218, 24, "M5 / SIDE: POWROT", 2);
+        board_.draw_text_region(18, 36, 218, 30, "KONIEC SESJI", 2);
+        board_.draw_text_region(18, 77, 218, 21, "10 MIN GRY", 2);
+        board_.draw_text_region(18, 112, 218, 17, "M5 / SIDE: POWRÓT", 1);
         break;
     }
 }

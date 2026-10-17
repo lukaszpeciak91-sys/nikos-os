@@ -175,7 +175,8 @@ void SpaceDefenderApp::render_game(bool full) {
 void SpaceDefenderApp::render_menu() {
     board_.clear_screen();
     if (world_.phase==rules::Phase::TimeLimit) {
-        board_.draw_text_region(16,37,208,28,"CZAS NA PRZERWĘ",2);
+        board_.draw_text_region(16,25,208,28,"KONIEC SESJI",2);
+        board_.draw_text_region(16,64,208,23,"10 MIN GRY",2);
         board_.draw_text_region(15,89,210,20,"M5 / SIDE: POWRÓT",1);
         return;
     }

@@ -68,8 +68,14 @@ public:
     void redraw();
     bool showing_communicator_ui() const;
     Action update(const board::InputState& input);
+    bool take_entertainment_launch() {
+        const bool value=entertainment_launch_;
+        entertainment_launch_=false;
+        return value;
+    }
 
 private:
+    bool entertainment_launch_=false;
     enum class StopwatchState : std::uint8_t {
         Idle,
         Running,

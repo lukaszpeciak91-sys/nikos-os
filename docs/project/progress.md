@@ -302,3 +302,28 @@ Implemented staged concurrent traffic, candidate arrival-window checks, bounded 
 ### Space Defender PR #83 R2 — audit response
 
 Deduplicated `space_defender` in `main/CMakeLists.txt`; root and app registration are single entries. Changed only traffic admission: interval-safe mixed-speed checks across the 500-point boost and no Shooter-hull overlap while future hostile fire is pending. Added production `advance`/`substep` scenarios for moving hulls, relative speeds, warning-to-bullet, surviving bullets, collision/invulnerability, pool bounds and legal cycling. Host execution, ESP-IDF build, device input cadence and high-score reachability remain to be verified.
+
+
+### Entertainment Guard v0.1 — implementation status
+
+Added a small policy component, narrow NVS record, trusted ClockService civil-minute composition, three protected entry gates, a shared window/break and one-time warning, Reserve interruption, and app_main foreground/presentation coordination. Snake's warning-only pause preserves movement phase; Mini Racer uses its existing suspend/resume, while Facts/Quiz is redrawn without changing state. Existing local 10-minute screens now say KONIEC SESJI / 10 MIN GRY. Host policy tests were added. The exact guard header (source hash verified) passed an isolated g++ C++17 host harness for the 18/20/80-minute boundaries, shared launches, RTC restore, untrusted cooldown and no periodic writes. The full repository host-test suite and ESP-IDF 5.5.5 build remain unavailable, as does physical verification of warning/foreground restoration, charging/Communicator priority, and boot restoration with trusted/untrusted RTC. No merge was authorized.
+
+
+### Entertainment Guard PR #84 audit iteration — Space Defender and deferred Break
+
+Space Defender now shares guarded entry, warning suspend/resume, 20-minute lifecycle termination, cooldown and authoritative Low Battery Reserve with Snake/Mini Racer/Facts. Its local 10-minute timeout uses neutral KONIEC SESJI / 10 MIN GRY wording. A global expiration while one of these applications is preempted by Communicator ends the retained app and clears its resume flag, while queuing a Break notice without taking foreground; the notice is shown when Communicator exits and dismisses to ROZRYWKA. The existing RTC/NVS cycle timings and non-entertainment ownership remain unchanged. Source regression coverage was extended; full host suite, ESP-IDF build and physical timing tests remain pending.
+
+
+### Entertainment Guard PR #84 R1 audit repairs
+
+Removed duplicate OpenSpaceDefender enum item, guarded the contiguous Launcher Entertainment action range and added a structural regression requiring all Entertainment launcher routes to match the range and protected runtime. First NVS write failure now aborts admission and rolls back the unpersisted policy start; a failed expiry clear remains latched and is retried only on explicit protected launch. Entertainment warning ownership blocks premature Mini Racer/Space Defender lifecycle resume. The Communicator restoration condition now includes Space Defender. Host regression extended with failure-injection and synthetic Entertainment route coverage; full repository host suite and ESP-IDF build remain unverified until available.
+
+
+### Entertainment Guard PR #84 R2 audit implementation
+
+R2 replaces enum-range admission with one-shot Launcher Entertainment-origin tagging and explicit recognized-action refusal; unknown tagged routes cannot enter foreground. Mutation-style source regression checks missing origin tagging, recognition, runtime classification, termination, preemption-flag removal and premature warning resume. Guard expiration no longer calls Launcher drawing during Charging Lock or higher-priority overlays, retaining deferred break/Reserve presentation. The policy's trusted/untrusted time and NVS transition model remains unchanged. Host integration and ESP-IDF full firmware build still need execution in a checkout/toolchain-enabled environment.
+
+
+### Entertainment Guard PR #84 R3 final fixes
+
+Replaced per-action Entertainment tagging with category origin captured centrally in Launcher::update; app_main gates non-None actions from that screen. Unknown actions are refused. Owner Override no longer resets the break-notice rendered flag each loop while it exposes normal UI. Updated source/mutation regression and added permanent AGENTS.md architecture safety contract. Host suite, ESP-IDF compilation and physical Owner Override checks remain unverified pending execution.

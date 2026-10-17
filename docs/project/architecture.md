@@ -586,3 +586,33 @@ Rendering refreshes only gameplay lane bands containing current or previously dr
 R1 point estimates were not stable under mixed enemy speeds or the score-500 speed increase: an apparently separate pair of collision times could converge. R2 uses a conservative interval per hull: earliest arrival assuming the 500-point boost applies immediately, latest assuming it does not apply before impact. Candidate and existing hull intervals must remain at least 1100 ms apart in either temporal order. This protects the interval against *one* possible +6 px/s threshold crossing without pretending to know when the threshold occurs.
 
 A Shooter announces a future bullet which is absent from the hostile-shot pool at spawn time. To avoid unmodeled projectile/hull overlap, a Shooter does not coexist with another enemy hull; multiple Scout/Armored hulls remain allowed within the 2/3/4 staged caps. Persisting hostile bullets are checked at their constant 27 px/s speed. Rejected spawn attempts are not rerolled or stacked into an unbounded queue. This remains a conservative scheduling heuristic, not a formal human-reaction guarantee: button cadence, player choice, rendering latency and two-event cyclic navigation require physical validation.
+
+
+### Entertainment Guard v0.1 — one shared wall-clock cycle
+
+The independent header-only `components/entertainment_guard` policy covers Snake, Mini Racer, Space Defender and Facts (including Quiz). First protected app entry opens one **20-minute wall-clock window**, irrespective of app switches, pauses, temporarily leaving ROZRYWKA, DisplayOff or Communicator preemption. A **60-minute break** follows from minute 20 through minute 80; a subsequent entry starts a new cycle. Merely viewing the Entertainment menu does not start a cycle. No daily quota, per-fact count, persistent history or ongoing countdown exists. The 10-minute Snake, Mini Racer and Space Defender sessions remain separate and display neutral local-session wording.
+
+At minute 18, one transient two-minute warning is shown below existing system priorities, and the underlying application resumes without resetting its session or gameplay state. At minute 20, an active covered app is ended and an un-timed break screen is shown; outside Entertainment the phase transition is silent. The same Reserve state from BatteryGuard blocks entry and ends foreground Entertainment with a separate low-battery notice, without changing the Entertainment cycle. Unaffected applications, including Communicator, Tools and Clock, retain their existing ownership and behavior.
+
+`storage::EntertainmentCycleStore` stores exactly one NVS blob under namespace `nikos`, key `ent_cycle`: a version marker (32-bit), civil start minute since 2000-01-01 (32-bit), civil-valid flag (8-bit), warning-once flag (8-bit) and two reserved bytes (12 bytes total). The only writes occur at cycle start, first warning, and cycle expiry/clear. Trusted date **and** time are obtained exclusively via ClockService; trusted reboot counts powered-off minutes. An untrusted persisted marker triggers a conservative 60-minute monotonic cooldown before clearing, so reboot does not grant a new window. NVS failures are logged but do not fail boot. RTC or Auto Power-Off persistence contracts are unchanged.
+
+
+### Entertainment Guard PR #84 R1 — closed launch gate and persistence errors
+
+Launcher Entertainment actions form one contiguous guarded action range (OpenSnake through OpenFacts); app_main gates the range before entering the foreground. A structural regression checks that every route returned from the Entertainment Launcher screen equals the enum range and has a guarded runtime mapping; a new action placed outside that range or with missing runtime lifecycle fails the test. It is a deliberately small explicit contract, not a dynamic registry. The runtime predicate remains explicit for lifecycle cleanup and preemption; additions require review/test updates.
+
+Initial NVS cycle writes are admission-critical: if the write fails, the policy rolls back that unpersisted start and the requested entertainment launch is refused. Failed expiry clearing remains latched; the marker is retried on a later protected launch attempt, not polled each loop, and entertainment remains denied until persistence is trustworthy. Failed warning writes remain pending in memory. Higher-priority OS services remain accessible. An Entertainment warning suppresses DisplayLifecycle auto-resume of suspended Mini Racer and Space Defender until its transient presentation completes; Space Defender is included in the Communicator resume condition.
+
+
+### Entertainment Guard PR #84 R2 — origin-tagged admission and foreground handoff
+
+Launcher tags actions returned from its Entertainment screen independently of Action enum ordering. app_main consumes the one-shot origin token, recognizes the four supported Entertainment routes, and denies tagged unknown routes before beginning any application. Its explicit protected RuntimeState predicate still controls expiry and Low Battery Reserve cleanup. The host integration regression checks route tagging, approved action/runtime classification, and deliberately altered unguarded/unclassified routes. Adding a fifth Entertainment game requires this explicit lifecycle implementation; it cannot be admitted solely by enum position.
+
+When a protected foreground expires under Charging Lock or a higher-priority overlay, app_main ends it and queues the break/Reserve notice without calling launcher.begin_entertainment (which draws immediately). The notice is shown only after higher-priority screen handling releases the foreground; dismissal initializes the Entertainment menu. Cycle timing, NVS format/write semantics and BatteryGuard thresholds are unchanged.
+
+
+### Entertainment Guard R3 — screen-origin admission and Owner Override
+
+Launcher captures Entertainment screen origin once at the start of each input update, independently of the selected action. app_main consumes this signal for non-None launch actions and denies unknown Entertainment actions before any application begin. BACK/navigation returns None and never starts a cycle. Runtime termination and preemption cleanup remain explicit and regression-checked. Unlike per-route tagging, a new Entertainment return action cannot omit provenance tagging.
+
+Charging Lock suppresses entertainment notice rendering only when Owner Override is inactive. When Override owns normal foreground, pending Break/LowBattery notices may be presented once and dismissed by normal M5/SIDE input, without a loop continuously invalidating their rendered state. Charging Lock, FULL/OK, Timer, Communicator, BatteryGuard and DisplayOff remain higher priority.

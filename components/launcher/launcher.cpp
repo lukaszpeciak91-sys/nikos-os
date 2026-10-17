@@ -450,6 +450,8 @@ void Launcher::set_communicator_delivery_status(
 
 Action Launcher::update(const board::InputState& input)
 {
+    // Capture the screen at update entry; no per-action tagging required.
+    entertainment_launch_=screen_ == Screen::Entertainment;
     const std::uint32_t now = now_ms();
     update_clock_sample(now);
     update_battery_sample(now);

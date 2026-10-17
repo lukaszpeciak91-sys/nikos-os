@@ -45,6 +45,18 @@ void SnakeApp::end()
     active_ = false;
 }
 
+void SnakeApp::suspend_for_entertainment_warning()
+{
+    warning_move_elapsed_ms_ = std::min(
+        now_ms() - last_move_ms_, move_interval_ms());
+}
+
+void SnakeApp::resume_from_entertainment_warning()
+{
+    last_move_ms_ = now_ms() - warning_move_elapsed_ms_;
+    redraw();
+}
+
 void SnakeApp::redraw()
 {
     if (!active_) {
@@ -459,7 +471,7 @@ void SnakeApp::render_time_limit()
         25,
         190,
         20,
-        "CZAS NA PRZERWĘ",
+        "KONIEC SESJI",
         2,
         board::DisplayColor::Attention,
         board::DisplayColor::Background);
@@ -472,6 +484,7 @@ void SnakeApp::render_time_limit()
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
+    board_.draw_text_region(62, 86, 150, 15, "10 MIN GRY", 1);
     board_.draw_text_region(
         31,
         105,
