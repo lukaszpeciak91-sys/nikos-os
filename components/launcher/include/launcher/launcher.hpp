@@ -17,7 +17,6 @@ enum class Action : std::uint8_t {
     StopCommunicator,
     OpenRadioLab,
     OpenPowerDiag,
-    OpenFontLab,
     OpenFlashlight,
     OpenSoundMeter,
     OpenSnake,
@@ -92,7 +91,6 @@ private:
         ClockDateNeedsTime,
         Calendar,
         Settings,
-        FontSelector,
         SoundMenu,
         SignalSound,
         SignalVolume,
@@ -137,7 +135,6 @@ private:
     void render_timer_countdown_if_changed();
     void render_stopwatch_time_if_changed();
     void render_settings();
-    void render_font_selector();
     void draw_pilot_text(std::int16_t x, std::int16_t y,
         std::int16_t width, std::int16_t height, const char* text,
         std::uint8_t standard_size, board::DisplayColor fg,
@@ -189,7 +186,6 @@ private:
     std::uint8_t calendar_month_ = 1;
     std::uint8_t calendar_action_selection_ = 0;
     std::uint8_t settings_selection_ = 0;
-    std::uint8_t font_selection_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t sound_menu_selection_ = 0;
     std::uint8_t signal_volume_selection_ = 4;
