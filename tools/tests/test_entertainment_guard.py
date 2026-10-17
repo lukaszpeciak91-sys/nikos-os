@@ -308,7 +308,15 @@ assert "return Action::OpenFacts;" in menu
 assert "launcher.begin_games(" in main
 assert main.count("launcher.begin_games(") == 4
 assert "void Launcher::begin_games(" in launcher
-assert "begin_entertainment(communicator_status);" in launcher
+# Returning to GRY must render only GRY, never flash ROZRYWKA first.
+games_entry = launcher.split("void Launcher::begin_games(",1)[1].split(
+    "void Launcher::restore_signal_volume_preference(",1)[0]
+assert "begin_entertainment(communicator_status);" not in games_entry
+assert games_entry.count("render();") == 1
+assert "screen_ = Screen::Games;" in games_entry
+assert "reset_stopwatch_session();" in games_entry
+assert "update_clock_sample(now, true);" in games_entry
+assert "update_battery_sample(now);" in games_entry
 assert "entertainment_guard.enter(loop_now_ms" in main
 assert "guard_entry != recognized_entertainment" in main
 assert "&& action != nikos::launcher::Action::None;" in main
