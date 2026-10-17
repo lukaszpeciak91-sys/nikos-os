@@ -96,7 +96,7 @@ for func in menu_calls:
 # for every dynamic Clock timer label supported by the product.
 glyphs = (root / "components/font_core/glyph_assets.hpp").read_text(encoding="utf-8")
 advances = {int(cp): int(advance) for cp, advance in
-            re.findall(r'\\{(\\d+),\\s*(\\d+),\\s*"', glyphs)}
+            re.findall(r'[{]([0-9]+),[ ]*([0-9]+),[ ]*"', glyphs)}
 def readable_width(value):
     return sum(((advances[ord(char)] + 1) * 5 + 3) // 4 for char in value)
 
