@@ -9,7 +9,8 @@ struct Record {
     std::uint32_t marker;
     std::uint32_t civil_start;
     std::uint8_t civil_valid;
-    std::uint8_t reserved[3]{};
+    std::uint8_t warning_shown;
+    std::uint8_t reserved[2]{};
 };
 constexpr std::uint32_t kMarker=0x454E5431U;
 bool write(const Record* record) {
@@ -37,16 +38,18 @@ bool EntertainmentCycleStore::load(EntertainmentCycle& cycle) const {
     nvs_close(handle);
     if(err==ESP_ERR_NVS_NOT_FOUND)return true;
     if(err!=ESP_OK || size!=sizeof(record) || record.marker!=kMarker ||
-        record.civil_valid>1U)return false;
+        (record.civil_valid>1U || record.warning_shown>1U))return false;
     cycle.active=true;
     cycle.civil_valid=record.civil_valid!=0U;
     cycle.civil_start=record.civil_start;
+    cycle.warning_shown=record.warning_shown!=0U;
     return true;
 }
 bool EntertainmentCycleStore::save(const EntertainmentCycle& cycle) const {
     if(!cycle.active)return clear();
     const Record record{kMarker,cycle.civil_start,
-                        static_cast<std::uint8_t>(cycle.civil_valid?1U:0U),{}};
+                        static_cast<std::uint8_t>(cycle.civil_valid?1U:0U),
+                        static_cast<std::uint8_t>(cycle.warning_shown?1U:0U),{}};
     return write(&record);
 }
 bool EntertainmentCycleStore::clear() const {return write(nullptr);}
