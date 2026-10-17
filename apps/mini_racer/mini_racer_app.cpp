@@ -5,9 +5,6 @@
 #include "esp_timer.h"
 namespace nikos::mini_racer {
 namespace {
-constexpr std::uint32_t kInitialSpeedQ8 = 36U * 256U;
-constexpr std::uint32_t kMaxSpeedQ8 = 70U * 256U;
-constexpr std::uint32_t kAccelerationQ8 = 3U * 256U;
 constexpr std::uint32_t kFramePeriodMs = 75;
 constexpr std::uint32_t kMaxStepMs = 60;
 constexpr std::int16_t kLaneCenters[2] = {49, 90};
@@ -24,14 +21,15 @@ void MiniRacerApp::begin() {
 void MiniRacerApp::start_round(std::uint32_t now) {
     state_ = State::Playing;
     player_lane_ = 1;
-    const std::uint8_t first_lane = static_cast<std::uint8_t>(esp_random() & 1U);
-    rules::initialize(enemies_, kSpawnX, first_lane);
+    rng_ = rules::Random(esp_random());
+    rules::initialize(enemies_, kSpawnX, rng_);
+    motion_ = rules::Motion{};
     frame_valid_ = false;
     last_drawn_score_ = 0;
     active_play_ms_ = 0;
     score_ = 0;
     menu_selection_ = 0;
-    divider_offset_ = 0;
+    divider_offset_q8_ = 0;
     last_tick_ms_ = now;
     last_frame_ms_ = now;
     display_.note_visible_activity();
@@ -103,16 +101,15 @@ void MiniRacerApp::tick(std::uint32_t now) {
         active_play_ms_ += dt;
         score_ = active_play_ms_ / 100U;
         record_ = std::max(record_, score_);
-        const std::uint32_t speed = std::min(
-            kMaxSpeedQ8, kInitialSpeedQ8 +
-                (active_play_ms_ / 10000U) * kAccelerationQ8);
-        if (rules::advance(enemies_, speed, dt, player_lane_)) {
+        const std::uint32_t speed = rules::speed_for_score(score_);
+        const std::uint32_t displacement = motion_.advance(speed, dt);
+        if (rules::advance(enemies_, displacement, player_lane_, rng_)) {
             state_ = rules::hit(state_);
             menu_selection_ = 0;
             break;
         }
-        divider_offset_ = static_cast<std::uint16_t>(
-            (divider_offset_ + speed * dt / 1000U / 256U) % 24U);
+        divider_offset_q8_ =
+            (divider_offset_q8_ + displacement) % (24U * 256U);
         changed = true;
     }
     if (state_ == State::GameOver) {
@@ -175,7 +172,7 @@ void MiniRacerApp::render_playing(bool full) {
         board_.draw_line(kRoadLeft, 28, kRoadRight, 28, board::DisplayColor::PrimaryText);
         board_.draw_line(kRoadLeft, 110, kRoadRight, 110, board::DisplayColor::PrimaryText);
     }
-    for (std::int16_t x = 5 - static_cast<std::int16_t>(divider_offset_);
+    for (std::int16_t x = 5 - static_cast<std::int16_t>(divider_offset_q8_ / 256U);
          x < 235; x += 24) {
         const auto left = std::max<std::int16_t>(x, 5);
         const auto right = std::min<std::int16_t>(
