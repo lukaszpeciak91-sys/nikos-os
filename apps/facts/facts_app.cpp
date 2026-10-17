@@ -676,7 +676,8 @@ void FactsApp::render_title_list()
                                  : board::DisplayColor::Background;
         render_readable(wrapped_title_.data(), 12, y, 224, height, 
             selected ? board::DisplayColor::PrimaryText
-                     : board::DisplayColor::SecondaryText, bg);
+                     : board::DisplayColor::SecondaryText, bg,
+            font_core::Size::Compact);
         if (selected) draw_selection_marker(board_, 8, y, height - 2);
         y += height;
     }
