@@ -15,11 +15,15 @@ private:
     void render_question();
     void render_feedback();
     void render_final();
-    void draw_wrapped(const char* text, std::int16_t y, std::uint8_t max_lines);
-    std::uint16_t text_width(const char* text) const;
-    void layout_text_pages(const char* text, std::uint8_t max_lines);
+    void draw_wrapped(const char* text, std::int16_t y, std::uint8_t max_lines,
+        font_core::Size size = font_core::Size::Readable);
+    std::uint16_t text_width(const char* text,
+        font_core::Size size = font_core::Size::Readable) const;
+    void layout_text_pages(const char* text, std::uint8_t max_lines,
+        font_core::Size size = font_core::Size::Readable);
     void draw_text_page(const char* text, std::int16_t y,
-        std::int16_t height, std::uint8_t max_lines);
+        std::int16_t height, std::uint8_t max_lines,
+        font_core::Size size = font_core::Size::Readable);
     void draw_selected_text(const char* text, std::int16_t x,
         std::int16_t y, std::int16_t width, std::int16_t height,
         board::DisplayColor foreground, board::DisplayColor background);

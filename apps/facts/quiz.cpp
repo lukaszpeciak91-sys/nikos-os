@@ -36,11 +36,6 @@ bool Quiz::update(const board::InputState& input) {
             selected_ ^= 1U;
             redraw();
         } else if (input.primary_short) {
-            if (text_page_ + 1U < text_page_count_) {
-                ++text_page_;
-                redraw();
-                return false;
-            }
             text_page_ = 0;
             last_correct_ = (selected_ == 0U)
                 == quiz::kItems[indices_[position_]].correct;
@@ -49,7 +44,10 @@ bool Quiz::update(const board::InputState& input) {
             redraw();
         }
     } else if (screen_ == Screen::Feedback) {
-        if (input.primary_short) {
+        if (input.secondary_short && text_page_ > 0U) {
+            --text_page_;
+            redraw();
+        } else if (input.primary_short) {
             if (text_page_ + 1U < text_page_count_) {
                 ++text_page_;
                 redraw();
@@ -82,15 +80,16 @@ void Quiz::redraw() {
         case Screen::Final: render_final(); break;
     }
 }
-std::uint16_t Quiz::text_width(const char* text) const
+std::uint16_t Quiz::text_width(const char* text, font_core::Size size) const
 {
     auto& renderer = const_cast<font_core::Renderer&>(renderer_);
     renderer.select(font_core::Mode::PreRendered);
-    renderer.set_size(font_core::Size::Readable);
+    renderer.set_size(size);
     return renderer.measure(text, 30000, 30000).width_px;
 }
 
-void Quiz::layout_text_pages(const char* text, std::uint8_t max_lines)
+void Quiz::layout_text_pages(const char* text, std::uint8_t max_lines,
+    font_core::Size size)
 {
     constexpr std::uint16_t kWidth = 226;
     text_page_count_ = 0;
@@ -112,7 +111,7 @@ void Quiz::layout_text_pages(const char* text, std::uint8_t max_lines)
             if (bytes >= sizeof(text_buffer_)) break;
             std::memcpy(text_buffer_, text + line_start, bytes);
             text_buffer_[bytes] = '\0';
-            if (text_width(text_buffer_) > kWidth) {
+            if (text_width(text_buffer_, size) > kWidth) {
                 if (accepted == line_start) break;
                 if (lines >= max_lines) break;
                 ++lines;
@@ -121,7 +120,7 @@ void Quiz::layout_text_pages(const char* text, std::uint8_t max_lines)
                 if (word_bytes >= sizeof(text_buffer_)) break;
                 std::memcpy(text_buffer_, text + line_start, word_bytes);
                 text_buffer_[word_bytes] = '\0';
-                if (text_width(text_buffer_) > kWidth) break;
+                if (text_width(text_buffer_, size) > kWidth) break;
             }
             accepted = word_end;
             offset = word_end;
@@ -140,9 +139,10 @@ void Quiz::layout_text_pages(const char* text, std::uint8_t max_lines)
 }
 
 void Quiz::draw_text_page(const char* text, std::int16_t y,
-                          std::int16_t height, std::uint8_t max_lines)
+                          std::int16_t height, std::uint8_t max_lines,
+    font_core::Size size)
 {
-    layout_text_pages(text, max_lines);
+    layout_text_pages(text, max_lines, size);
     if (text_page_count_ == 0 || text_page_ >= text_page_count_) {
         board_.draw_text_region(7, y, 226, 18,
             "TEXT FIT ERROR", 1, board::DisplayColor::Danger);
@@ -161,7 +161,7 @@ void Quiz::draw_text_page(const char* text, std::int16_t y,
         char line[192]{};
         std::memcpy(line, text + line_start, line_bytes);
         line[line_bytes] = '\0';
-        if (text_width(line) > 226 && out > 0) {
+        if (text_width(line, size) > 226 && out > 0) {
             text_buffer_[out++] = '\n';
             line_start = cursor;
         } else if (out > 0) {
@@ -175,7 +175,7 @@ void Quiz::draw_text_page(const char* text, std::int16_t y,
     }
     {
         renderer_.select(font_core::Mode::PreRendered);
-        renderer_.set_size(font_core::Size::Readable);
+        renderer_.set_size(size);
         const auto result = renderer_.draw(text_buffer_, {7, y, 226, height});
         if (!result.fits || !result.supported) {
             board_.draw_text_region(7, y, 226, 17,
@@ -185,10 +185,10 @@ void Quiz::draw_text_page(const char* text, std::int16_t y,
 }
 
 void Quiz::draw_wrapped(const char* text, std::int16_t y,
-                        std::uint8_t max_lines)
+                        std::uint8_t max_lines, font_core::Size size)
 {
-    draw_text_page(text, y, static_cast<std::int16_t>(max_lines * 24),
-                   max_lines);
+    draw_text_page(text, y, static_cast<std::int16_t>(max_lines * (size == font_core::Size::Compact ? 19 : 24)),
+                   max_lines, size);
 }
 void Quiz::draw_selected_text(const char* text, std::int16_t x,
     std::int16_t y, std::int16_t width, std::int16_t height,
@@ -209,20 +209,16 @@ void Quiz::render_question() {
     char progress[24]{};
     std::snprintf(progress, sizeof(progress), "QUIZ %02u/10",
         static_cast<unsigned>(position_ + 1U));
-    board_.draw_text_region(8, 3, 130, 18, progress, 2);
+    board_.draw_text_region(8, 2, 130, 14, progress, 1);
     char points[16]{};
     std::snprintf(points, sizeof(points), "%u PKT", static_cast<unsigned>(score_));
-    board_.draw_text_region(162, 5, 74, 13, points, 1);
-    board_.draw_line(7, 23, 233, 23, board::DisplayColor::Accent);
-    draw_wrapped(quiz::kItems[indices_[position_]].statement, 28, 3);
-    if (text_page_count_ > 1) {
-        char page[12]{};
-        std::snprintf(page, sizeof(page), "%u/%u M5",
-            static_cast<unsigned>(text_page_ + 1U),
-            static_cast<unsigned>(text_page_count_));
-        board_.draw_text_region(174, 100, 62, 9, page, 1,
-            board::DisplayColor::Accent);
-    }
+    board_.draw_text_region(162, 2, 74, 13, points, 1);
+    board_.draw_line(7, 19, 233, 19, board::DisplayColor::Accent);
+
+    // One full question at compact 19px; 4 lines end at y=98.
+    // A failed fit is explicit, never a hidden page or early answer.
+    draw_wrapped(quiz::kItems[indices_[position_]].statement,
+        22, 4, font_core::Size::Compact);
     draw_selected_text("PRAWDA", 18, 109, 92, 25,
         selected_ == 0 ? board::DisplayColor::PrimaryText : board::DisplayColor::SecondaryText,
         selected_ == 0 ? board::DisplayColor::Surface : board::DisplayColor::Background);
@@ -243,15 +239,18 @@ void Quiz::render_feedback() {
         8, 37, 224, 25, board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
     board_.draw_line(8, 61, 232, 61, board::DisplayColor::Accent);
-    draw_wrapped(item.explanation, 65, 2);
+    draw_wrapped(item.explanation, 65, 2, font_core::Size::Readable);
     if (text_page_count_ > 1) {
         char page[12]{};
-        std::snprintf(page, sizeof(page), "%u/%u M5",
+        std::snprintf(page, sizeof(page), "%u/%u",
             static_cast<unsigned>(text_page_ + 1U),
             static_cast<unsigned>(text_page_count_));
-        board_.draw_text_region(174, 113, 62, 9, page, 1,
+        board_.draw_text_region(7, 121, 35, 12, page, 1,
             board::DisplayColor::Accent);
     }
+    if (text_page_ > 0U)
+        board_.draw_text_region(44, 121, 90, 12, "SIDE WSTECZ", 1,
+            board::DisplayColor::SecondaryText);
     board_.draw_text_region(135, 121, 103, 12, "M5 DALEJ", 1,
         board::DisplayColor::SecondaryText);
 }
