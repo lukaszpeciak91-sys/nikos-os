@@ -1389,6 +1389,9 @@ extern "C" void app_main(void)
 
         // Policy advances from the main loop even during charging, overlays,
         // Communicator takeover, pause and DisplayOff. No periodic NVS writes.
+        if (charging_mode.active || battery_advisory_visible
+            || countdown.expired_pending() || clock_glance_active)
+            entertainment_notice_rendered = false;
         const auto entertainment_phase = entertainment_guard.phase(loop_now_ms);
         if (entertainment_guard.pending_clear()) {
             if (!entertainment_store.clear())
@@ -2111,6 +2114,96 @@ extern "C" void app_main(void)
                 display_lifecycle.display_off_now();
             }
 
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
+
+        // Entertainment presentations are deliberately below existing
+        // charging, timer, battery, clock-glance and Communicator ownership.
+        if (entertainment_notice != EntertainmentNotice::None
+            && state == RuntimeState::Launcher
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff) {
+            if (communicator_enabled && communicator.process_incoming()) {
+                entertainment_notice_rendered = false;
+                enter_communicator_for_incoming(
+                    state, resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                    mini_racer, space_defender,
+                    resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
+                    communicator, flashlight);
+            } else if (input.primary_short || input.secondary_short
+                       || input.secondary_long) {
+                entertainment_notice = EntertainmentNotice::None;
+                entertainment_notice_rendered = false;
+                display_lifecycle.suppress_user_gesture_until_release();
+                launcher.begin_entertainment(
+                    communicator_status(communicator_enabled, messaging));
+            } else if (!entertainment_notice_rendered) {
+                render_entertainment_notice(board, entertainment_notice);
+                entertainment_notice_rendered = true;
+            }
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
+
+        if (entertainment_warning_visible && is_guarded_entertainment(state)
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff) {
+            const bool incoming = communicator_enabled
+                && communicator.process_incoming();
+            if (incoming || loop_now_ms - entertainment_warning_started_ms
+                    >= kEntertainmentWarningMs) {
+                entertainment_warning_visible = false;
+                if (state == RuntimeState::Snake)
+                    snake.resume_from_entertainment_warning();
+                else if (state == RuntimeState::MiniRacer)
+                    mini_racer.resume();
+                else if (state == RuntimeState::Facts) facts.redraw();
+                if (incoming) {
+                    enter_communicator_for_incoming(
+                        state, resume_snake_after_communicator,
+                        resume_mini_racer_after_communicator,
+                        resume_space_defender_after_communicator,
+                        mini_racer, space_defender,
+                        resume_flashlight_after_communicator,
+                        resume_facts_after_communicator,
+                        communicator, flashlight);
+                }
+            }
+            vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+            continue;
+        }
+
+        if (!entertainment_warning_visible
+            && is_guarded_entertainment(state)
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+            && (!charging_mode.active || charging_mode.owner_override_active)
+            && !countdown.expired_pending()
+            && entertainment_guard.warning_due(loop_now_ms)) {
+            if (communicator_enabled && communicator.process_incoming()) {
+                enter_communicator_for_incoming(
+                    state, resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                    mini_racer, space_defender,
+                    resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
+                    communicator, flashlight);
+            } else {
+                entertainment_guard.acknowledge_warning();
+                entertainment_warning_visible = true;
+                entertainment_warning_started_ms = loop_now_ms;
+                if (state == RuntimeState::Snake)
+                    snake.suspend_for_entertainment_warning();
+                else if (state == RuntimeState::MiniRacer)
+                    mini_racer.suspend();
+                render_entertainment_warning(board);
+                display_lifecycle.suppress_user_gesture_until_release();
+            }
             vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
             continue;
         }
