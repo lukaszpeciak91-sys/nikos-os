@@ -43,8 +43,9 @@ struct Editor {
     std::uint8_t cursor=0; bool negative=false;bool temperature=false;
     void begin(double value,bool temp) {
         temperature=temp;negative=temp&&value<0;cursor=0;
-        const auto scaled=static_cast<std::uint32_t>(std::fabs(value)*10+.5);
-        const auto bounded=scaled>99999U?99999U:scaled;
+        const double magnitude=std::isfinite(value)?std::fabs(value):0.;
+        const auto bounded=magnitude>=9999.9 ? 99999U
+            : static_cast<std::uint32_t>(magnitude*10+.5);
         constexpr std::uint32_t divisors[]={10000,1000,100,10,1};
         for(std::size_t i=0;i<5;++i)
             digits[i]=static_cast<char>('0'+(bounded/divisors[i])%10);
