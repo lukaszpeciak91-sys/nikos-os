@@ -609,3 +609,10 @@ Initial NVS cycle writes are admission-critical: if the write fails, the policy 
 Launcher tags actions returned from its Entertainment screen independently of Action enum ordering. app_main consumes the one-shot origin token, recognizes the four supported Entertainment routes, and denies tagged unknown routes before beginning any application. Its explicit protected RuntimeState predicate still controls expiry and Low Battery Reserve cleanup. The host integration regression checks route tagging, approved action/runtime classification, and deliberately altered unguarded/unclassified routes. Adding a fifth Entertainment game requires this explicit lifecycle implementation; it cannot be admitted solely by enum position.
 
 When a protected foreground expires under Charging Lock or a higher-priority overlay, app_main ends it and queues the break/Reserve notice without calling launcher.begin_entertainment (which draws immediately). The notice is shown only after higher-priority screen handling releases the foreground; dismissal initializes the Entertainment menu. Cycle timing, NVS format/write semantics and BatteryGuard thresholds are unchanged.
+
+
+### Entertainment Guard R3 — screen-origin admission and Owner Override
+
+Launcher captures Entertainment screen origin once at the start of each input update, independently of the selected action. app_main consumes this signal for non-None launch actions and denies unknown Entertainment actions before any application begin. BACK/navigation returns None and never starts a cycle. Runtime termination and preemption cleanup remain explicit and regression-checked. Unlike per-route tagging, a new Entertainment return action cannot omit provenance tagging.
+
+Charging Lock suppresses entertainment notice rendering only when Owner Override is inactive. When Override owns normal foreground, pending Break/LowBattery notices may be presented once and dismissed by normal M5/SIDE input, without a loop continuously invalidating their rendered state. Charging Lock, FULL/OK, Timer, Communicator, BatteryGuard and DisplayOff remain higher priority.
