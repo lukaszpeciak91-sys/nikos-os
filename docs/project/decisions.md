@@ -816,7 +816,7 @@ Do not truncate quiz strings or approximate glyph width by Unicode codepoint cou
 
 Implement a small dedicated game parallel to Snake, reusing Board graphics and existing Entertainment/runtime lifecycle. One obstacle at a time provides a conservative avoidability guarantee at all bounded speeds; adding concurrent enemies would require a separate reachability proof. Pause preserves exact game state, the wall-clock session remains capped at ten minutes (including pauses), and the maximum score remains volatile across rounds within the current boot. Communicator, POWER and charging policy retain system-level priority.
 
-### Font Lab diagnostic candidates
+### Historical: Font Lab diagnostic candidates (retired)
 The previous DejaVu subset and Unicode mapping revisions (`c84798d4`,
 `1ad8ea32`, `2ae2f763`) share one GFXfont/EncodeRange strategy; Font Lab
 does not count that as a new candidate. Three distinct display mechanisms
@@ -827,7 +827,7 @@ the existing LovyanGFX LCD ownership path; neither adapter compatibility nor
 ESP32 flash impact has been proven. The tool should only be used to compare
 appearance on real hardware before choosing an OS-wide typography change.
 
-### Font rendering core v0.1 — validation before global integration
+### Historical: Font rendering core v0.1 before consolidation
 
 Keep a small, stateless rendering contract near Board rather than migrating
 fixed-layout application screens prematurely. STANDARD invokes the existing
@@ -839,3 +839,27 @@ entry; no persistent selection or global UI migration is authorized yet.
 Physical legibility, speed and accented character placement will determine
 whether the renderer can be piloted on ordinary application screens.
 
+
+### Typography Consolidation v1 — approved hardware baseline (2026-10-17)
+
+The physical M5StickC Plus SE comparison selected **PRE-RENDERED** as the
+normal typography for ordinary Nikoś OS application and system UI. The
+shared bounded `font_core` renderer remains authoritative; no duplicated
+bitmap assets or independent font engine was introduced.
+
+The formerly user-selectable STANDARD / COMPOSED / PRE-RENDERED controls
+(`USTAWIENIA > CZCIONKA`) and `NARZĘDZIA > TEST FONTU` were removed.
+Font Lab and its resume/action paths are no longer composed into the firmware,
+but the comparison sources and host validation tooling remain in the repo.
+Product menu headings and selectable labels now use uppercase Polish copy,
+including supported accents; prose, Facts data and Quiz data are unchanged.
+
+**Explicit scope exclusions:** Flashlight, Communicator and Charging Lock /
+FULL / OK retain their existing presentation, navigation and lifecycle.
+The Board text adapter bypasses migration for these foregrounds, as well as
+while Charging Mode is active. Compact metadata keeps measured existing
+geometry and uses Polish-capable rendering for accented strings when needed.
+Facts and Quiz use PRE-RENDERED directly while the later visual and content
+polishing stage is deferred. The legacy experiment descriptions above are
+historical design notes and are superseded as current product policy by this
+section.
