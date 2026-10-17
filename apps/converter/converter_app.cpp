@@ -24,7 +24,9 @@ ConverterApp::Result ConverterApp::update(const board::InputState& input){
         else if(input.primary_short){if(selection_==4)return Result::ExitRequested;choose_category();render();}
     }else if(screen_==Screen::Conversion){
         if(input.secondary_short){unit_=static_cast<std::uint8_t>((unit_+1)%count(category_));render();}
-        else if(input.primary_short){double value=0;if(!from_base(category_,unit_,base_,value))return Result::Running;
+        else if(input.primary_short){double value=0;
+            if(!from_base(category_,unit_,base_,value)
+                || !editable_value(category_,value))return Result::Running;
             editor_.begin(value,category_==Category::Temperature);invalid_temperature_=false;screen_=Screen::Editing;render();}
     }else if(screen_==Screen::Editing){
         if(input.secondary_short){editor_.increment();invalid_temperature_=false;render();}
@@ -94,6 +96,7 @@ void ConverterApp::render(){
         char text[48];std::snprintf(text,sizeof(text),"%s %s",result,units(category_)[dest].label);
         draw(text,12,61+row*24,216,board::DisplayColor::SecondaryText);
     }
-    draw("M5 EDYTUJ  SIDE JEDN.",12,117,216);
+    draw(editable_value(category_,input) ? "M5 EDYTUJ  SIDE JEDN."
+        : "ZA DUŻA WARTOŚĆ",12,117,216);
 }
 }
