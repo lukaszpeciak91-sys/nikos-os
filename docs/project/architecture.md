@@ -546,3 +546,22 @@ Facts and Quiz use PRE-RENDERED directly while the later visual and content
 polishing stage is deferred. The legacy experiment descriptions above are
 historical design notes and are superseded as current product policy by this
 section.
+
+
+### Sound Meter v0.1 — PCM capture contract (2026-10-17)
+
+M5Unified **0.2.22**: `Mic.begin()` reports initialized capture; `isRunning()`
+observes its task, not completed samples; `Mic.record(buffer, count, rate)`
+may start the mic lazily and returns acceptance, not completion. Board validates
+buffer/count/rate, calls `record()` directly, and logs rejection with running/
+recording state. The buffer-release callback publishes the exact completed
+PCM buffer pointer through an atomic release/acquire mailbox. UI consumes only
+the matching completed buffer. Requests are serialized by the existing app.
+
+Two startup blocks are discarded; untouched sentinel PCM, eight successive
+constant blocks, three rejected requests and capture exceeding 600 ms result
+in visible microphone error, not a stale level. Diagnostic logs are bounded:
+first valid blocks and every 64th completion plus faults, min/max, DC-corrected
+RMS and relative 0–100 level. Microphone and speaker stay exclusive; speaker
+restarts with the configured volume on exit/failure. Level mapping, layout,
+Communicator suspension and all power ownership remain unchanged.

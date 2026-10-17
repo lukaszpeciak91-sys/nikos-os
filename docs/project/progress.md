@@ -276,3 +276,14 @@ Facts and Quiz use PRE-RENDERED directly while the later visual and content
 polishing stage is deferred. The legacy experiment descriptions above are
 historical design notes and are superseded as current product policy by this
 section.
+
+
+### Sound Meter v0.1 — implementation and verification (2026-10-17)
+
+PR #80 R1: removed unnecessary `isRunning()` preflight, added rejected-request
+state logs, retained callback/atomic ownership, 600 ms timeout, warmup, constant
+PCM detection and bounded min/max/RMS/level logs. Added regression assertions.
+Still requires host test execution, ESP-IDF 5.5.5 firmware build, and physical
+verification: quiet room → speech → clap → silence → repeated entry/exit →
+buzzer at configured volume and restored Communicator. Capture real RMS before
+changing signal thresholds. Hardware cause remains provisional until tested.
