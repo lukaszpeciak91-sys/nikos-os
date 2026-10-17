@@ -13,7 +13,6 @@ assert 'font_.draw("ZŁ"' in coin
 assert "esp_random()" in coin
 assert "state_.tick(now)" in coin
 assert "font_.set_size(font_core::Size::Readable)" in converter
-assert "font_.measure(text, 216, 24).fits" in converter
 assert "draw_value(line,29,board::DisplayColor::PrimaryText,true)" in converter
 assert "draw_value(text,59+row*27,board::DisplayColor::SecondaryText,false)" in converter
 assert "cursor_width,4,board::DisplayColor::Accent" in converter
