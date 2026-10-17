@@ -8,7 +8,6 @@ idf_component_register(
         communicator
         countdown
         facts
-        font_lab
         font_core
         flashlight
         launcher
