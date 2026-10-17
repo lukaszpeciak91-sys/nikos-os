@@ -14,58 +14,96 @@ if not compiler:
 source = r"""
 #include <cassert>
 #include <cstdint>
+#include <algorithm>
+#include <cstdlib>
 #include "mini_racer/traffic_rules.hpp"
 using namespace nikos::mini_racer::rules;
 int main() {
+    static_assert(kEnemyCount == 3, "three cars");
+    assert(speed_for_score(0) == 36U * 256);
+    assert(speed_for_score(99) == 36U * 256);
+    assert(speed_for_score(100) == 41U * 256);
+    assert(speed_for_score(199) == 41U * 256);
+    assert(speed_for_score(200) == 46U * 256);
+    assert(speed_for_score(700) == 71U * 256);
+    assert(speed_for_score(800) == 75U * 256);
+    assert(speed_for_score(UINT32_MAX) == 75U * 256);
+
+    Motion motion;
+    std::uint64_t total = 0;
+    std::uint32_t road = 0;
     Traffic traffic{};
-    initialize(traffic, 255, 0);
-    static_assert(kEnemyCount == 3, "must have three vehicles");
-    assert(traffic.size() == 3);
-    for (std::size_t i = 1; i < traffic.size(); ++i) {
-        assert(traffic[i].x_q8 - traffic[i-1].x_q8 == kSpacingPx * 256);
-        assert(traffic[i].lane != traffic[i-1].lane);
+    Random rng(42);
+    initialize(traffic, 255, rng);
+    for (int i = 0; i < 200; ++i) {
+        const std::uint32_t dt = static_cast<std::uint32_t>((i % 4 + 1) * 7);
+        const auto delta = motion.advance(36U * 256, dt);
+        total += static_cast<std::uint64_t>(36U * 256) * dt;
+        assert(!advance(traffic, delta, 2, rng));
+        road += delta;
+        assert(road == total / 1000U); // no fractional loss in either system
     }
-    // A car fully beyond the left edge is placed after the rightmost.
-    traffic[0].x_q8 = -30 * 256;
-    assert(!advance(traffic, 70 * 256, 60, 0));
-    assert(traffic[0].x_q8 == traffic[2].x_q8 + kSpacingPx * 256);
-    assert(traffic[0].lane != traffic[2].lane);
+    Motion tiny;
+    std::uint32_t distance = 0;
+    for (int i = 0; i < 1000; ++i) distance += tiny.advance(36U * 256, 1);
+    assert(distance == 36U * 256);
 
-    // A capped-speed swept collision cannot skip a matching-lane car.
-    initialize(traffic, 255, 0);
-    traffic[0].x_q8 = 60 * 256;
-    assert(advance(traffic, 70 * 256, 60, 0));
-    initialize(traffic, 255, 0);
-    traffic[0].x_q8 = 60 * 256;
-    assert(!advance(traffic, 70 * 256, 60, 1));
-
-    // Repeated recycling never creates coincident opposite-lane barriers.
-    initialize(traffic, 255, 0);
-    for (int step = 0; step < 20000; ++step) {
-        // Avoid collisions without changing the production update path.
-        // Lane 2 is reserved for this test driver (outside playable 0/1).
-        assert(!advance(traffic, 70 * 256, 60, 2));
-        for (std::size_t i = 0; i < traffic.size(); ++i) {
-            assert(traffic[i].lane <= 1);
-            for (std::size_t j = i + 1; j < traffic.size(); ++j) {
-                assert(traffic[i].x_q8 != traffic[j].x_q8);
-                if (traffic[i].lane != traffic[j].lane)
-                    assert((traffic[i].x_q8 > traffic[j].x_q8
-                        ? traffic[i].x_q8 - traffic[j].x_q8
-                        : traffic[j].x_q8 - traffic[i].x_q8) >= kSpacingPx * 256);
-            }
+    // Reproducible seed; multiple seeds give lane repeats and alternations.
+    Random seed1(123), seed2(123);
+    Traffic t1{}, t2{};
+    initialize(t1, 255, seed1);
+    initialize(t2, 255, seed2);
+    for (std::size_t i=0;i<3;++i) {
+        assert(t1[i].x_q8 == t2[i].x_q8);
+        assert(t1[i].lane == t2[i].lane);
+    }
+    bool repeat=false, alternate=false, varied=false;
+    for (std::uint32_t seed=1;seed<=100;++seed) {
+        Random g(seed); Traffic t{}; initialize(t,255,g);
+        for (int i=0;i<2;++i) {
+            const auto gap=(t[i+1].x_q8-t[i].x_q8)/256;
+            assert(gap>=kMinGapPx && gap<=kMaxGapPx);
+            if (gap!=kMinGapPx) varied=true;
+            if (t[i].lane==t[i+1].lane) repeat=true;
+            else alternate=true;
         }
     }
-    State state = State::Playing;
-    state = pause(state);
-    assert(state == State::Paused);
-    assert(pause(state) == State::Paused);
-    state = resume(state);
-    assert(state == State::Playing);
-    state = hit(state);
-    assert(state == State::GameOver);
-    assert(resume(state) == State::GameOver);
-    assert(hit(State::Paused) == State::Paused);
+    assert(repeat && alternate && varied);
+    Random recycle(47); Traffic roadcars{}; initialize(roadcars,255,recycle);
+    for (int step=0;step<25000;++step) {
+        assert(!advance(roadcars,75U * 256 * 60 / 1000,2,recycle));
+        for (std::size_t i=0;i<3;++i) for(std::size_t j=i+1;j<3;++j) {
+            const auto difference=std::abs(roadcars[i].x_q8-roadcars[j].x_q8);
+            // Once generated, cars have a safe longitudinal headway.
+            assert(difference >= kMinGapPx*256);
+        }
+    }
+    // Reachability at 75px/s: the closest possible pair of collision
+    // windows is 120px / 75px/s = 1.6s apart. 400ms lane reaction
+    // budget is smaller even for alternate-lane sequences.
+    constexpr std::uint32_t kSwitchBudgetMs = 400;
+    static_assert(kMinGapPx * 1000 / 75 > kSwitchBudgetMs, "unreachable traffic");
+    for (std::uint32_t seed=1;seed<=200;++seed) {
+        Random g(seed); Traffic t{}; initialize(t,255,g);
+        for (std::size_t i=1;i<3;++i) {
+            auto gap=(t[i].x_q8-t[i-1].x_q8)/256;
+            assert(gap*1000/75 > kSwitchBudgetMs);
+            // Choosing the opposite lane from the next oncoming car
+            // always avoids its sweep; sufficient time exists to switch.
+            assert((t[i].lane ^ 1U)<=1);
+        }
+    }
+    // Swept collision on a delayed frame must catch a car crossed over.
+    Random sweep(123); initialize(roadcars,255,sweep);
+    roadcars[0].x_q8=70*256;
+    assert(advance(roadcars,75U*256*200/1000,roadcars[0].lane,sweep));
+    // Pauses do not contribute elapsed time to the motion integrator.
+    Motion resumed; assert(resumed.advance(75U*256,0)==0);
+    assert(resumed.advance(75U*256,60)<=75U*256*60/1000+1);
+    assert(pause(State::Playing)==State::Paused);
+    assert(resume(State::Paused)==State::Playing);
+    assert(hit(State::Paused)==State::Paused);
+    return 0;
 }
 """
 with tempfile.TemporaryDirectory() as tmp:

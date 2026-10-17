@@ -40,6 +40,8 @@ private:
     bool suspended_ = false;
     std::uint8_t player_lane_ = 1;
     rules::Traffic enemies_{};
+    rules::Random rng_{};
+    rules::Motion motion_{};
     rules::Traffic drawn_enemies_{};
     std::uint8_t drawn_player_lane_ = 1;
     bool frame_valid_ = false;
@@ -51,6 +53,6 @@ private:
     std::uint32_t score_ = 0;
     std::uint32_t record_ = 0;
     std::uint8_t menu_selection_ = 0;
-    std::uint16_t divider_offset_ = 0;
+    std::uint32_t divider_offset_q8_ = 0;
 };
 }
