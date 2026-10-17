@@ -30,6 +30,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include <cstdio>
 
 #include "flashlight/flashlight_app.hpp"
 #include "sound_meter/sound_meter_app.hpp"
@@ -146,6 +147,8 @@ struct ChargingModeState {
 
     bool presentation_visible = false;
     std::uint8_t animation_step = 0;
+    std::int16_t battery_percent = -1; // Last valid BatteryGuard level.
+    std::int16_t rendered_percent = -2; // Presentation mode cache.
     std::uint32_t presentation_started_ms = 0;
     std::uint32_t last_animation_ms = 0;
 
@@ -273,6 +276,9 @@ void reset_charging_session(ChargingModeState& state)
 
     state.presentation_visible = false;
     state.animation_step = 0;
+    // Never carry a previous USB session's percentage into the next one.
+    state.battery_percent = -1;
+    state.rendered_percent = -2;
     state.presentation_started_ms = 0;
     state.last_animation_ms = 0;
 }
@@ -305,6 +311,8 @@ ChargingCableEvent poll_charging_cable(
         reset_charging_owner_sequence(state);
         state.presentation_visible = false;
         state.animation_step = 0;
+        state.battery_percent = -1;
+        state.rendered_percent = -2;
         return ChargingCableEvent::Connected;
     }
 
@@ -364,7 +372,8 @@ void draw_battery_outline(nikos::board::Board& board)
 
 void render_charging_presentation(
     nikos::board::Board& board,
-    std::uint8_t animation_step)
+    std::uint8_t animation_step,
+    std::int16_t battery_percent)
 {
     constexpr std::int16_t fill_x = 48;
     constexpr std::int16_t fill_y = 24;
@@ -388,12 +397,23 @@ void render_charging_presentation(
         nikos::board::DisplayColor::Accent);
 
     board.draw_text_region(
-        39,
-        100,
-        190,
-        28,
-        "LADOWANIE",
-        3,
+        39, 96, 134, 24, "LADOWANIE", 2,
+        nikos::board::DisplayColor::PrimaryText,
+        nikos::board::DisplayColor::Background);
+    if (battery_percent >= 0 && battery_percent < 100) {
+        char level[6]{};
+        std::snprintf(level, sizeof(level), "%d%%", battery_percent);
+        board.draw_text_region(180, 100, 55, 22, level, 2,
+            nikos::board::DisplayColor::PrimaryText,
+            nikos::board::DisplayColor::Background);
+    }
+}
+void render_charging_100(nikos::board::Board& board)
+{
+    board.clear_screen();
+    draw_battery_outline(board);
+    board.fill_rect(48, 24, 136, 52, nikos::board::DisplayColor::Accent);
+    board.draw_text_region(68, 94, 108, 34, "100%", 4,
         nikos::board::DisplayColor::PrimaryText,
         nikos::board::DisplayColor::Background);
 }
@@ -431,10 +451,13 @@ void show_charging_presentation(
     state.last_animation_ms = now;
     state.animation_step = 0;
 
+    state.rendered_percent = state.battery_percent;
     if (state.full_latched) {
         render_charging_full(board);
+    } else if (state.battery_percent == 100) {
+        render_charging_100(board);
     } else {
-        render_charging_presentation(board, state.animation_step);
+        render_charging_presentation(board, state.animation_step, state.battery_percent);
     }
 }
 
@@ -454,15 +477,21 @@ void update_charging_presentation(
         return;
     }
 
-    if (state.full_latched
-        || now - state.last_animation_ms < kChargingAnimationStepMs) {
+    if (state.full_latched) return;
+    if (state.rendered_percent != state.battery_percent) {
+        state.rendered_percent = state.battery_percent;
+        if (state.battery_percent == 100) render_charging_100(board);
+        else render_charging_presentation(board, state.animation_step, state.battery_percent);
+        // The presentation deadline is deliberately unchanged.
         return;
     }
+    if (state.battery_percent == 100
+        || now - state.last_animation_ms < kChargingAnimationStepMs) return;
 
     state.last_animation_ms = now;
     state.animation_step =
         static_cast<std::uint8_t>((state.animation_step + 1U) % 4U);
-    render_charging_presentation(board, state.animation_step);
+    render_charging_presentation(board, state.animation_step, state.battery_percent);
 }
 
 bool update_charging_full_confirmation(
@@ -1497,6 +1526,14 @@ extern "C" void app_main(void)
                     entertainment_notice_rendered = false;
                 }
             }
+        }
+
+        if (battery_update.sampled
+            && battery_update.power_status.voltage_mv > 0
+            && battery_update.power_status.level_percent >= 0
+            && battery_update.power_status.level_percent <= 100) {
+            charging_mode.battery_percent =
+                static_cast<std::int16_t>(battery_update.power_status.level_percent);
         }
 
         if (update_charging_full_confirmation(
