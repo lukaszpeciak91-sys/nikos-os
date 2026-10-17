@@ -288,7 +288,7 @@ void PowerDiagApp::render_inactive()
         116,
         190,
         16,
-        "BOCZNY DLUGO = POWROT",
+        "BOCZNY DŁUGO = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
