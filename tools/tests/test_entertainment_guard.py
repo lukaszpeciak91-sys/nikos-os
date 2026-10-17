@@ -71,6 +71,30 @@ int main() {
     marker_only.restore({true,false,0},500,false,0);
     assert(marker_only.phase(500)==Phase::Cooldown);
     assert(marker_only.phase(500+60*minute)==Phase::Available);
+    // Fault injection: storage refuses the first transition write.
+    Guard first_write_failure;
+    assert(first_write_failure.enter(0,true,20000));
+    assert(first_write_failure.pending_write());
+    const bool injected_first_save_ok=false;
+    if (!injected_first_save_ok) first_write_failure.abort_unpersisted_start();
+    assert(first_write_failure.phase(0)==Phase::Available);
+    assert(!first_write_failure.pending_write());
+    // Recovery after NVS becomes writable must start a new persisted cycle.
+    assert(first_write_failure.enter(1000,true,20000));
+    assert(first_write_failure.pending_write());
+    first_write_failure.settled();
+    assert(first_write_failure.phase(1000)==Phase::Window);
+    // Failed expiry clear remains pending until an explicit successful clear.
+    Guard failed_clear;
+    assert(failed_clear.enter(0,true,20000));
+    failed_clear.settled();
+    assert(failed_clear.phase(80*minute)==Phase::Available);
+    assert(failed_clear.pending_clear());
+    const bool injected_clear_ok=false;
+    if(injected_clear_ok) failed_clear.settled();
+    assert(failed_clear.pending_clear());
+    failed_clear.settled(); // simulated recovery
+    assert(!failed_clear.pending_clear());
     // Repeated phase reads do not request periodic writes.
     Guard monotonic;
     assert(monotonic.enter(0,false,0));
