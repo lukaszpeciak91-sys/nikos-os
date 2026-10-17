@@ -42,12 +42,18 @@ void SoundMeterApp::begin()
     shown_peak_ = 255;
     levels_.reset();
     microphone_ok_ = board_.begin_microphone();
+    ESP_LOGI(kTag, "Mic session begin init_ok=%u", static_cast<unsigned>(microphone_ok_));
+    if (!microphone_ok_) ESP_LOGE(kTag, "Mic terminal reason=MIC_INIT_FAILED");
     render(true);
 }
 
 void SoundMeterApp::end()
 {
     if (active_) suspend();
+    ESP_LOGI(kTag, "Mic session end accepted=%lu rejected=%u completed=%lu",
+        static_cast<unsigned long>(accepted_requests_),
+        static_cast<unsigned>(rejected_requests_),
+        static_cast<unsigned long>(completed_blocks_));
     active_ = false;
     suspended_ = false;
     capture_pending_ = false;
@@ -67,6 +73,8 @@ void SoundMeterApp::resume()
     if (!active_ || microphone_ok_) return;
     suspended_ = false;
     microphone_ok_ = board_.begin_microphone();
+    ESP_LOGI(kTag, "Mic session resume init_ok=%u", static_cast<unsigned>(microphone_ok_));
+    if (!microphone_ok_) ESP_LOGE(kTag, "Mic terminal reason=MIC_INIT_FAILED");
     capture_pending_ = false;
     last_capture_ms_ = 0;
     capture_started_ms_ = 0;
@@ -102,6 +110,12 @@ SoundMeterApp::Result SoundMeterApp::update(
                 samples_, samples_ + sizeof(samples_) / sizeof(samples_[0]));
             const std::int16_t low = *bounds.first;
             const std::int16_t high = *bounds.second;
+            if (completed_blocks_ <= kWarmupBlocks + 3 || completed_blocks_ % 64U == 0U)
+                ESP_LOGI(kTag, "Mic capture completed elapsed=%lu ms accepted=%lu rejected=%u completed=%lu min=%d max=%d",
+                    static_cast<unsigned long>(now_ms - capture_started_ms_),
+                    static_cast<unsigned long>(accepted_requests_),
+                    static_cast<unsigned>(rejected_requests_),
+                    static_cast<unsigned long>(completed_blocks_),low,high);
 
             // The first two buffers after Mic.begin() may contain startup
             // transients. Do not feed them to the displayed peak or level.
@@ -116,14 +130,17 @@ SoundMeterApp::Result SoundMeterApp::update(
                     consecutive_constant_blocks_ = 0;
                 }
                 if (low == high && low == static_cast<std::int16_t>(0x5A5A)) {
-                    ESP_LOGE(kTag, "Mic completed request but PCM buffer was untouched");
+                    ESP_LOGE(kTag, "Mic terminal reason=PCM_UNTOUCHED accepted=%lu rejected=%u completed=%lu",
+                        static_cast<unsigned long>(accepted_requests_),
+                        static_cast<unsigned>(rejected_requests_),
+                        static_cast<unsigned long>(completed_blocks_));
                     microphone_ok_ = false;
                     board_.end_microphone();
                     render(true);
                     return Result::Running;
                 }
                 if (consecutive_constant_blocks_ >= kConstantBlockLimit) {
-                    ESP_LOGE(kTag, "Mic constant PCM: %u successive blocks (%d)",
+                    ESP_LOGE(kTag, "Mic terminal reason=PCM_CONSTANT: %u successive blocks (%d)",
                         consecutive_constant_blocks_, low);
                     microphone_ok_ = false;
                     board_.end_microphone();
@@ -144,7 +161,7 @@ SoundMeterApp::Result SoundMeterApp::update(
                 render(false);
             }
         } else if (now_ms - capture_started_ms_ >= kCaptureTimeoutMs) {
-            ESP_LOGE(kTag, "Mic capture timeout (%lu ms, requests=%lu completed=%lu)",
+            ESP_LOGE(kTag, "Mic terminal reason=CAPTURE_TIMEOUT elapsed=%lu ms accepted=%lu completed=%lu",
                 static_cast<unsigned long>(now_ms - capture_started_ms_),
                 static_cast<unsigned long>(accepted_requests_),
                 static_cast<unsigned long>(completed_blocks_));
@@ -163,9 +180,13 @@ SoundMeterApp::Result SoundMeterApp::update(
         if (!board_.record_microphone(samples_,
                 sizeof(samples_) / sizeof(samples_[0]), kSampleRate)) {
             ++rejected_requests_;
-            ESP_LOGW(kTag, "Mic request rejected (%u consecutive)",
+            ESP_LOGW(kTag, "Mic capture request rejected (%u consecutive)",
                 static_cast<unsigned>(rejected_requests_));
             if (rejected_requests_ >= 3) {
+                ESP_LOGE(kTag, "Mic terminal reason=RECORD_REJECTED accepted=%lu rejected=%u completed=%lu",
+                    static_cast<unsigned long>(accepted_requests_),
+                    static_cast<unsigned>(rejected_requests_),
+                    static_cast<unsigned long>(completed_blocks_));
                 microphone_ok_ = false;
                 board_.end_microphone();
                 render(true);
@@ -175,6 +196,10 @@ SoundMeterApp::Result SoundMeterApp::update(
             rejected_requests_ = 0;
             capture_started_ms_ = now_ms;
             capture_pending_ = true;
+            if (accepted_requests_ <= 3 || accepted_requests_ % 64U == 0U)
+                ESP_LOGI(kTag, "Mic capture accepted count=%lu completed=%lu",
+                    static_cast<unsigned long>(accepted_requests_),
+                    static_cast<unsigned long>(completed_blocks_));
         }
     }
     return Result::Running;

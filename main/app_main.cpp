@@ -1650,6 +1650,24 @@ extern "C" void app_main(void)
             }
         }
 
+        if (owner_relocked_now && state == RuntimeState::SoundMeter) {
+            ESP_LOGW(kTag, "SoundMeter stopped: charging owner override expired");
+            sound_meter.end();
+            if (resume_countdown_after_meter) countdown.resume();
+            resume_countdown_after_meter = false;
+            if (resume_messaging_after_meter
+                && !messaging.resume_transport()) {
+                ESP_LOGE(kTag, "Messaging resume after SoundMeter relock failed");
+                communicator.reset_session();
+                (void)messaging.stop();
+                communicator_enabled = false;
+            }
+            resume_messaging_after_meter = false;
+            state = RuntimeState::Launcher;
+            launcher.begin_tools(
+                communicator_status(communicator_enabled, messaging));
+        }
+
         if (charging_mode.active
             && !charging_mode.owner_override_active) {
             if (charging_mode.communication_active) {
@@ -2599,7 +2617,17 @@ extern "C" void app_main(void)
                     // or the charging-lock presentation.
                     bool audio_ownership_ready =
                         !countdown.expired_pending()
-                        && !charging_mode.active;
+                        && (!charging_mode.active
+                            || charging_mode.owner_override_active);
+                    ESP_LOGI(kTag,
+                        "SoundMeter request usb=%u owner_unlocked=%u transport=%u "
+                        "communicator=%u timer_pending=%u audio_ready=%u",
+                        static_cast<unsigned>(charging_mode.active),
+                        static_cast<unsigned>(charging_mode.owner_override_active),
+                        static_cast<unsigned>(messaging.transport_active()),
+                        static_cast<unsigned>(communicator_enabled),
+                        static_cast<unsigned>(countdown.expired_pending()),
+                        static_cast<unsigned>(audio_ownership_ready));
                     if (audio_ownership_ready
                         && resume_messaging_after_meter
                         && !messaging.pause_transport()) {

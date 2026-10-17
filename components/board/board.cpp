@@ -362,6 +362,7 @@ void Board::microphone_buffer_released(
 
 bool Board::begin_microphone()
 {
+    ESP_LOGI(kTag, "Mic audio handoff: Speaker.stop/end");
     M5.Speaker.stop();
     M5.Speaker.end();
     // Speaker and onboard PDM mic are exclusive on M5StickC Plus SE.
@@ -369,17 +370,24 @@ bool Board::begin_microphone()
     mic_config.pin_data_in = 34;
     mic_config.pin_ws = 0;
     mic_config.sample_rate = 17000;
+    ESP_LOGI(kTag, "Mic PDM requested data=%d clock=%d rate=%lu",
+        static_cast<int>(mic_config.pin_data_in),
+        static_cast<int>(mic_config.pin_ws),
+        static_cast<unsigned long>(mic_config.sample_rate));
     M5.Mic.config(mic_config);
     completed_microphone_buffer_.store(nullptr, std::memory_order_relaxed);
     M5.Mic.setBufferReleaseCallback(this, microphone_buffer_released);
     if (M5.Mic.begin()) {
-        ESP_LOGI(kTag, "Microphone initialized (PDM data=34 clk=0 rate=17000)");
+        ESP_LOGI(kTag, "M5.Mic.begin result=1");
         return true;
     }
-    ESP_LOGE(kTag, "Microphone initialization failed");
+    ESP_LOGE(kTag, "M5.Mic.begin result=0 reason=MIC_INIT_FAILED");
     M5.Mic.end();
     M5.Mic.setBufferReleaseCallback(nullptr, nullptr);
-    if (!M5.Speaker.begin()) ESP_LOGE(kTag, "Speaker recovery failed");
+    const bool speaker_recovered = M5.Speaker.begin();
+    ESP_LOGI(kTag, "Mic init teardown speaker_recovered=%u",
+        static_cast<unsigned>(speaker_recovered));
+    if (!speaker_recovered) ESP_LOGE(kTag, "Speaker recovery failed");
     set_notification_volume_level(notification_volume_level_);
     return false;
 }
@@ -419,10 +427,14 @@ bool Board::microphone_capture_completed(const std::int16_t* buffer)
 void Board::end_microphone()
 {
     // M5Unified end() waits for its worker; callbacks cannot outlive this.
+    ESP_LOGI(kTag, "Mic teardown requested");
     M5.Mic.end();
     M5.Mic.setBufferReleaseCallback(nullptr, nullptr);
     completed_microphone_buffer_.store(nullptr, std::memory_order_relaxed);
-    if (!M5.Speaker.begin()) {
+    const bool speaker_recovered = M5.Speaker.begin();
+    ESP_LOGI(kTag, "Mic teardown complete speaker_recovered=%u",
+        static_cast<unsigned>(speaker_recovered));
+    if (!speaker_recovered) {
         ESP_LOGE(kTag, "Speaker recovery after mic failed");
     }
     set_notification_volume_level(notification_volume_level_);
