@@ -51,6 +51,21 @@ struct Editor {
             digits[i]=static_cast<char>('0'+(bounded/divisors[i])%10);
     }
     std::uint8_t positions()const{return temperature?6:5;}
+    // Cursor indices map to visible ASCII characters, skipping the dot.
+    std::uint8_t character_index()const {
+        if(temperature && cursor==0) return 0;
+        const auto digit=static_cast<std::uint8_t>(cursor-(temperature?1:0));
+        return static_cast<std::uint8_t>(digit+(digit==4?1:0)+(temperature?1:0));
+    }
+    void text(char (&out)[9])const {
+        std::uint8_t pos=0;
+        if(temperature)out[pos++]=negative?'-':'+';
+        for(std::uint8_t i=0;i<5;++i) {
+            if(i==4)out[pos++]='.';
+            out[pos++]=digits[i];
+        }
+        out[pos]=0;
+    }
     void increment() {
         if(temperature&&cursor==0){negative=!negative;return;}
         const auto i=static_cast<std::uint8_t>(cursor-(temperature?1:0));
