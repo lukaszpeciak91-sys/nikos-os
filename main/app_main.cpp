@@ -1127,7 +1127,7 @@ extern "C" void app_main(void)
         trusted_civil_minute(clock_service, boot_civil_minute);
     entertainment_guard.restore(
         {stored_entertainment.active, stored_entertainment.civil_valid,
-         stored_entertainment.civil_start},
+         stored_entertainment.civil_start, stored_entertainment.warning_shown},
         now_ms(), boot_clock_trusted, boot_civil_minute);
     if (entertainment_guard.pending_clear()) {
         if (!entertainment_store.clear())
@@ -2195,6 +2195,12 @@ extern "C" void app_main(void)
                     communicator, flashlight);
             } else {
                 entertainment_guard.acknowledge_warning();
+                const auto warned = entertainment_guard.snapshot();
+                if (!entertainment_store.save(
+                        {warned.active,warned.civil_valid,
+                         warned.civil_start,warned.warning_shown}))
+                    ESP_LOGW(kTag, "Entertainment warning marker not persisted");
+                entertainment_guard.settled();
                 entertainment_warning_visible = true;
                 entertainment_warning_started_ms = loop_now_ms;
                 if (state == RuntimeState::Snake)
@@ -2255,7 +2261,7 @@ extern "C" void app_main(void)
                         if (entertainment_guard.pending_write()) {
                             const auto cycle = entertainment_guard.snapshot();
                             if (!entertainment_store.save(
-                                    {cycle.active,cycle.civil_valid,cycle.civil_start}))
+                                    {cycle.active,cycle.civil_valid,cycle.civil_start,cycle.warning_shown}))
                                 ESP_LOGW(kTag, "Entertainment cycle start not persisted");
                             entertainment_guard.settled();
                         }
