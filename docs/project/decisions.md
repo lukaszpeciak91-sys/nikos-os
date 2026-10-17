@@ -872,3 +872,8 @@ M5Unified 0.2.22 explicitly supports a buffer-release callback and lazy
 startup in `record()`. Prefer the accepted-request result and matching callback
 over a preflight `isRunning()` guard. Preserve the relative 0–100 mapping
 until physical PCM/RMS evidence supports calibration. No new audio framework.
+
+
+### Space Defender v0.1 — conservative difficulty
+
+Ship one standalone arcade module, not a general game engine. Three cycling lanes make simultaneous obstacles less predictable to dodge than two-lane switching, so one enemy hull and no overlapping leftover hostile projectile with a fresh hull is the initial fairness policy. Prioritize clear collision rules, moderate speeds and a bounded renderer; reconsider density only with hardware playtesting.
