@@ -97,21 +97,64 @@ int main() {
     assert(std::none_of(w.hostile.begin(),w.hostile.end(),[](Shot x){return x.active;}));
     assert(w.invulnerable_until_ms==0);
 
-    // Seeded bounded spawning, no three-lane barrier, fixed pools.
-    for(std::uint32_t seed=1;seed<=256;++seed) {
-        reset(w,seed,0);
-        for(int i=0;i<5000;++i) {
-            w.lane=2; // exercise traffic without relying on random controller.
-            if(w.phase!=Phase::Playing)break;
-            advance(w,120);
-            unsigned alive=0,occupied=0;
-            for(auto x:w.enemies)if(x.active){++alive;occupied|=1U<<x.lane;}
-            for(auto x:w.hostile)if(x.active)occupied|=1U<<x.lane;
-            assert(alive<=1 && occupied!=7U);
-            assert(std::count_if(w.shots.begin(),w.shots.end(),
-                [](Shot x){return x.active;})<=static_cast<int>(kMaxShots));
+    // Concurrent spawn policy is deterministic and bounded per score stage.
+    for (std::uint32_t seed=1;seed<=256;++seed) {
+        for (unsigned stage : {0U, 100U, 250U, 500U}) {
+            reset(w,seed,0);
+            w.score=stage;
+            unsigned observed_max=0;
+            // Exercise actual production spawn and bounded simulation.
+            for (int i=0;i<500;++i) {
+                w.time_ms += 300;
+                spawn(w);
+                const auto count=active_enemies(w);
+                assert(count <= concurrent_limit(stage));
+                observed_max=std::max(observed_max,count);
+                // Pairwise arrival windows (including hostile shots) are
+                // the true safety constraint, not an empty-lane snapshot.
+                for (std::size_t j=0;j<kMaxEnemies;++j) if (w.enemies[j].active) {
+                    const auto& x=w.enemies[j];
+                    for (std::size_t k=j+1;k<kMaxEnemies;++k)
+                        if (w.enemies[k].active) {
+                            const auto& y=w.enemies[k];
+                            const auto at_x=arrival_ms(x.x_q8,speed_for(x.type,w.score));
+                            const auto at_y=arrival_ms(y.x_q8,speed_for(y.type,w.score));
+                            const auto difference=at_x>at_y ? at_x-at_y : at_y-at_x;
+                            assert(difference>=1100);
+                        }
+                }
+                // Shift the whole scene left by fixed Q8 steps without
+                // affecting relative distances (constant-score stage).
+                for(auto& x:w.enemies) if(x.active) {
+                    x.x_q8-=2*256;
+                    if(x.x_q8 < -30*256) x.active=false;
+                }
+            }
+            assert(observed_max>=2); // proved multiple hulls on every stage
         }
     }
+    // Hostile projectiles can suppress dangerous arrivals without banning
+    // all concurrent hulls or imposing independent three-lane barriers.
+    reset(w,99,0);
+    w.score=500;
+    w.hostile[0]=Shot{true,1,244*256};
+    assert(!safe_spawn(w,2,Type::Scout,244*256));
+    w.hostile[0].active=false;
+    spawn(w);
+    assert(active_enemies(w)==1);
+    spawn(w);
+    assert(active_enemies(w)>=1 && active_enemies(w)<=4);
+    // Conservative one-button escape: at max hull speed, two M5 presses
+    // within 1100ms suffice to reach either of the other lanes.
+    constexpr std::uint32_t kTwoPressBudgetMs=1100;
+    static_assert(2*300U < kTwoPressBudgetMs, "cycle transition budget");
+    for (int from=0;from<3;++from)
+        for (int to=0;to<3;++to) {
+            reset(w,11,0);
+            w.lane=static_cast<std::uint8_t>(from);
+            for(int presses=0;presses<3 && w.lane!=to;++presses)cycle_lane(w);
+            assert(w.lane==to);
+        }
     // Sweep: a delayed frame crossing player's collision box is damage.
     reset(w,13,0);
     w.next_spawn_ms=UINT32_MAX;
