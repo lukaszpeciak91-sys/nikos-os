@@ -22,6 +22,11 @@ private:
     LevelProcessor levels_{};
     std::int16_t samples_[256]{};
     std::uint32_t last_capture_ms_ = 0;
+    std::uint32_t capture_started_ms_ = 0;
+    std::uint32_t completed_blocks_ = 0;
+    std::uint32_t accepted_requests_ = 0;
+    std::uint16_t rejected_requests_ = 0;
+    std::uint8_t consecutive_constant_blocks_ = 0;
     std::uint8_t shown_level_ = 255;
     std::uint8_t shown_peak_ = 255;
     bool active_ = false;
