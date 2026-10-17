@@ -2220,11 +2220,15 @@ extern "C" void app_main(void)
             } else {
                 entertainment_guard.acknowledge_warning();
                 const auto warned = entertainment_guard.snapshot();
-                if (!entertainment_store.save(
+                if (entertainment_store.save(
                         {warned.active,warned.civil_valid,
-                         warned.civil_start,warned.warning_shown}))
+                         warned.civil_start,warned.warning_shown})) {
+                    entertainment_guard.settled();
+                } else {
+                    // Retain pending transition in memory. Retry only during
+                    // a later protected admission, never on every OS frame.
                     ESP_LOGW(kTag, "Entertainment warning marker not persisted");
-                entertainment_guard.settled();
+                }
                 entertainment_warning_visible = true;
                 entertainment_warning_started_ms = loop_now_ms;
                 if (state == RuntimeState::Snake)
