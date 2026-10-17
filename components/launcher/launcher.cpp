@@ -32,18 +32,18 @@ constexpr std::int16_t kClockMenuRowHeight = 16;
 static_assert(((6U + 31U - 1U) / 7U) == 5U);
 
 constexpr const char* kMonthLabels[12] = {
-    "STYCZEN",
+    "STYCZEŃ",
     "LUTY",
     "MARZEC",
-    "KWIECIEN",
+    "KWIECIEŃ",
     "MAJ",
     "CZERWIEC",
     "LIPIEC",
-    "SIERPIEN",
-    "WRZESIEN",
-    "PAZDZIERNIK",
+    "SIERPIEŃ",
+    "WRZESIEŃ",
+    "PAŹDZIERNIK",
     "LISTOPAD",
-    "GRUDZIEN",
+    "GRUDZIEŃ",
 };
 
 constexpr std::uint32_t kSignalFrameMs = 110;
@@ -1775,7 +1775,7 @@ void Launcher::render_entertainment()
         "SNAKE",
         "MINI RACER",
         "CIEKAWOSTKI",
-        "Powrót",
+        "POWRÓT",
     };
 
     const bool readable = true;
@@ -2759,7 +2759,7 @@ void Launcher::render_settings()
         "MOTYW",
         "ORIENTACJA",
         "AUTO WYŁĄCZ.",
-        "Powrót",
+        "POWRÓT",
     };
 
     const bool readable = true;
@@ -2829,7 +2829,7 @@ void Launcher::render_sound_menu()
 {
     clear_shell(board_);
     board_.draw_text_region(14, 12, 212, 20, "DŹWIĘK", 2);
-    constexpr const char* kItems[3] = {"Melodia", "GŁOŚNOŚĆ", "POWRÓT"};
+    constexpr const char* kItems[3] = {"MELODIA", "GŁOŚNOŚĆ", "POWRÓT"};
     for (std::uint8_t i = 0; i < 3; ++i) {
         const std::int16_t y = static_cast<std::int16_t>(39 + i * 23);
         const bool selected = i == sound_menu_selection_;
@@ -2885,8 +2885,8 @@ void Launcher::render_signal_sound()
 
     constexpr const char* kItems[4] = {
         "ŁAGODNY",
-        "Klasyczny",
-        "Pager",
+        "KLASYCZNY",
+        "PAGER",
         "POWRÓT",
     };
 
@@ -2953,9 +2953,9 @@ void Launcher::redraw_sound_selection_rows(std::uint8_t previous)
         }
     }
 
-    constexpr const char* kMenu[3] = {"Melodia", "GŁOŚNOŚĆ", "POWRÓT"};
+    constexpr const char* kMenu[3] = {"MELODIA", "GŁOŚNOŚĆ", "POWRÓT"};
     constexpr const char* kVolume[6] = {"0%", "25%", "50%", "75%", "100%", "POWRÓT"};
-    constexpr const char* kSounds[4] = {"ŁAGODNY", "Klasyczny", "Pager", "POWRÓT"};
+    constexpr const char* kSounds[4] = {"ŁAGODNY", "KLASYCZNY", "PAGER", "POWRÓT"};
     const std::uint8_t current = screen_ == Screen::SoundMenu ? sound_menu_selection_
         : screen_ == Screen::SignalVolume ? signal_volume_selection_ : signal_sound_selection_;
     for (const auto index : {previous, current}) {
@@ -3017,9 +3017,9 @@ void Launcher::render_brightness()
         board::DisplayColor::Background);
 
     constexpr const char* kItems[4] = {
-        "Niska",
-        "Srednia",
-        "Wysoka",
+        "NISKA",
+        "ŚREDNIA",
+        "WYSOKA",
         "POWRÓT",
     };
 
@@ -3088,11 +3088,11 @@ void Launcher::render_theme()
         board::DisplayColor::Background);
 
     constexpr const char* kItems[6] = {
-        "Nikos",
-        "Bursztyn",
-        "Matrix",
-        "Lava",
-        "Noir",
+        "NIKOŚ",
+        "BURSZTYN",
+        "MATRIX",
+        "LAVA",
+        "NOIR",
         "POWRÓT",
     };
 
