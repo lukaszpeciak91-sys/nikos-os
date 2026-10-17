@@ -477,7 +477,7 @@ void SnakeApp::render_time_limit()
         105,
         195,
         14,
-        "M5 / BOCZNY = POWROT",
+        "M5 / BOCZNY = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
