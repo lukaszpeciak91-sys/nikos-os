@@ -392,7 +392,7 @@ void render_charging_presentation(
         nikos::board::DisplayColor::Accent);
 
     board.draw_text_region(
-        39, 96, 190, 24, "LADOWANIE", 2,
+        39, 96, 134, 24, "LADOWANIE", 2,
         nikos::board::DisplayColor::PrimaryText,
         nikos::board::DisplayColor::Background);
     if (battery_percent >= 0 && battery_percent < 100) {
