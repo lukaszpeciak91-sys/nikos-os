@@ -1215,6 +1215,13 @@ extern "C" void app_main(void)
                 } else if (resume_mini_racer_after_communicator) {
                     resume_mini_racer_after_communicator = false;
                     state = RuntimeState::MiniRacer;
+                } else if (resume_space_defender_after_communicator) {
+                    resume_space_defender_after_communicator = false;
+                    state = RuntimeState::SpaceDefender;
+                } else if (resume_space_defender_after_communicator) {
+                    resume_space_defender_after_communicator = false;
+                    state = RuntimeState::SpaceDefender;
+                    space_defender.resume();
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
@@ -1251,6 +1258,8 @@ extern "C" void app_main(void)
                     resume_snake_after_communicator = true;
                 } else if (state == RuntimeState::MiniRacer) {
                     resume_mini_racer_after_communicator = true;
+                } else if (state == RuntimeState::SpaceDefender) {
+                    resume_space_defender_after_communicator = true;
                 } else if (state == RuntimeState::Flashlight) {
                     resume_flashlight_after_communicator = true;
                 } else if (state == RuntimeState::Facts) {
@@ -1280,6 +1289,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                space_defender,
                 radiolab,
                 sound_meter);
         }
@@ -1344,6 +1354,8 @@ extern "C" void app_main(void)
                     facts,
                     snake,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     radiolab,
                     sound_meter);
             }
@@ -1401,7 +1413,10 @@ extern "C" void app_main(void)
                     } else if (resume_mini_racer_after_communicator) {
                         resume_mini_racer_after_communicator = false;
                         state = RuntimeState::MiniRacer;
-                    } else if (resume_flashlight_after_communicator) {
+                    } else if (resume_space_defender_after_communicator) {
+                    resume_space_defender_after_communicator = false;
+                    state = RuntimeState::SpaceDefender;
+                } else if (resume_flashlight_after_communicator) {
                         resume_flashlight_after_communicator = false;
                         state = RuntimeState::Flashlight;
                     } else if (resume_facts_after_communicator) {
@@ -1544,6 +1559,8 @@ extern "C" void app_main(void)
                     facts,
                     snake,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     radiolab,
                     sound_meter);
 
@@ -1598,6 +1615,16 @@ extern "C" void app_main(void)
             display_lifecycle.filter_input(raw_input);
         const nikos::board::InputState& input = display_input.input;
 
+        if (state == RuntimeState::SpaceDefender
+            && (display_input.power_display_off
+                || display_lifecycle.state() == nikos::power::DisplayState::DisplayOff)) {
+            space_defender.suspend();
+        }
+        if (state == RuntimeState::SpaceDefender
+            && display_lifecycle.state() != nikos::power::DisplayState::DisplayOff
+            && !display_input.power_display_off) {
+            space_defender.resume_if_suspended();
+        }
         if (state == RuntimeState::MiniRacer
             && (display_input.power_display_off
                 || display_lifecycle.state()
@@ -1729,7 +1756,9 @@ extern "C" void app_main(void)
                 state,
                 resume_snake_after_communicator,
                 resume_mini_racer_after_communicator,
+                resume_space_defender_after_communicator,
                 mini_racer,
+                space_defender,
                 resume_flashlight_after_communicator,
                 resume_facts_after_communicator,
                 communicator,
@@ -1792,6 +1821,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                space_defender,
                 radiolab,
                 sound_meter);
             }
@@ -1824,7 +1854,9 @@ extern "C" void app_main(void)
                 state,
                 resume_snake_after_communicator,
                 resume_mini_racer_after_communicator,
+                resume_space_defender_after_communicator,
                 mini_racer,
+                space_defender,
                 resume_flashlight_after_communicator,
                 resume_facts_after_communicator,
                 communicator,
@@ -1865,6 +1897,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                space_defender,
                 radiolab,
                 sound_meter);
 
@@ -1933,7 +1966,11 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                resume_space_defender_after_communicator,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -1967,6 +2004,7 @@ extern "C" void app_main(void)
                 facts,
                 snake,
                 mini_racer,
+                space_defender,
                 radiolab,
                 sound_meter);
             } else if (
@@ -1994,7 +2032,11 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                resume_space_defender_after_communicator,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2096,6 +2138,11 @@ extern "C" void app_main(void)
                     display_lifecycle.note_visible_activity();
                     mini_racer.begin();
                     state = RuntimeState::MiniRacer;
+                } else if (
+                    action == nikos::launcher::Action::OpenSpaceDefender) {
+                    display_lifecycle.note_visible_activity();
+                    space_defender.begin();
+                    state = RuntimeState::SpaceDefender;
                 } else if (
                     action == nikos::launcher::Action::OpenSnake) {
                     display_lifecycle.note_visible_activity();
@@ -2224,6 +2271,13 @@ extern "C" void app_main(void)
                     resume_mini_racer_after_communicator = false;
                     state = RuntimeState::MiniRacer;
                     mini_racer.resume();
+                } else if (resume_space_defender_after_communicator) {
+                    resume_space_defender_after_communicator = false;
+                    state = RuntimeState::SpaceDefender;
+                } else if (resume_space_defender_after_communicator) {
+                    resume_space_defender_after_communicator = false;
+                    state = RuntimeState::SpaceDefender;
+                    space_defender.resume();
                 } else if (resume_flashlight_after_communicator) {
                     resume_flashlight_after_communicator = false;
                     state = RuntimeState::Flashlight;
@@ -2257,7 +2311,11 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                resume_space_defender_after_communicator,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2321,7 +2379,11 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                resume_space_defender_after_communicator,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2345,7 +2407,11 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                resume_space_defender_after_communicator,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2367,7 +2433,11 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                resume_space_defender_after_communicator,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
@@ -2381,6 +2451,28 @@ extern "C" void app_main(void)
                     communicator_status(communicator_enabled, messaging));
                 state = RuntimeState::Launcher;
             }
+        } else if (state == RuntimeState::SpaceDefender) {
+            if (communicator_enabled && communicator.process_incoming()) {
+                enter_communicator_for_incoming(
+                    state,
+                    resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                    mini_racer,
+                    space_defender,
+                    resume_flashlight_after_communicator,
+                    resume_facts_after_communicator,
+                    communicator,
+                    flashlight);
+            } else if (display_lifecycle.state()
+                       != nikos::power::DisplayState::DisplayOff
+                       && space_defender.update(input)
+                           == nikos::space_defender::SpaceDefenderApp::Result::ExitRequested) {
+                space_defender.end();
+                launcher.begin_entertainment(
+                    communicator_status(communicator_enabled, messaging));
+                state = RuntimeState::Launcher;
+            }
         } else if (state == RuntimeState::Snake) {
             if (communicator_enabled
                 && state != RuntimeState::SoundMeter
@@ -2389,7 +2481,11 @@ extern "C" void app_main(void)
                     state,
                     resume_snake_after_communicator,
                     resume_mini_racer_after_communicator,
+                    resume_space_defender_after_communicator,
+                resume_space_defender_after_communicator,
                     mini_racer,
+                    space_defender,
+                space_defender,
                     resume_flashlight_after_communicator,
                     resume_facts_after_communicator,
                     communicator,
