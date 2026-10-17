@@ -95,23 +95,46 @@ bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out)
     out = days * 1440U + time.time.hour * 60U + time.time.minute;
     return true;
 }
+// System-owned overlays use the same pre-rendered glyphs as Launcher.
+// Coordinates stay within 240x135; heading falls back to Compact when needed.
+void notice_text(nikos::board::Board& board, const char* text,
+    std::int16_t x, std::int16_t y, std::int16_t width,
+    nikos::font_core::Size size = nikos::font_core::Size::Readable,
+    nikos::board::DisplayColor color = nikos::board::DisplayColor::PrimaryText)
+{
+    nikos::font_core::Renderer font(board);
+    font.select(nikos::font_core::Mode::PreRendered);
+    font.set_size(size);
+    const std::int16_t height = size == nikos::font_core::Size::Readable ? 24 : 19;
+    if (!font.measure(text, width, height).fits && size == nikos::font_core::Size::Readable) {
+        font.set_size(nikos::font_core::Size::Compact);
+        font.draw(text, {x, y, width, 19}, color);
+    } else {
+        font.draw(text, {x, y, width, height}, color);
+    }
+}
+
 void render_entertainment_notice(nikos::board::Board& board,
                                   EntertainmentNotice notice) {
     board.clear_screen();
     if (notice == EntertainmentNotice::LowBattery) {
-        board.draw_text_region(12,18,216,24,"NISKA BATERIA",2);
-        board.draw_text_region(12,53,216,24,"ROZRYWKA WSTRZYMANA",1);
-        board.draw_text_region(12,83,216,22,"NAŁADUJ STICK",2);
+        notice_text(board,"NISKA BATERIA",12,12,216,
+            nikos::font_core::Size::Readable,nikos::board::DisplayColor::Attention);
+        notice_text(board,"ROZRYWKA",12,44,216);
+        notice_text(board,"WSTRZYMANA",12,69,216);
+        notice_text(board,"NAŁADUJ STICK",12,96,216,nikos::font_core::Size::Compact);
     } else {
-        board.draw_text_region(8,26,224,28,"CZAS NA PRZERWĘ",2);
-        board.draw_text_region(7,66,226,24,"ROZRYWKA WRÓCI PÓŹNIEJ",1);
+        notice_text(board,"CZAS NA PRZERWĘ",8,24,224);
+        notice_text(board,"ROZRYWKA WRÓCI",8,60,224);
+        notice_text(board,"PÓŹNIEJ",8,85,224);
     }
-    board.draw_text_region(6,119,228,14,"M5 / BOCZNY = POWRÓT",1);
+    notice_text(board,"M5 / BOCZNY = POWRÓT",8,116,224,
+        nikos::font_core::Size::Compact,nikos::board::DisplayColor::SecondaryText);
 }
 void render_entertainment_warning(nikos::board::Board& board) {
     board.clear_screen();
-    board.draw_text_region(6,37,228,25,"JESZCZE 2 MINUTY",1);
-    board.draw_text_region(22,78,196,22,"POTEM PRZERWA",2);
+    notice_text(board,"JESZCZE 2 MINUTY",8,35,224);
+    notice_text(board,"POTEM PRZERWA",12,76,216);
 }
 
 enum class ChargingCableEvent : std::uint8_t {
@@ -396,10 +419,7 @@ void render_charging_presentation(
         fill_height,
         nikos::board::DisplayColor::Accent);
 
-    board.draw_text_region(
-        39, 96, 134, 24, "LADOWANIE", 2,
-        nikos::board::DisplayColor::PrimaryText,
-        nikos::board::DisplayColor::Background);
+    notice_text(board,"ŁADOWANIE",39,96,134);
     if (battery_percent >= 0 && battery_percent < 100) {
         char level[6]{};
         std::snprintf(level, sizeof(level), "%d%%", battery_percent);
@@ -599,33 +619,11 @@ void render_clock_glance(
 void render_timer_alert(nikos::board::Board& board)
 {
     board.clear_screen();
-    board.draw_text_region(
-        14,
-        18,
-        212,
-        20,
-        "MINUTNIK",
-        2,
-        nikos::board::DisplayColor::PrimaryText,
-        nikos::board::DisplayColor::Background);
-    board.draw_text_region(
-        48,
-        50,
-        160,
-        36,
-        "KONIEC",
-        4,
-        nikos::board::DisplayColor::Attention,
-        nikos::board::DisplayColor::Background);
-    board.draw_text_region(
-        35,
-        112,
-        190,
-        14,
-        "M5 / BOCZNY = ZAMKNIJ",
-        1,
-        nikos::board::DisplayColor::SecondaryText,
-        nikos::board::DisplayColor::Background);
+    notice_text(board,"MINUTNIK",12,18,216);
+    notice_text(board,"KONIEC",24,56,192,
+        nikos::font_core::Size::Readable,nikos::board::DisplayColor::Attention);
+    notice_text(board,"M5 / BOCZNY = ZAMKNIJ",8,112,224,
+        nikos::font_core::Size::Compact,nikos::board::DisplayColor::SecondaryText);
 }
 
 void render_battery_advisory(
@@ -633,97 +631,24 @@ void render_battery_advisory(
     nikos::battery_guard::AdvisoryLevel level)
 {
     board.clear_screen();
-
-    if (level == nikos::battery_guard::AdvisoryLevel::VeryLow) {
-        board.draw_text_region(
-            45,
-            10,
-            170,
-            20,
-            "BARDZO NISKA",
-            2,
-            nikos::board::DisplayColor::Danger,
-            nikos::board::DisplayColor::Background);
-        board.draw_text_region(
-            76,
-            32,
-            100,
-            20,
-            "BATERIA",
-            2,
-            nikos::board::DisplayColor::Danger,
-            nikos::board::DisplayColor::Background);
-        board.draw_text_region(
-            18,
-            64,
-            210,
-            20,
-            "PODLACZ LADOWARKE",
-            2,
-            nikos::board::DisplayColor::PrimaryText,
-            nikos::board::DisplayColor::Background);
-        board.draw_text_region(
-            52,
-            91,
-            150,
-            14,
-            "LUB WYLACZ URZADZENIE",
-            1,
-            nikos::board::DisplayColor::SecondaryText,
-            nikos::board::DisplayColor::Background);
-    } else {
-        board.draw_text_region(
-            40,
-            25,
-            170,
-            22,
-            "NISKA BATERIA",
-            2,
-            nikos::board::DisplayColor::Attention,
-            nikos::board::DisplayColor::Background);
-        board.draw_text_region(
-            18,
-            61,
-            210,
-            22,
-            "PODLACZ LADOWARKE",
-            2,
-            nikos::board::DisplayColor::PrimaryText,
-            nikos::board::DisplayColor::Background);
-    }
-
-    board.draw_text_region(
-        43,
-        118,
-        180,
-        14,
-        "M5 / BOCZNY = ZAMKNIJ",
-        1,
-        nikos::board::DisplayColor::SecondaryText,
-        nikos::board::DisplayColor::Background);
+    const bool very_low = level == nikos::battery_guard::AdvisoryLevel::VeryLow;
+    notice_text(board,very_low ? "BARDZO NISKA" : "NISKA BATERIA",
+        12,12,216,nikos::font_core::Size::Readable,
+        very_low ? nikos::board::DisplayColor::Danger : nikos::board::DisplayColor::Attention);
+    if (very_low) notice_text(board,"BATERIA",12,38,216);
+    notice_text(board,"PODŁĄCZ ŁADOWARKĘ",12,very_low ? 64 : 60,216);
+    if (very_low) notice_text(board,"LUB WYŁĄCZ URZĄDZENIE",12,91,216,
+        nikos::font_core::Size::Compact,nikos::board::DisplayColor::SecondaryText);
+    notice_text(board,"M5 / BOCZNY = ZAMKNIJ",8,116,224,
+        nikos::font_core::Size::Compact,nikos::board::DisplayColor::SecondaryText);
 }
 
 void render_critical_battery_shutdown(nikos::board::Board& board)
 {
     board.clear_screen();
-    board.draw_text_region(
-        40,
-        28,
-        170,
-        22,
-        "NISKA BATERIA",
-        2,
-        nikos::board::DisplayColor::Danger,
-        nikos::board::DisplayColor::Background);
-    board.draw_text_region(
-        48,
-        65,
-        160,
-        34,
-        "WYLACZAM...",
-        3,
-        nikos::board::DisplayColor::PrimaryText,
-        nikos::board::DisplayColor::Background);
+    notice_text(board,"NISKA BATERIA",12,27,216,
+        nikos::font_core::Size::Readable,nikos::board::DisplayColor::Danger);
+    notice_text(board,"WYŁĄCZAM...",12,67,216);
 }
 
 [[noreturn]] void controlled_shutdown(
