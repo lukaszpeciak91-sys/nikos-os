@@ -30,6 +30,14 @@ assert 'battery_update.power_status.voltage_mv > 0' in sample
 assert 'battery_update.power_status.level_percent >= 0' in sample
 assert 'battery_update.power_status.level_percent <= 100' in sample
 assert 'charging_mode.battery_percent =' in sample
+# Both unplug and fresh cable connection discard the previous session's 100%.
+# Valid readings can still be retained between samples within one session.
+reset = body("void reset_charging_session(", "ChargingCableEvent poll_charging_cable(")
+connected = body("if (vbus_present && !state.active) {",
+                 "if (!vbus_present && state.active) {")
+for transition in (reset, connected):
+    assert "state.battery_percent = -1;" in transition
+    assert "state.rendered_percent = -2;" in transition
 full=body("bool update_charging_full_confirmation(","void show_charging_lock(")
 assert 'kChargingFullConfirmSamples' in full
 assert 'status.charge_state == nikos::board::ChargeState::Discharging' in full
