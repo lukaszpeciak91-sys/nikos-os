@@ -40,4 +40,55 @@ for x, y, w, h in [(14, 10, 212, 26), (12, 41, 220, 17),
 assert "if (!game_over)" in racer
 assert 'game_over ? "KONIEC GRY" : "PAUZA"' in racer
 assert '"PAUZA"' in space
-print("Settings/Clock and Mini Racer pause layout guards PASS")
+
+# All three sound selection handlers must take the same full-render route
+# as initial screen entry; no legacy incremental raster can remain.
+assert "redraw_sound_selection_rows" not in launcher
+for screen, selection, count in (
+    ("SoundMenu", "sound_menu_selection_", 3),
+    ("SignalVolume", "signal_volume_selection_", 6),
+    ("SignalSound", "signal_sound_selection_", 4),
+):
+    handler = launcher.split(f"if (screen_ == Screen::{screen}) {{", 1)[1]
+    handler = handler.split("if (screen_ == Screen::", 1)[0]
+    action = handler.split("if (input.secondary_short) {", 1)[1].split("return Action::None;", 1)[0]
+    assert f"({selection} + 1U) % {count}U" in action, screen
+    assert "render();" in action, screen
+    assert "draw_text_region" not in action, screen
+
+# The same viewport logic applies to all sound submenus. Check each
+# possible selected index, scrolling boundary and wraparound to zero.
+menu_calls = {
+    "render_sound_menu": (3, "sound_menu_selection_", -1),
+    "render_signal_volume": (6, "signal_volume_selection_",
+                             "settings_.signal_volume_level"),
+    "render_signal_sound": (4, "signal_sound_selection_",
+                            "signal_sound_index(settings_.signal_sound)"),
+}
+for func, (count, state, indicator) in menu_calls.items():
+    body = launcher.split(f"void Launcher::{func}()", 1)[1].split(
+        "void Launcher::", 1)[0]
+    assert "draw_readable_menu(board_, font_renderer_, kItems," in body
+    assert f"{count}U, {state}, 35, 3," in body
+    assert str(indicator) in body
+    for selected in range(count):
+        first = selected - 2 if selected >= 3 else 0
+        visible = tuple(range(first, min(count, first + 3)))
+        assert selected in visible
+        assert len(visible) <= 3
+        assert all(0 <= i < count for i in visible)
+        next_selected = (selected + 1) % count
+        next_first = next_selected - 2 if next_selected >= 3 else 0
+        assert next_selected in range(next_first, min(count, next_first + 3))
+
+# Full render clears stale rows before drawing the new viewport.
+helper = launcher.split("void draw_readable_menu(", 1)[1].split(
+    "void clear_logo_area(", 1)[0]
+assert "renderer.metrics().line_height" in helper
+assert "first + slot < count" in helper
+for func in menu_calls:
+    body = launcher.split(f"void Launcher::{func}()", 1)[1].split(
+        "void Launcher::", 1)[0]
+    assert "clear_shell(board_);" in body
+
+print("Settings/Clock, sound selection and Mini Racer pause layout guards PASS")
