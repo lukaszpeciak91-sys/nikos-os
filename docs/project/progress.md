@@ -210,7 +210,7 @@ Reordered Ciekawostki to LOSUJ, QUIZ, six categories and POWRÓT. Quiz line brea
 
 A focused, unmerged PR adds Mini Racer under Rozrywka, with two-lane gameplay, scrolling road marks, simple car primitives, automatic bounded difficulty, swept collision detection, pause/game-over actions, a 10-minute session cap and RAM-only score record. The module delegates all system ownership to existing `app_main`, Board and DisplayLifecycle boundaries. Code audit, firmware build, flash/RAM measurement and physical checks of both orientations, repeated entry/exit, incoming Communicator, Charging Lock and BatteryGuard remain required prior to merge.
 
-### Font Lab v0.1 — temporary experiment
+### Historical: Font Lab v0.1 — temporary experiment
 Added an unmerged, independent Tools diagnostic to compare three Polish text
 rendering strategies across six identical samples without modifying the
 system Unicode font mapper. Included independent fixed bitmap glyphs,
@@ -220,7 +220,7 @@ assets are fixed and compiled into firmware. ESP-IDF 5.5.5 compile,
 flash/RAM deltas and physical LCD readability/diacritic alignment still
 require verification; the application is not a production-wide font change.
 
-### Font rendering core v0.1 — implementation candidate
+### Historical: Font rendering core v0.1 — implementation candidate
 
 A focused unmerged PR introduces a reusable, bounded UTF-8 rendering core
 for Font Lab only: unchanged STANDARD fallback, dynamically composed Polish
@@ -252,3 +252,27 @@ remains a performance concern: up to 192 inspected bits and one drawing call
 per set bit per glyph (plus region clearing), to be profiled on target.
 `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` remains unchanged.
 
+
+### Typography Consolidation v1 — approved hardware baseline (2026-10-17)
+
+The physical M5StickC Plus SE comparison selected **PRE-RENDERED** as the
+normal typography for ordinary Nikoś OS application and system UI. The
+shared bounded `font_core` renderer remains authoritative; no duplicated
+bitmap assets or independent font engine was introduced.
+
+The formerly user-selectable STANDARD / COMPOSED / PRE-RENDERED controls
+(`USTAWIENIA > CZCIONKA`) and `NARZĘDZIA > TEST FONTU` were removed.
+Font Lab and its resume/action paths are no longer composed into the firmware,
+but the comparison sources and host validation tooling remain in the repo.
+Product menu headings and selectable labels now use uppercase Polish copy,
+including supported accents; prose, Facts data and Quiz data are unchanged.
+
+**Explicit scope exclusions:** Flashlight, Communicator and Charging Lock /
+FULL / OK retain their existing presentation, navigation and lifecycle.
+The Board text adapter bypasses migration for these foregrounds, as well as
+while Charging Mode is active. Compact metadata keeps measured existing
+geometry and uses Polish-capable rendering for accented strings when needed.
+Facts and Quiz use PRE-RENDERED directly while the later visual and content
+polishing stage is deferred. The legacy experiment descriptions above are
+historical design notes and are superseded as current product policy by this
+section.
