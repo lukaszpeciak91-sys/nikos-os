@@ -1130,10 +1130,13 @@ extern "C" void app_main(void)
         {stored_entertainment.active, stored_entertainment.civil_valid,
          stored_entertainment.civil_start, stored_entertainment.warning_shown},
         now_ms(), boot_clock_trusted, boot_civil_minute);
+    bool entertainment_clear_failed = false;
     if (entertainment_guard.pending_clear()) {
-        if (!entertainment_store.clear())
+        if (entertainment_store.clear()) entertainment_guard.settled();
+        else {
             ESP_LOGW(kTag, "Entertainment cycle clear not persisted");
-        entertainment_guard.settled();
+            entertainment_clear_failed = true;
+        }
     }
 
     nikos::storage::SignalVolumeStore signal_volume_store;
@@ -1394,10 +1397,13 @@ extern "C" void app_main(void)
             || countdown.expired_pending() || clock_glance_active)
             entertainment_notice_rendered = false;
         const auto entertainment_phase = entertainment_guard.phase(loop_now_ms);
-        if (entertainment_guard.pending_clear()) {
-            if (!entertainment_store.clear())
+        if (entertainment_guard.pending_clear()
+            && !entertainment_clear_failed) {
+            if (entertainment_store.clear()) entertainment_guard.settled();
+            else {
                 ESP_LOGW(kTag, "Entertainment cycle clear not persisted");
-            entertainment_guard.settled();
+                entertainment_clear_failed = true;
+            }
         }
         const bool reserve_entertainment =
             battery_guard.low_battery_reserve_active();
@@ -2269,7 +2275,20 @@ extern "C" void app_main(void)
                     && action <= nikos::launcher::Action::OpenFacts;
                 bool entry_refused = false;
                 if (guard_entry) {
-                    if (battery_guard.low_battery_reserve_active()) {
+                    // Retry a failed expiry clear only on explicit admission,
+                    // never in the 20ms OS loop. Deny while NVS is uncertain.
+                    if (entertainment_clear_failed) {
+                        if (entertainment_store.clear()) {
+                            entertainment_clear_failed = false;
+                            entertainment_guard.settled();
+                        } else {
+                            entertainment_notice = EntertainmentNotice::Break;
+                            entry_refused = true;
+                        }
+                    }
+                    if (entry_refused) {
+                        // Preserve the guarded denial through action dispatch.
+                    } else if (battery_guard.low_battery_reserve_active()) {
                         entertainment_notice = EntertainmentNotice::LowBattery;
                         entry_refused = true;
                     } else {
