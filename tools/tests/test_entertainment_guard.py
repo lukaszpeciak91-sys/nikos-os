@@ -96,10 +96,36 @@ assert "OpenSnake" in main and "OpenMiniRacer" in main and "OpenFacts" in main
 assert "const bool guard_entry =" in main
 entry_gate = main.split("const bool guard_entry =", 1)[1].split(
     "bool entry_refused", 1)[0]
-assert all(name in entry_gate for name in ("OpenSnake", "OpenMiniRacer", "OpenFacts"))
-assert "OpenSpaceDefender" not in entry_gate
+assert all(name in entry_gate for name in ("OpenSnake", "OpenMiniRacer", "OpenFacts", "OpenSpaceDefender"))
+assert "OpenSpaceDefender" in entry_gate
 assert "snake.end();" in main and "mini_racer.end();" in main
 assert "facts.end();" in main
+assert "space_defender.end();" in main
+predicate = main.split("bool is_guarded_entertainment(", 1)[1].split(
+    "bool trusted_civil_minute", 1)[0]
+assert "RuntimeState::SpaceDefender" in predicate
+termination = main.split("if (entertainment_locked || reserve_entertainment)", 1)[1].split(
+    "if (update_charging_full_confirmation(", 1)[0]
+assert "resume_space_defender_after_communicator" in termination
+assert "space_defender.end();" in termination
+assert "EntertainmentNotice::Break" in termination
+assert "app_was_preempted" in termination
+assert "resume_space_defender_after_communicator = false;" in termination
+assert "entertainment_notice = reserve_entertainment" in termination
+warning = main.split("if (entertainment_warning_visible &&", 1)[1].split(
+    "if (state == RuntimeState::Launcher)", 1)[0]
+assert "space_defender.suspend();" in warning
+assert "space_defender.resume();" in warning
+assert "space_defender.begin();" in main
+communicator_exit = main.split("communicator_result", 1)[1]
+assert "entertainment_notice != EntertainmentNotice::None" in communicator_exit
+assert "launcher.begin_entertainment(" in communicator_exit
+assert "entertainment_notice_rendered = false;" in communicator_exit
+space_code = (root / "apps/space_defender/space_defender_app.cpp").read_text(encoding="utf-8")
+assert "KONIEC SESJI" in space_code
+assert "10 MIN GRY" in space_code
+assert '"CZAS NA PRZERWĘ"' not in space_code
+assert "rules::kSessionMs" in space_code
 assert "entertainment_warning_visible" in main
 assert "render_entertainment_notice" in main
 assert "battery_guard.low_battery_reserve_active()" in main
