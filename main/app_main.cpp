@@ -276,6 +276,9 @@ void reset_charging_session(ChargingModeState& state)
 
     state.presentation_visible = false;
     state.animation_step = 0;
+    // Never carry a previous USB session's percentage into the next one.
+    state.battery_percent = -1;
+    state.rendered_percent = -2;
     state.presentation_started_ms = 0;
     state.last_animation_ms = 0;
 }
@@ -308,6 +311,8 @@ ChargingCableEvent poll_charging_cable(
         reset_charging_owner_sequence(state);
         state.presentation_visible = false;
         state.animation_step = 0;
+        state.battery_percent = -1;
+        state.rendered_percent = -2;
         return ChargingCableEvent::Connected;
     }
 
