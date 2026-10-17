@@ -132,13 +132,13 @@ predicate = main.split("bool is_guarded_entertainment(",1)[1].split(
 def check_entertainment_contract(screen_text, recognized_text, runtime_text):
     # All Entertainment-screen launches MUST produce a tagged admission
     # request, not merely a matching enum value.
-    raw = re.findall(r"return\\s+Action::(Open\\w+)\\s*;", screen_text)
+    raw = re.findall(r"return\s+Action::(Open\w+)\s*;", screen_text)
     tagged = re.findall(
-        r"return\\s+entertainment_action\\(Action::(Open\\w+)\\)\\s*;",
+        r"return\s+entertainment_action\(Action::(Open\w+)\)\s*;",
         screen_text)
     if raw or not tagged or len(tagged)!=len(set(tagged)):
         return False
-    if re.search(r"return\\s+(?:Action::Open|entertainment_action)", screen_text) is None:
+    if re.search(r"return\s+(?:Action::Open|entertainment_action)", screen_text) is None:
         return False
     for action in tagged:
         if "Action::"+action not in recognized_text:
