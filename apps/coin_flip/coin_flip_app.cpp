@@ -20,8 +20,9 @@ CoinFlipApp::Result CoinFlipApp::update(const board::InputState& input) {
     if (!active_ || input.secondary_long) return Result::ExitRequested;
     if (state_.suspended) return Result::Running;
     const auto now = now_ms();
+    const bool animation_at_entry = state_.phase == Phase::Flipping;
     if (state_.tick(now)) render();
-    if (input.primary_short && state_.phase != Phase::Flipping) {
+    if (input.primary_short && !animation_at_entry) {
         // Hardware randomness is sampled only when a new toss is accepted.
         if (state_.toss(now, esp_random())) render();
     }
