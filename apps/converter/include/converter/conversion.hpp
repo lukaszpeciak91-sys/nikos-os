@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 namespace nikos::converter {
@@ -44,7 +45,9 @@ struct Editor {
         temperature=temp;negative=temp&&value<0;cursor=0;
         const auto scaled=static_cast<std::uint32_t>(std::fabs(value)*10+.5);
         const auto bounded=scaled>99999U?99999U:scaled;
-        for(int i=4;i>=0;--i)digits[static_cast<std::size_t>(i)]=static_cast<char>('0'+(bounded/static_cast<std::uint32_t>(std::pow(10,4-i)))%10);
+        constexpr std::uint32_t divisors[]={10000,1000,100,10,1};
+        for(std::size_t i=0;i<5;++i)
+            digits[i]=static_cast<char>('0'+(bounded/divisors[i])%10);
     }
     std::uint8_t positions()const{return temperature?6:5;}
     void increment() {
