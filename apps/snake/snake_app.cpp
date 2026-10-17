@@ -437,7 +437,7 @@ void SnakeApp::render_game_over()
         120,
         210,
         14,
-        "BOCZNY = POWRÓT",
+        "BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -477,7 +477,7 @@ void SnakeApp::render_time_limit()
         105,
         195,
         14,
-        "M5 / BOCZNY = POWRÓT",
+        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
