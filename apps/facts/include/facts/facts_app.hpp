@@ -8,7 +8,6 @@
 #include "generated/facts_data.hpp"
 #include "facts/quiz.hpp"
 #include "font_core/font_core.hpp"
-#include "settings/settings.hpp"
 
 namespace nikos::facts {
 
@@ -19,7 +18,7 @@ public:
         ExitRequested,
     };
 
-    FactsApp(board::Board& board, settings::State& settings);
+    explicit FactsApp(board::Board& board);
 
     void begin();
     void end();
@@ -96,7 +95,6 @@ private:
     void render_reader();
 
     board::Board& board_;
-    settings::State& settings_;
     font_core::Renderer renderer_;
     Quiz quiz_;
     std::uint8_t text_line_height() const;
