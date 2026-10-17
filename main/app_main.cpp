@@ -1,4 +1,6 @@
 #include "battery_guard/battery_guard.hpp"
+#include "entertainment_guard/guard.hpp"
+#include "storage/entertainment_cycle_store.hpp"
 #include "board/board.hpp"
 #include "clock/clock_service.hpp"
 #include "communicator/communicator_app.hpp"
@@ -49,8 +51,11 @@ constexpr float kChargingFullToneHz = 3200.0F;
 constexpr std::uint32_t kChargingFullToneMs = 90;
 constexpr std::uint32_t kChargingOwnerSequenceWindowMs = 4000;
 constexpr std::uint32_t kChargingOwnerOverrideIdleMs = 120000;
+constexpr std::uint32_t kEntertainmentWarningMs = 2500;
 constexpr std::uint32_t kAutoPowerOffIdleMs = 20U * 60U * 1000U;
 constexpr std::uint32_t kAutoPowerOffIncomingGraceMs = 2U * 60U * 1000U;
+
+enum class EntertainmentNotice : std::uint8_t { None, Break, LowBattery };
 
 enum class RuntimeState : std::uint8_t {
     Launcher,
@@ -64,6 +69,43 @@ enum class RuntimeState : std::uint8_t {
     SpaceDefender,
     RadioLab,
 };
+
+bool is_guarded_entertainment(RuntimeState state) {
+    return state == RuntimeState::Snake
+        || state == RuntimeState::MiniRacer
+        || state == RuntimeState::Facts;
+}
+bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out) {
+    const auto time = clock.read();
+    const auto date = clock.read_date();
+    if (!time.valid || !date.valid) return false;
+    std::uint32_t days = 0;
+    for (std::uint16_t year = 2000; year < date.date.year; ++year)
+        days += nikos::clock::ClockService::is_leap_year(year) ? 366U : 365U;
+    for (std::uint8_t month = 1; month < date.date.month; ++month)
+        days += nikos::clock::ClockService::days_in_month(date.date.year, month);
+    days += date.date.day - 1U;
+    out = days * 1440U + time.time.hour * 60U + time.time.minute;
+    return true;
+}
+void render_entertainment_notice(nikos::board::Board& board,
+                                  EntertainmentNotice notice) {
+    board.clear_screen();
+    if (notice == EntertainmentNotice::LowBattery) {
+        board.draw_text_region(12,18,216,24,"NISKA BATERIA",2);
+        board.draw_text_region(12,53,216,24,"ROZRYWKA WSTRZYMANA",1);
+        board.draw_text_region(12,83,216,22,"NAŁADUJ STICK",2);
+    } else {
+        board.draw_text_region(8,26,224,28,"CZAS NA PRZERWĘ",2);
+        board.draw_text_region(7,66,226,24,"ROZRYWKA WRÓCI PÓŹNIEJ",1);
+    }
+    board.draw_text_region(6,119,228,14,"M5 / BOCZNY = POWRÓT",1);
+}
+void render_entertainment_warning(nikos::board::Board& board) {
+    board.clear_screen();
+    board.draw_text_region(6,37,228,25,"JESZCZE 2 MINUTY",2);
+    board.draw_text_region(22,78,196,22,"POTEM PRZERWA",2);
+}
 
 enum class ChargingCableEvent : std::uint8_t {
     None,
@@ -1074,6 +1116,24 @@ extern "C" void app_main(void)
     }
 
     clock_service.initialize_date_trust();
+    nikos::storage::EntertainmentCycleStore entertainment_store;
+    nikos::entertainment_guard::Guard entertainment_guard;
+    nikos::storage::EntertainmentCycle stored_entertainment;
+    if (!entertainment_store.load(stored_entertainment)) {
+        ESP_LOGW(kTag, "Entertainment cycle NVS unavailable");
+    }
+    std::uint32_t boot_civil_minute = 0;
+    const bool boot_clock_trusted =
+        trusted_civil_minute(clock_service, boot_civil_minute);
+    entertainment_guard.restore(
+        {stored_entertainment.active, stored_entertainment.civil_valid,
+         stored_entertainment.civil_start},
+        now_ms(), boot_clock_trusted, boot_civil_minute);
+    if (entertainment_guard.pending_clear()) {
+        if (!entertainment_store.clear())
+            ESP_LOGW(kTag, "Entertainment cycle clear not persisted");
+        entertainment_guard.settled();
+    }
 
     nikos::storage::SignalVolumeStore signal_volume_store;
     settings.signal_volume_level = signal_volume_store.load_level();
@@ -1117,6 +1177,9 @@ extern "C" void app_main(void)
     RuntimeState state = RuntimeState::Launcher;
     system_text_context.active_screen = &state;
     system_text_context.charging = &charging_mode;
+    EntertainmentNotice entertainment_notice = EntertainmentNotice::None;
+    bool entertainment_warning_visible = false;
+    std::uint32_t entertainment_warning_started_ms = 0;
     bool clock_glance_active = false;
     std::uint32_t clock_glance_started_ms = 0;
     bool timer_alert_visible = false;
