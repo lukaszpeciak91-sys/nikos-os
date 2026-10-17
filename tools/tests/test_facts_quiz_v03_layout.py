@@ -81,6 +81,29 @@ for item in questions:
 
 facts_cpp = (ROOT / "apps/facts/facts_app.cpp").read_text(encoding="utf-8")
 quiz_cpp = (ROOT / "apps/facts/quiz.cpp").read_text(encoding="utf-8")
+# Contract across real measurement, wrapping and the actual draw call.
+list_block = facts_cpp.split("void FactsApp::render_title_list()", 1)[1].split(
+    "void FactsApp::render_reader()", 1)[0]
+item_height_block = facts_cpp.split("std::uint8_t FactsApp::title_item_height(", 1)[1].split(
+    "void FactsApp::update_title_viewport()", 1)[0]
+assert "lines * 19U + 3U" in item_height_block
+assert "font_core::Size::Compact" in item_height_block
+assert "wrapped_title_.size(), font_core::Size::Compact" in list_block
+assert re.search(r"render_readable\\(wrapped_title_\\.data\\(\\),\\s*12,\\s*y,\\s*224,\\s*height,\\s*"
+                 r"selected \\? board::DisplayColor::PrimaryText\\s*"
+                 r": board::DisplayColor::SecondaryText,\\s*bg,\\s*"
+                 r"font_core::Size::Compact\\);", list_block), "list renderer silently defaults to READABLE"
+assert "if (y + height > 115) break;" in list_block
+assert "y += height;" in list_block
+# Contract with existing font_core: COMPACT raster is 19px per line,
+# every production row has at least 3px spare, two 2-line rows are 82px.
+font_core = (ROOT / "components/font_core/font_core.cpp").read_text(encoding="utf-8")
+assert "kRasterLineHeight = 19" in font_core
+assert "return {kRasterLineHeight, kRows, kLetterGap};" in font_core
+assert 2 * (2 * 19 + 3) <= 87
+assert all(19 * len(wrap(f["title"], 224)) <= 19 * len(wrap(f["title"], 224)) + 3
+           for f in facts)
+assert 19 + 3 <= 87  # POWRÓT uses the same measured/drawn contract.
 assert "font_core::Size::Compact" in facts_cpp
 assert "board::DisplayColor::Accent, board::DisplayColor::Background,\n        font_core::Size::Compact" in facts_cpp
 assert "render_readable(wrapped_body_" in facts_cpp
@@ -109,6 +132,7 @@ for total in range(1, 9):
         while position + 1 < total:
             position += 1  # M5: next page
         assert position == total - 1
+assert "if (text_width(text_buffer_, size) > kWidth) break;" in quiz_cpp
 assert "SIDE WSTECZ" in quiz_cpp
 assert "M5 DALEJ" in quiz_cpp
 assert "text_page_count_ > 1" in quiz_cpp
