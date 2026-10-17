@@ -117,33 +117,47 @@ with tempfile.TemporaryDirectory() as tmp:
 
 main = (root / "main/app_main.cpp").read_text(encoding="utf-8")
 assert "OpenSnake" in main and "OpenMiniRacer" in main and "OpenFacts" in main
-assert "const bool guard_entry =" in main
-entry_gate = main.split("const bool guard_entry =", 1)[1].split("bool entry_refused", 1)[0]
-assert "Action::OpenSnake" in entry_gate and "Action::OpenFacts" in entry_gate
+assert "const bool guard_entry = launcher.take_entertainment_launch();" in main
+assert "guard_entry != recognized_entertainment" in main
+assert "if (guard_entry && !entry_refused)" in main
 launcher = (root / "components/launcher/launcher.cpp").read_text(encoding="utf-8")
 header = (root / "components/launcher/include/launcher/launcher.hpp").read_text(encoding="utf-8")
 import re
-actions = re.search(r"enum class Action[^{}]*\{([^}]+)\}", header).group(1)
-names = [name.strip() for name in actions.split(",") if name.strip()]
-assert len(names) == len(set(names))
-first, last = names.index("OpenSnake"), names.index("OpenFacts")
-screen = launcher.split("if (screen_ == Screen::Entertainment)", 1)[1].split("if (screen_ == Screen::Clock)", 1)[0]
-routes = re.findall(r"return Action::(Open\w+);", screen)
-assert set(routes) == set(names[first:last+1]), "Unguarded Entertainment route"
-assert set(routes + ["OpenSyntheticEntertainment"]) != set(names[first:last+1])
-# Every launch action needs its lifecycle tuple in app_main; this catches
-# an added Entertainment entry even when it is inserted inside the range.
-predicate = main.split("bool is_guarded_entertainment(", 1)[1].split(
-    "bool trusted_civil_minute", 1)[0]
-for route in routes:
-    runtime = route.removeprefix("Open")
-    assert "RuntimeState::" + runtime in predicate, (
-        "Entertainment entry lacks protected runtime: " + route)
-    assert "Action::" + route in main, (
-        "Entertainment entry lacks guarded dispatch: " + route)
-    assert runtime.lower() in main.lower(), (
-        "Entertainment entry lacks lifecycle integration: " + route)
-
+screen = launcher.split("if (screen_ == Screen::Entertainment)",1)[1].split(
+    "if (screen_ == Screen::Clock)",1)[0]
+recognized = main.split("const bool recognized_entertainment =",1)[1].split(
+    "bool entry_refused",1)[0]
+predicate = main.split("bool is_guarded_entertainment(",1)[1].split(
+    "bool trusted_civil_minute",1)[0]
+def check_entertainment_contract(screen_text, recognized_text, runtime_text):
+    # All Entertainment-screen launches MUST produce a tagged admission
+    # request, not merely a matching enum value.
+    raw = re.findall(r"return\\s+Action::(Open\\w+)\\s*;", screen_text)
+    tagged = re.findall(
+        r"return\\s+entertainment_action\\(Action::(Open\\w+)\\)\\s*;",
+        screen_text)
+    if raw or not tagged or len(tagged)!=len(set(tagged)):
+        return False
+    if re.search(r"return\\s+(?:Action::Open|entertainment_action)", screen_text) is None:
+        return False
+    for action in tagged:
+        if "Action::"+action not in recognized_text:
+            return False
+        if "RuntimeState::"+action.removeprefix("Open") not in runtime_text:
+            return False
+    return True
+assert check_entertainment_contract(screen,recognized,predicate)
+# Negative/mutation regressions must actually reject a new unguarded route,
+# an unclassified runtime and an unrecognized Entertainment admission.
+assert not check_entertainment_contract(
+    screen.replace("return entertainment_action(Action::OpenSnake);",
+                   "return Action::OpenSyntheticGame;"), recognized,predicate)
+assert not check_entertainment_contract(
+    screen.replace("Action::OpenSnake","Action::OpenSyntheticGame"),
+    recognized,predicate)
+assert not check_entertainment_contract(
+    screen,recognized,predicate.replace("RuntimeState::SpaceDefender",""))
+assert "bool take_entertainment_launch()" in header
 assert "snake.end();" in main and "mini_racer.end();" in main
 assert "facts.end();" in main
 assert "space_defender.end();" in main
