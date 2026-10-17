@@ -752,7 +752,7 @@ void enter_communicator_for_incoming(
         resume_flashlight_after_communicator = true;
     } else if (state == RuntimeState::Facts) {
         resume_facts_after_communicator = true;
-        }
+    }
 
     if (state == RuntimeState::Launcher
         || state == RuntimeState::PowerDiag
@@ -2179,7 +2179,7 @@ extern "C" void app_main(void)
                     || resume_mini_racer_after_communicator
                     || resume_flashlight_after_communicator
                     || resume_facts_after_communicator
-                    || resume_font_lab_after_communicator)
+                    )
                 && (communicator_result
                         == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested
                     || !communicator.timer_preemption_active())) {
