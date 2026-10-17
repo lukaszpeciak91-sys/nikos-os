@@ -30,6 +30,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include <cstdio>
 
 #include "flashlight/flashlight_app.hpp"
 #include "sound_meter/sound_meter_app.hpp"
