@@ -131,6 +131,19 @@ screen = launcher.split("if (screen_ == Screen::Entertainment)", 1)[1].split("if
 routes = re.findall(r"return Action::(Open\w+);", screen)
 assert set(routes) == set(names[first:last+1]), "Unguarded Entertainment route"
 assert set(routes + ["OpenSyntheticEntertainment"]) != set(names[first:last+1])
+# Every launch action needs its lifecycle tuple in app_main; this catches
+# an added Entertainment entry even when it is inserted inside the range.
+predicate = main.split("bool is_guarded_entertainment(", 1)[1].split(
+    "bool trusted_civil_minute", 1)[0]
+for route in routes:
+    runtime = route.removeprefix("Open")
+    assert "RuntimeState::" + runtime in predicate, (
+        "Entertainment entry lacks protected runtime: " + route)
+    assert "Action::" + route in main, (
+        "Entertainment entry lacks guarded dispatch: " + route)
+    assert runtime.lower() in main.lower(), (
+        "Entertainment entry lacks lifecycle integration: " + route)
+
 assert "snake.end();" in main and "mini_racer.end();" in main
 assert "facts.end();" in main
 assert "space_defender.end();" in main
