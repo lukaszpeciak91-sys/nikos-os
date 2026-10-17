@@ -22,6 +22,7 @@ std::uint8_t clamp_level(float x)
 void LevelProcessor::reset()
 {
     level_ = 0;
+    last_rms_ = 0.0F;
     reset_peak();
 }
 
@@ -46,6 +47,7 @@ void LevelProcessor::consume(const std::int16_t* samples, std::size_t count,
         energy += centered * centered;
     }
     const float rms = static_cast<float>(std::sqrt(energy / count));
+    last_rms_ = rms;
     // Logarithmic compressor is chosen only to make the relative indicator
     // usable over a wide amplitude range. This is NOT dB SPL or dB(A).
     float relative = 0.0F;
