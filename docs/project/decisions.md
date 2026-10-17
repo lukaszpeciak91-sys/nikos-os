@@ -882,3 +882,8 @@ Ship one standalone arcade module, not a general game engine. Three cycling lane
 ### Space Defender PR #83 R1 — multi-enemy fairness choice
 
 Replace single-hull spawning with staged caps (2/3/4), conservative temporal collision-window separation, bounded random lane/gap choice and explicit surviving hostile-shot checks. An unoccupied lane alone is not treated as proof of one-button cyclic reachability. Use small lane-band restoration rather than independently erasing overlapping sprites, avoiding framebuffers.
+
+
+### Space Defender PR #83 R2 — conservative future-hazard handling
+
+Reserve the entire [fastest, current-speed] impact-time interval when admitting mixed-speed hulls, including a possible 500-point speed transition. Do not overlap an unmodeled future Shooter projectile with a concurrent hull: Shooter is scheduled alone, while multiple Scout/Armored hulls remain possible. The 1100ms cyclic-switch budget is an explicit human-input assumption, not proof of guaranteed reachability.
