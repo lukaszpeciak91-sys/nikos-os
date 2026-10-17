@@ -139,7 +139,7 @@ def check_contract(screen_text, update_text, recognized_text, runtime_text):
         return False
     if "entertainment_action(" in screen_text:
         return False
-    routes = re.findall(r"return\\s+Action::(Open\\w+)\\s*;", screen_text)
+    routes = re.findall(r"return\s+Action::(Open\w+)\s*;", screen_text)
     if len(routes)!=4 or len(routes)!=len(set(routes)):
         return False
     for action in routes:
