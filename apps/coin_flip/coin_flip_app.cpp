@@ -39,18 +39,22 @@ void CoinFlipApp::draw_coin(std::uint8_t frame) {
     const std::int16_t half_width[6] = {36, 22, 3, 17, 32, 36};
     const std::int16_t half = half_width[shape];
     const std::int16_t cx = 120, cy = 70, radius = 35;
-    for (std::int16_t y = -radius; y <= radius; ++y) {
-        const std::int32_t yy = y * y;
-        const std::int16_t reach = static_cast<std::int16_t>(
-            (radius * radius - yy) > 0
-                ? (radius * radius - yy) : 0);
-        // A thin side view has no visible emblem.
-        const std::int16_t x = static_cast<std::int16_t>(
-            (static_cast<std::int32_t>(half) * reach) / (radius * radius));
-        const auto color = (y < -29 || y > 29)
-            ? board::DisplayColor::SecondaryText
-            : board::DisplayColor::Accent;
-        board_.draw_line(cx - x, cy + y, cx + x, cy + y, color);
+    // Face-on frames use true circle primitives. Narrow intermediate frames
+    // remain lightweight ellipses so the existing flip motion is preserved.
+    if (half >= 32) {
+        board_.fill_circle(cx, cy, radius, board::DisplayColor::PrimaryText);
+        board_.fill_circle(cx, cy, radius - 3, board::DisplayColor::CoinGold);
+        board_.draw_line(cx - 14, cy - 25, cx + 10, cy - 25,
+            board::DisplayColor::PrimaryText);
+    } else {
+        for (std::int16_t y = -radius; y <= radius; ++y) {
+            const std::int32_t distance = radius * radius - y * y;
+            std::int16_t x = 0;
+            while ((x + 1) * (x + 1) * radius * radius
+                    <= half * half * distance) ++x;
+            board_.draw_line(cx - x, cy + y, cx + x, cy + y,
+                board::DisplayColor::CoinGold);
+        }
     }
     if (half < 28) return;
     const bool eagle = state_.phase == Phase::Idle
@@ -68,11 +72,11 @@ void CoinFlipApp::draw_coin(std::uint8_t frame) {
         board_.fill_rect(118, 54, 4, 5, board::DisplayColor::PrimaryText);
     } else {
         board_.draw_text_region(106, 53, 29, 27, "1", 3,
-            board::DisplayColor::PrimaryText, board::DisplayColor::Accent);
+            board::DisplayColor::PrimaryText, board::DisplayColor::CoinGold);
         font_.select(font_core::Mode::PreRendered);
         font_.set_size(font_core::Size::Compact);
         font_.draw("ZŁ", {105, 79, 36, 19},
-            board::DisplayColor::PrimaryText, board::DisplayColor::Accent);
+            board::DisplayColor::PrimaryText, board::DisplayColor::CoinGold);
     }
 }
 void CoinFlipApp::render() {

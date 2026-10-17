@@ -15,6 +15,7 @@ constexpr std::uint32_t kHoldThresholdMs = 600;
 // monochrome presentation at the Board boundary.
 constexpr std::uint16_t kStatusActiveRgb565 = 0x8DF5;   // #88BDA8
 constexpr std::uint16_t kStatusInactiveRgb565 = 0xB36D; // #B46F6F
+constexpr std::uint16_t kCoinGoldRgb565 = 0xFDC8; // #F8B840 warm coin gold
 constexpr std::uint16_t kAttentionRgb565 = 0xFD20;      // existing SYGNAŁ orange
 constexpr std::uint16_t kDangerRgb565 = 0xC2EB;         // #C65F5F
 
@@ -672,6 +673,8 @@ std::uint16_t Board::resolve_display_color(DisplayColor color) const
             return palette.secondary_text;
         case DisplayColor::Accent:
             return palette.accent;
+        case DisplayColor::CoinGold:
+            return noir ? palette.accent : kCoinGoldRgb565;
         case DisplayColor::StatusActive:
             return noir ? palette.accent : kStatusActiveRgb565;
         case DisplayColor::StatusInactive:

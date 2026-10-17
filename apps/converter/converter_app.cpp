@@ -73,7 +73,12 @@ void ConverterApp::render(){
             static_cast<std::uint8_t>(edit[selected]));
         font_.draw(edit,{kEditX,kEditY,190,24},
             board::DisplayColor::Accent,board::DisplayColor::Background);
-        board_.fill_rect(cursor_x,70,cursor_width,3,board::DisplayColor::Accent);
+        // A bright selected glyph plus a thicker underline distinguishes
+        // the active position without changing fixed-digit editing.
+        const char focused[] = {edit[selected], '\0'};
+        font_.draw(focused,{cursor_x,kEditY,cursor_width,24},
+            board::DisplayColor::PrimaryText,board::DisplayColor::Background);
+        board_.fill_rect(cursor_x,70,cursor_width,4,board::DisplayColor::Accent);
         draw(units(category_)[unit_].label,34,75,170);
         if(invalid_temperature_)
             draw("PONIŻEJ ZERA ABS.",12,96,216,board::DisplayColor::Attention);
@@ -86,7 +91,28 @@ void ConverterApp::render(){
     if(!from_base(category_,unit_,base_,input))input=0;
     char number[24];format(input,number);
     char line[48];std::snprintf(line,sizeof(line),"%s %s",number,units(category_)[unit_].label);
-    draw(line,12,31,216,board::DisplayColor::Accent);
+    // Prefer the approved readable raster for numbers; fallback keeps long
+    // scientific values and labels within the 240-pixel viewport.
+    const auto draw_value = [&](const char* text, std::int16_t y,
+        board::DisplayColor color, bool primary) {
+        const auto background = primary
+            ? board::DisplayColor::Surface : board::DisplayColor::Background;
+        if (primary) {
+            board_.fill_rect(12, 27, 216, 29, background);
+            board_.fill_rect(12, 27, 3, 29, board::DisplayColor::Accent);
+        }
+        const std::int16_t x = primary ? 20 : 12;
+        const std::int16_t width = primary ? 208 : 216;
+        font_.select(font_core::Mode::PreRendered);
+        font_.set_size(font_core::Size::Readable);
+        if (font_.measure(text, width, 24).fits) {
+            font_.draw(text,{x,y,width,24},color,background);
+        } else {
+            font_.set_size(font_core::Size::Compact);
+            font_.draw(text,{x,y,width,19},color,background);
+        }
+    };
+    draw_value(line,29,board::DisplayColor::PrimaryText,true);
     const auto& u=units(category_)[unit_];
     for(std::uint8_t row=0;row<2;++row){
         const auto dest=row==0?u.first:u.second;
@@ -94,7 +120,7 @@ void ConverterApp::render(){
         if(from_base(category_,dest,base_,converted))format(converted,result);
         else std::snprintf(result,sizeof(result),"POZA ZAKR.");
         char text[48];std::snprintf(text,sizeof(text),"%s %s",result,units(category_)[dest].label);
-        draw(text,12,61+row*24,216,board::DisplayColor::SecondaryText);
+        draw_value(text,59+row*27,board::DisplayColor::SecondaryText,false);
     }
     draw(editable_value(category_,input) ? "M5 EDYTUJ  SIDE JEDN."
         : "ZA DUŻA WARTOŚĆ",12,117,216);
