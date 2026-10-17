@@ -65,6 +65,7 @@ public:
     void restore_auto_power_off_preference(bool enabled);
     void restore_signal_volume_preference(std::uint8_t level);
     void redraw();
+    bool showing_communicator_ui() const;
     Action update(const board::InputState& input);
 
 private:
