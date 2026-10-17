@@ -32,6 +32,7 @@ struct Enemy {
     std::int32_t x_q8 = 0;
     std::uint32_t next_shot_ms = 0;
     std::uint32_t warning_ms = 0;
+    std::uint32_t motion_remainder = 0;
 };
 struct Shot {
     bool active = false;
@@ -137,7 +138,7 @@ inline void substep(World& w, std::uint32_t dt) {
         // Enemy type speed differs; calculate once per substep in high
         // precision and keep each object's remainder separately later.
         const auto dx = static_cast<std::int32_t>(
-            static_cast<std::uint64_t>(speed_for(e.type,w.score)) * 256U * dt / 1000U);
+            move_q8(speed_for(e.type,w.score), dt, e.motion_remainder));
         e.x_q8 -= dx;
         if (e.type == Type::Shooter) {
             if (w.time_ms >= e.next_shot_ms && e.x_q8 > 105 * 256) {
