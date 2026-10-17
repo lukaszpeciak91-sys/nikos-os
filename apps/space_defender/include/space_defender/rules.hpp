@@ -108,7 +108,7 @@ inline void substep(World& w, std::uint32_t dt) {
     if (w.phase != Phase::Playing || dt == 0) return;
     w.time_ms += dt;
     if (w.time_ms - w.last_fire_ms >= kFireIntervalMs) {
-        w.last_fire_ms = w.time_ms;
+        w.last_fire_ms += kFireIntervalMs;
         fire(w);
     }
     if (w.time_ms >= w.next_spawn_ms) {
