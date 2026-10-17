@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "board/board.hpp"
+#include "font_core/font_core.hpp"
 #include "clock/clock_service.hpp"
 #include "countdown/countdown_service.hpp"
 #include "settings/settings.hpp"
