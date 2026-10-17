@@ -18,6 +18,10 @@ for token in (
 ):
     assert token in board, token
 assert "std::atomic<void*> completed_microphone_buffer_" in hdr
+assert "M5.Mic.isRunning()) return false" not in board
+assert "const bool accepted = M5.Mic.record(buffer, count, hz);" in board
+assert "Mic record rejected: running=%u recording=%u" in board
+assert "Mic record invalid request" in board
 assert "microphone_capture_completed(samples_)" in meter
 assert "if (!board_.microphone_recording())" not in meter
 assert "kCaptureTimeoutMs = 600" in meter
