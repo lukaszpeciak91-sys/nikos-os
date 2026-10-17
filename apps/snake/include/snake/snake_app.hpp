@@ -23,6 +23,8 @@ public:
     void begin();
     void end();
     void redraw();
+    void suspend_for_entertainment_warning();
+    void resume_from_entertainment_warning();
     UpdateResult update(const board::InputState& input);
 
 private:
@@ -86,6 +88,7 @@ private:
 
     bool active_ = false;
     bool turn_consumed_since_move_ = false;
+    std::uint32_t warning_move_elapsed_ms_ = 0;
     std::uint32_t session_started_ms_ = 0;
     std::uint32_t last_move_ms_ = 0;
 };
