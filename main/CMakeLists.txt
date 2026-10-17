@@ -23,6 +23,7 @@ idf_component_register(
         settings
         signal_sound
         sound_meter
+        converter
         snake
         mini_racer
         coin_flip
