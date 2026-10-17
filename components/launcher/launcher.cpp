@@ -1955,7 +1955,7 @@ void Launcher::render_timer_setup()
         101,
         196,
         16,
-        "BOCZNY DLUGO",
+        "BOCZNY DŁUGO",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -1965,7 +1965,7 @@ void Launcher::render_timer_setup()
         118,
         196,
         16,
-        "= POWROT",
+        "= POWRÓT",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2072,7 +2072,7 @@ void Launcher::render_stopwatch()
             94,
             196,
             18,
-            "BOCZNY POWROT",
+            "BOCZNY POWRÓT",
             2,
             board::DisplayColor::SecondaryText,
             board::DisplayColor::Background);
@@ -2082,7 +2082,7 @@ void Launcher::render_stopwatch()
             121,
             212,
             12,
-            "BOCZNY DLUGO = POWROT",
+            "BOCZNY DŁUGO = POWRÓT",
             1,
             board::DisplayColor::SecondaryText,
             board::DisplayColor::Background);
@@ -2192,7 +2192,7 @@ void Launcher::render_clock_editor(bool editing_hour)
         119,
         212,
         12,
-        "BOCZNY DLUGO = POWROT",
+        "BOCZNY DŁUGO = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2225,7 +2225,7 @@ void Launcher::render_clock_set_failed()
         108,
         180,
         14,
-        "M5 / BOCZNY = POWROT",
+        "M5 / BOCZNY = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2245,9 +2245,9 @@ void Launcher::render_date_editor()
         static_cast<unsigned>(edit_month_),
         static_cast<unsigned>(edit_year_));
 
-    const char* field = "DZIEN";
+    const char* field = "DZIEŃ";
     if (screen_ == Screen::ClockSetDateMonth) {
-        field = "MIESIAC";
+        field = "MIESIĄC";
     } else if (screen_ == Screen::ClockSetDateYear) {
         field = "ROK";
     }
@@ -2295,7 +2295,7 @@ void Launcher::render_date_editor()
         119,
         212,
         12,
-        "BOCZNY DLUGO = POWROT",
+        "BOCZNY DŁUGO = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2328,7 +2328,7 @@ void Launcher::render_date_set_failed()
         108,
         180,
         14,
-        "M5 / BOCZNY = POWROT",
+        "M5 / BOCZNY = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2371,7 +2371,7 @@ void Launcher::render_date_needs_time()
         112,
         180,
         14,
-        "M5 / BOCZNY = POWROT",
+        "M5 / BOCZNY = POWRÓT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -3011,7 +3011,7 @@ void Launcher::render_brightness()
         12,
         212,
         18,
-        "JASNOSC",
+        "JASNOŚĆ",
         2,
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
