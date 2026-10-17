@@ -25,5 +25,6 @@ idf_component_register(
         snake
         mini_racer
         space_defender
+        space_defender
         storage
 )
