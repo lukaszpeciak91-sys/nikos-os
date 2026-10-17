@@ -18,7 +18,7 @@ for text,expected in (
     assert indices==sorted(indices)
     assert 'slot < (readable ? 3U : 4U)' in text or 'visible' in text
 assert '"KOMUNIKATOR"' in launcher and '"ZEGAR"' in launcher
-assert "Screen::Games" in header
+assert "        Games," in header
 tools_input=section("if (screen_ == Screen::Tools)","if (screen_ == Screen::Entertainment)")
 for i,action in enumerate(("OpenFlashlight","OpenSoundMeter","OpenConverter","OpenPowerDiag")):
     assert f"tools_selection_ == {i}U" in tools_input
