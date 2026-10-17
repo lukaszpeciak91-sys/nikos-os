@@ -450,6 +450,7 @@ void Launcher::set_communicator_delivery_status(
 
 Action Launcher::update(const board::InputState& input)
 {
+    entertainment_launch_=false;
     const std::uint32_t now = now_ms();
     update_clock_sample(now);
     update_battery_sample(now);
@@ -577,16 +578,16 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.primary_short) {
             if (entertainment_selection_ == 0U) {
-                return Action::OpenSnake;
+                return entertainment_action(Action::OpenSnake);
             }
             if (entertainment_selection_ == 1U) {
-                return Action::OpenMiniRacer;
+                return entertainment_action(Action::OpenMiniRacer);
             }
             if (entertainment_selection_ == 2U) {
-                return Action::OpenFacts;
+                return entertainment_action(Action::OpenFacts);
             }
             if (entertainment_selection_ == 3U) {
-                return Action::OpenSpaceDefender;
+                return entertainment_action(Action::OpenSpaceDefender);
             }
 
             screen_ = Screen::Main;
