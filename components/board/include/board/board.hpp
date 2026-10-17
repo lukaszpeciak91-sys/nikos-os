@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 #include "ui_theme/ui_theme.hpp"
 
@@ -91,6 +92,8 @@ public:
     bool begin_microphone();
     bool record_microphone(std::int16_t* buffer, std::size_t count, std::uint32_t hz);
     bool microphone_recording() const;
+    // True only after M5Unified releases this exact completed PCM buffer.
+    bool microphone_capture_completed(const std::int16_t* buffer);
     void end_microphone();
 
     void wake_display();
@@ -151,6 +154,8 @@ public:
     const char* detected_board_name() const;
 
 private:
+    static void microphone_buffer_released(void* context, void* buffer, std::size_t length);
+    std::atomic<void*> completed_microphone_buffer_{nullptr};
     void* text_context_ = nullptr;
     TextDelegate text_delegate_ = nullptr;
     std::uint16_t resolve_display_color(DisplayColor color) const;
