@@ -53,7 +53,8 @@ int main() {
         assert(threats_clear(w));
         assert(w.lives>0);
         assert(w.record>=w.score);
-        const auto score=w.score,record=w.record,lives=w.lives;
+        const std::uint32_t score=w.score,record=w.record;
+        const std::uint8_t lives=w.lives;
         advance(w,500);
         assert(w.phase==Phase::Victory && w.score==score
             && w.record==record && w.lives==lives);
