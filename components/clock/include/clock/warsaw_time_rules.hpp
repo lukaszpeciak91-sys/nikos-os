@@ -22,10 +22,12 @@ constexpr bool leap(std::uint16_t y) {
     return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
 }
 constexpr std::uint8_t month_days(std::uint16_t y, std::uint8_t m) {
-    constexpr std::uint8_t lengths[] = {31,28,31,30,31,30,31,31,30,31,30,31};
-    return m >= 1 && m <= 12
-        ? static_cast<std::uint8_t>(lengths[m-1] + (m == 2 && leap(y) ? 1 : 0))
-        : 0;
+    switch (m) {
+        case 2: return leap(y) ? 29 : 28;
+        case 4: case 6: case 9: case 11: return 30;
+        case 1: case 3: case 5: case 7: case 8: case 10: case 12: return 31;
+        default: return 0;
+    }
 }
 constexpr bool valid(const DateTime& t) {
     return t.year >= 2000 && t.year <= 2099 && t.month >= 1 && t.month <= 12
