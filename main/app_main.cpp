@@ -83,16 +83,36 @@ bool is_guarded_entertainment(RuntimeState state) {
         || state == RuntimeState::SpaceDefender;
 }
 bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out) {
-    const auto time = clock.read();
-    const auto date = clock.read_date();
-    if (!time.valid || !date.valid) return false;
-    std::uint32_t days = 0;
-    for (std::uint16_t year = 2000; year < date.date.year; ++year)
-        days += nikos::clock::ClockService::is_leap_year(year) ? 366U : 365U;
-    for (std::uint8_t month = 1; month < date.date.month; ++month)
-        days += nikos::clock::ClockService::days_in_month(date.date.year, month);
-    days += date.date.day - 1U;
-    out = days * 1440U + time.time.hour * 60U + time.time.minute;
+    nikos::clock::warsaw::DateTime utc{};
+    if (!clock.read_utc(utc)) return false;
+    out=static_cast<std::uint32_t>(
+        nikos::clock::warsaw::seconds(utc)/60);
+    return true;
+}
+
+bool migrate_legacy_cycle_minutes(
+    nikos::storage::EntertainmentCycle& cycle) {
+    if (!cycle.active || !cycle.legacy_local) return true;
+    // ENT1's origin was 2000-01-01, in Polish LOCAL civil minutes.
+    // Never treat its minute counter as an already-UTC timestamp.
+    if (cycle.civil_valid) {
+        nikos::clock::warsaw::DateTime local{};
+        if (!nikos::clock::warsaw::from_seconds(
+                static_cast<std::int64_t>(cycle.civil_start)*60,local)) {
+            cycle.civil_valid=false;
+        } else {
+            const auto conversion=nikos::clock::warsaw::local_to_utc(local);
+            if (conversion.status==nikos::clock::warsaw::LocalStatus::Unique) {
+                const auto utc=nikos::clock::warsaw::valid(conversion.daylight_utc)
+                    ? conversion.daylight_utc : conversion.standard_utc;
+                cycle.civil_start=static_cast<std::uint32_t>(
+                    nikos::clock::warsaw::seconds(utc)/60);
+            } else {
+                // Ambiguous legacy autumn hours are not silently guessed.
+                cycle.civil_valid=false;
+            }
+        }
+    }
     return true;
 }
 // System-owned overlays use the same pre-rendered glyphs as Launcher.
@@ -1102,6 +1122,7 @@ extern "C" void app_main(void)
     if (!entertainment_store.load(stored_entertainment)) {
         ESP_LOGW(kTag, "Entertainment cycle NVS unavailable");
     }
+    (void)migrate_legacy_cycle_minutes(stored_entertainment);
     std::uint32_t boot_civil_minute = 0;
     const bool boot_clock_trusted =
         trusted_civil_minute(clock_service, boot_civil_minute);
