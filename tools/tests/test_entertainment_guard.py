@@ -266,10 +266,15 @@ assert "resume_mini_racer_after_communicator = false;" in main
 assert "resume_coin_flip_after_communicator = false;" in main
 assert "resume_facts_after_communicator = false;" in main
 assert "kAutoPowerOffIdleMs = 20U * 60U * 1000U;" in main
-for game in ("snake", "mini_racer"):
-    code = (root / "apps" / game / (game + "_app.cpp")).read_text(encoding="utf-8")
-    assert "KONIEC SESJI" in code
-    assert "10 MIN GRY" in code
+# Snake now relies exclusively on the central Guard for play-window timing.
+snake_code = (root / "apps/snake/snake_app.cpp").read_text(encoding="utf-8")
+assert "KONIEC SESJI" not in snake_code
+assert "10 MIN GRY" not in snake_code
+assert "State::GameOver" in snake_code
+# Mini Racer's existing 10-minute session is intentionally unchanged in R0.
+racer_code = (root / "apps/mini_racer/mini_racer_app.cpp").read_text(encoding="utf-8")
+assert "KONIEC SESJI" in racer_code
+assert "10 MIN GRY" in racer_code
 print("Entertainment Guard policy and integration host tests PASS")
 
 # Every entertainment action including CoinFlip is covered by the one-use
