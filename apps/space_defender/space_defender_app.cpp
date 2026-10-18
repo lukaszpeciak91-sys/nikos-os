@@ -27,12 +27,13 @@ std::uint32_t SpaceDefenderApp::now_ms() {
 }
 void SpaceDefenderApp::begin() {
     active_=true; suspended_=false;
-    session_started_ms_=now_ms();
-    new_round(session_started_ms_);
+    new_round(now_ms());
 }
 void SpaceDefenderApp::new_round(std::uint32_t now) {
+    attempt_started_ms_=now;
     saved_record_=std::max(saved_record_,world_.record);
     rules::reset(world_,esp_random(),saved_record_);
+    world_.mission_enabled=true;
     menu_selection_=0;
     frame_valid_=false; last_tick_ms_=now; last_frame_ms_=now;
     render(true);
@@ -49,8 +50,8 @@ SpaceDefenderApp::Result SpaceDefenderApp::update(const board::InputState& input
     if (!active_ || input.secondary_long) return Result::ExitRequested;
     if (suspended_) return Result::Running;
     const auto now=now_ms();
-    if (world_.phase!=rules::Phase::TimeLimit
-        && now-session_started_ms_>=rules::kSessionMs) {
+    if ((world_.phase==rules::Phase::Playing || world_.phase==rules::Phase::Paused)
+        && now-attempt_started_ms_>=rules::kSessionMs) {
         world_.phase=rules::Phase::TimeLimit;
         render(true);
     }
@@ -63,7 +64,8 @@ SpaceDefenderApp::Result SpaceDefenderApp::update(const board::InputState& input
             const auto elapsed=now-last_tick_ms_;
             last_tick_ms_=now;
             rules::advance(world_,elapsed);
-            if (world_.phase==rules::Phase::GameOver) {
+            if (world_.phase==rules::Phase::GameOver
+                || world_.phase==rules::Phase::Victory) {
                 saved_record_=std::max(saved_record_,world_.record);
                 menu_selection_=0;render(true);
             } else if (input.primary_short || now-last_frame_ms_>=kFrameMs) {
@@ -82,8 +84,10 @@ SpaceDefenderApp::Result SpaceDefenderApp::update(const board::InputState& input
                 last_tick_ms_=now;last_frame_ms_=now;render(true);
             } else new_round(now);
         }
-    } else if (input.primary_short || input.secondary_short) {
-        return Result::ExitRequested;
+    } else if (world_.phase==rules::Phase::Victory
+        || world_.phase==rules::Phase::TimeLimit) {
+        if(input.primary_short) new_round(now);
+        else if(input.secondary_short) return Result::ExitRequested;
     }
     return Result::Running;
 }
@@ -168,16 +172,38 @@ void SpaceDefenderApp::render_game(bool full) {
                 ? board::DisplayColor::Accent:board::DisplayColor::Surface);
         last_hud_score_=world_.score;last_hud_lives_=world_.lives;
     }
+    // Small wave indicator outside the active lane bands.
+    if(complete || world_.wave!=previous_.wave) {
+        char wave_text[14]{};
+        std::snprintf(wave_text,sizeof(wave_text),"FALA %u/3",
+            static_cast<unsigned>(world_.wave));
+        board_.draw_text_region(72,114,98,15,wave_text,1,
+            board::DisplayColor::Accent);
+    }
     previous_=world_;
     previous_ship_visible_=visible;
     frame_valid_=true;
 }
 void SpaceDefenderApp::render_menu() {
     board_.clear_screen();
+    if(world_.phase==rules::Phase::Victory) {
+        board_.draw_polish_ui_text_region(8,13,224,31,
+            "PLANETA OCALONA!",1,board::DisplayColor::Accent);
+        board_.draw_polish_ui_text_region(8,48,224,22,
+            "MISJA WYKONANA",1,board::DisplayColor::PrimaryText);
+        char summary[50]{};
+        std::snprintf(summary,sizeof(summary),"WYNIK %lu  ZYCIA %u",
+            static_cast<unsigned long>(world_.score),
+            static_cast<unsigned>(world_.lives));
+        board_.draw_text_region(10,80,224,18,summary,1);
+        board_.draw_polish_ui_text_region(9,110,226,18,
+            "M5 PONÓW  SIDE WYJDŹ",1);
+        return;
+    }
     if (world_.phase==rules::Phase::TimeLimit) {
-        board_.draw_text_region(16,25,208,28,"KONIEC SESJI",2);
+        board_.draw_text_region(16,25,208,28,"KONIEC CZASU",2);
         board_.draw_text_region(16,64,208,23,"10 MIN GRY",2);
-        board_.draw_text_region(15,89,210,20,"M5 / SIDE: POWRÓT",1);
+        board_.draw_text_region(15,89,210,20,"M5 PONÓW  SIDE WYJDŹ",1);
         return;
     }
     const bool over=world_.phase==rules::Phase::GameOver;
