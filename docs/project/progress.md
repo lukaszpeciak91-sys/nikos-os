@@ -5,9 +5,9 @@
 Communicator v0.1 core UX over the long-lived messaging infrastructure.
 
 ## Mini Racer v0.2 finite race (PR #100)
-- Three stages of 7,000 simulated pixels each (21,000 total) lead to a visible finish-line crossing and explicit victory. Traffic spawning and swept collision rules are retained; stage-relative speed scales the existing progression to 85%, 93%, and 100%.
+- Three duration-balanced stages: 7,800 px, 10,100 px, and 10,900 px (28,800 total) lead to a visible finish-line crossing and explicit victory. Traffic spawning and swept collision rules are retained; stage-relative speed scales the existing progression to 85%, 93%, and 100%.
 - The prior continuous app-session limit has become a ten-minute **attempt** deadline. A retry starts a fresh attempt; pause, display interruption, and Communicator takeover do not reset its monotonic start. Victory and collision outcomes remain final; there is no automatic restart.
-- The shared Entertainment Guard remains unchanged and always has priority. Simulated clean driving with the production speed integrator reaches the finish in approximately 5m26s. Deterministic traffic tests establish an achievable collision-free path, but human-playability and visual fit still require hardware testing.
+- The shared Entertainment Guard remains unchanged and always has priority. Simulated clean driving with the production speed integrator reaches the finish in approximately 7m15s. Deterministic traffic tests establish an achievable collision-free path, but human-playability and visual fit still require hardware testing.
 - Space Defender retains its existing entry-based timer; round/finale changes remain out of scope.
 
 ## Entertainment game limits cleanup R0
