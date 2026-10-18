@@ -101,8 +101,11 @@ constexpr LocalResolution local_to_utc(const DateTime& local) {
         && utc_to_local(utc_daylight,roundtrip)
         && seconds(roundtrip.time)==seconds(local) && roundtrip.utc_offset_hours==2)
         daylight=true;
+    const bool spring_gap = local.month == 3
+        && local.day == last_sunday(local.year,3) && local.hour == 2;
     result.status = standard && daylight ? LocalStatus::Ambiguous
-        : standard || daylight ? LocalStatus::Unique : LocalStatus::Nonexistent;
+        : standard || daylight ? LocalStatus::Unique
+        : spring_gap ? LocalStatus::Nonexistent : LocalStatus::Invalid;
     if (standard) result.standard_utc=utc_standard;
     if (daylight) result.daylight_utc=utc_daylight;
     return result;
