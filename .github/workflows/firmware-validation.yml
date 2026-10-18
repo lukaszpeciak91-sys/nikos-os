@@ -1,0 +1,64 @@
+name: Firmware validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    name: Clock, Guard and Python host tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run C++ host tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nikos-host
+          for source in \
+            tools/tests/test_warsaw_time_rules.cpp \
+            tools/tests/test_ent1_migration_contract.cpp \
+            tools/tests/test_clock_utc_migration.cpp \
+            tools/tests/test_rtc_utc_commit_failures.cpp; do
+            binary="/tmp/nikos-host/$(basename "${source%.cpp}")"
+            g++ -std=c++17 -Wall -Wextra -Werror \
+              -Icomponents/clock/include \
+              -Icomponents/entertainment_guard/include \
+              "$source" -o "$binary"
+            "$binary"
+            echo "PASS: $source"
+          done
+      - name: Run repository Python regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q tools/tests
+          shopt -s nullglob
+          tests=(tools/tests/test_*clock*.py
+                 tools/tests/test_*rtc*.py
+                 tools/tests/test_*entertainment*.py)
+          test "${#tests[@]}" -gt 0
+          for test in "${tests[@]}"; do
+            echo "Running $test"
+            python3 "$test"
+          done
+
+  firmware:
+    name: ESP-IDF 5.5.5 / ESP32 build
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.5.5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate classic ESP32 and build firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${IDF_PATH:+set}" = set
+          source "${IDF_PATH}/export.sh"
+          idf.py --version
+          grep -q 'CONFIG_IDF_TARGET="esp32"' sdkconfig.defaults
+          idf.py build

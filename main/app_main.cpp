@@ -3,6 +3,7 @@
 #include "storage/entertainment_cycle_store.hpp"
 #include "board/board.hpp"
 #include "clock/clock_service.hpp"
+#include "clock/legacy_civil_minutes.hpp"
 #include "communicator/communicator_app.hpp"
 #include "countdown/countdown_service.hpp"
 #include "facts/facts_app.hpp"
@@ -83,17 +84,26 @@ bool is_guarded_entertainment(RuntimeState state) {
         || state == RuntimeState::SpaceDefender;
 }
 bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out) {
-    const auto time = clock.read();
-    const auto date = clock.read_date();
-    if (!time.valid || !date.valid) return false;
-    std::uint32_t days = 0;
-    for (std::uint16_t year = 2000; year < date.date.year; ++year)
-        days += nikos::clock::ClockService::is_leap_year(year) ? 366U : 365U;
-    for (std::uint8_t month = 1; month < date.date.month; ++month)
-        days += nikos::clock::ClockService::days_in_month(date.date.year, month);
-    days += date.date.day - 1U;
-    out = days * 1440U + time.time.hour * 60U + time.time.minute;
+    nikos::clock::warsaw::DateTime utc{};
+    if (!clock.read_utc(utc)) return false;
+    out=static_cast<std::uint32_t>(
+        nikos::clock::warsaw::seconds(utc)/60);
     return true;
+}
+
+void migrate_legacy_cycle_minutes(
+    nikos::storage::EntertainmentCycle& cycle) {
+    if (!cycle.active || !cycle.legacy_local || !cycle.civil_valid) return;
+    std::uint32_t utc_minutes=0;
+    const auto converted=nikos::clock::legacy_local_minutes_to_utc(
+        cycle.civil_start,utc_minutes);
+    if (converted!=nikos::clock::LegacyMinuteStatus::Invalid) {
+        cycle.civil_start=utc_minutes;
+    } else {
+        // Ambiguous or invalid legacy timestamps use the existing safe
+        // Guard fallback; they are never reinterpreted as UTC.
+        cycle.civil_valid=false;
+    }
 }
 // System-owned overlays use the same pre-rendered glyphs as Launcher.
 // Coordinates stay within 240x135; heading falls back to Compact when needed.
@@ -1102,6 +1112,7 @@ extern "C" void app_main(void)
     if (!entertainment_store.load(stored_entertainment)) {
         ESP_LOGW(kTag, "Entertainment cycle NVS unavailable");
     }
+    migrate_legacy_cycle_minutes(stored_entertainment);
     std::uint32_t boot_civil_minute = 0;
     const bool boot_clock_trusted =
         trusted_civil_minute(clock_service, boot_civil_minute);

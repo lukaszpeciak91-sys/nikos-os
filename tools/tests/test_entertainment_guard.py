@@ -166,7 +166,7 @@ assert "bool take_entertainment_launch()" in header
 termination = main.split("if (entertainment_locked || reserve_entertainment)",1)[1].split(
     "if (update_charging_full_confirmation(",1)[0]
 resume = main.split("if ((resume_snake_after_communicator",1)[1].split(
-    "communicator_result",1)[0]
+    "if (timer_deferred_for_communication",1)[0]
 warning = main.split("if (entertainment_warning_visible &&",1)[1].split(
     "if (state == RuntimeState::Launcher)",1)[0]
 def lifecycle_covered(termination_text, resume_text, warning_text):

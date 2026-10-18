@@ -97,6 +97,7 @@ private:
         ClockSetHour,
         ClockSetMinute,
         ClockSetFailed,
+        ClockNeedsDate,
         ClockSetDateDay,
         ClockSetDateMonth,
         ClockSetDateYear,
@@ -139,6 +140,7 @@ private:
     void render_stopwatch();
     void render_clock_editor(bool editing_hour);
     void render_clock_set_failed();
+    void render_clock_needs_date();
     void render_date_editor();
     void render_date_set_failed();
     void render_date_needs_time();

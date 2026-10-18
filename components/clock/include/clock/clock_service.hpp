@@ -4,6 +4,8 @@
 #include <cstdint>
 
 #include "board/board.hpp"
+#include "clock/warsaw_time_rules.hpp"
+#include "storage/rtc_time_basis_store.hpp"
 #include "storage/rtc_date_configured_store.hpp"
 
 namespace nikos::clock {
@@ -33,6 +35,8 @@ enum class DateSetResult : std::uint8_t {
     Success,
     TimeUntrusted,
     Failed,
+    NonexistentLocalTime,
+    AmbiguousLocalTime,
 };
 
 class ClockService final {
@@ -47,6 +51,9 @@ public:
     bool set_time(std::uint8_t hour, std::uint8_t minute) const;
 
     DateReading read_date() const;
+    bool read_utc(warsaw::DateTime& utc) const;
+    bool pending_local_date() const { return staged_time_ && (basis_ != storage::RtcTimeBasis::Utc || !date_configured_); }
+    warsaw::LocalStatus last_local_status() const { return last_local_status_; }
     DateSetResult set_date(const Date& date) const;
 
     static bool is_leap_year(std::uint16_t year);
@@ -66,6 +73,11 @@ public:
         std::size_t output_size);
 
 private:
+    bool raw_rtc(warsaw::DateTime& time) const;
+    bool trusted_utc(warsaw::DateTime& time) const;
+    bool local_now(warsaw::DateTime& time) const;
+    bool commit_utc(const warsaw::DateTime& utc) const;
+    bool write_local(const warsaw::DateTime& local) const;
     bool invalidate_date_trust(bool force_persist) const;
 
     board::Board& board_;
@@ -73,6 +85,12 @@ private:
     mutable bool date_trust_initialized_ = false;
     mutable bool date_configured_ = false;
     mutable bool marker_known_false_ = false;
+    storage::RtcTimeBasisStore basis_store_;
+    mutable storage::RtcTimeBasis basis_ = storage::RtcTimeBasis::Uncertain;
+    mutable bool staged_time_ = false;
+    mutable bool staged_date_ = false;
+    mutable warsaw::DateTime staged_local_{};
+    mutable warsaw::LocalStatus last_local_status_ = warsaw::LocalStatus::Invalid;
 };
 
 }  // namespace nikos::clock

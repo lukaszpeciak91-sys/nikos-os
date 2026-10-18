@@ -14,7 +14,8 @@ struct Record {
     std::uint8_t reserved[2]{};
 };
 static_assert(sizeof(Record)==12U, "Entertainment cycle NVS record must stay minimal");
-constexpr std::uint32_t kMarker=0x454E5431U;
+constexpr std::uint32_t kLegacyMarker=0x454E5431U; // ENT1, Polish local minutes
+constexpr std::uint32_t kUtcMarker=0x454E5432U; // ENT2, UTC minutes
 bool write(const Record* record) {
     nvs_handle_t handle=0;
     esp_err_t err=nvs_open(kNamespace,NVS_READWRITE,&handle);
@@ -39,7 +40,7 @@ bool EntertainmentCycleStore::load(EntertainmentCycle& cycle) const {
     err=nvs_get_blob(handle,kKey,&record,&size);
     nvs_close(handle);
     if(err==ESP_ERR_NVS_NOT_FOUND)return true;
-    if(err!=ESP_OK || size!=sizeof(record) || record.marker!=kMarker ||
+    if(err!=ESP_OK || size!=sizeof(record) || (record.marker!=kLegacyMarker && record.marker!=kUtcMarker) ||
         (record.civil_valid>1U || record.warning_shown>1U)) {
         cycle.active=true; // unknown persisted state must not unlock Entertainment
         return false;
@@ -48,11 +49,12 @@ bool EntertainmentCycleStore::load(EntertainmentCycle& cycle) const {
     cycle.civil_valid=record.civil_valid!=0U;
     cycle.civil_start=record.civil_start;
     cycle.warning_shown=record.warning_shown!=0U;
+    cycle.legacy_local=record.marker==kLegacyMarker;
     return true;
 }
 bool EntertainmentCycleStore::save(const EntertainmentCycle& cycle) const {
     if(!cycle.active)return clear();
-    const Record record{kMarker,cycle.civil_start,
+    const Record record{kUtcMarker,cycle.civil_start,
                         static_cast<std::uint8_t>(cycle.civil_valid?1U:0U),
                         static_cast<std::uint8_t>(cycle.warning_shown?1U:0U),{}};
     return write(&record);
