@@ -40,7 +40,8 @@ int main() {
     for(;simulated_ms<600000 && clean.outcome==race::Outcome::Racing;
         simulated_ms+=50U) {
         const auto score=simulated_ms/100U;
-        const auto displacement=motion.advance(rules::speed_for_score(score),50U);
+        const auto displacement=motion.advance(race::stage_speed(
+            rules::speed_for_score(score),clean.stage()),50U);
         clean.advance(displacement,false,simulated_ms);
     }
     assert(clean.outcome==race::Outcome::Victory);
