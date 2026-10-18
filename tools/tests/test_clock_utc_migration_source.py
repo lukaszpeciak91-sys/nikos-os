@@ -15,16 +15,26 @@ assert "RtcTimeBasis::LegacyLocal" in basis
 assert "RtcTimeBasis::Pending" in basis
 assert "RtcTimeBasis::Utc" in basis
 assert "RtcTimeBasis::Uncertain" in basis
-commit=clock.split("bool ClockService::commit_utc(",1)[1].split("bool ClockService::write_local(",1)[0]
-assert commit.index("basis_store_.save(storage::RtcTimeBasis::Pending)") < commit.index("date_store_.save_configured(false)")
-assert commit.index("date_store_.save_configured(false)") < commit.index("board_.write_rtc_date(date)")
-assert commit.index("board_.write_rtc_date(date)") < commit.index("board_.write_rtc_time(time)")
-assert commit.index("board_.write_rtc_time(time)") < commit.index("raw_rtc(verified)")
-assert commit.index("raw_rtc(verified)") < commit.index("basis_store_.save(storage::RtcTimeBasis::Utc)")
-assert commit.index("basis_store_.save(storage::RtcTimeBasis::Utc)") < commit.index("date_store_.save_configured(true)")
-assert "if (!basis_store_.save(storage::RtcTimeBasis::Pending)) return false;" in commit
-assert "if (!basis_store_.save(storage::RtcTimeBasis::Utc)) return false;" in commit
-assert "if (!date_store_.save_configured(true)) return false;" in commit
+commit=read("components/clock/include/clock/rtc_utc_commit.hpp")
+steps=[
+    "ops.save_pending()",
+    "ops.mark_pending()",
+    "ops.invalidate_date_trust()",
+    "ops.write_date(utc)",
+    "ops.write_time(utc)",
+    "ops.readback(verified)",
+    "ops.save_utc_basis()",
+    "ops.restore_date_trust()",
+    "ops.mark_trusted_utc()",
+]
+assert all(commit.index(x)<commit.index(y) for x,y in zip(steps,steps[1:]))
+for operation in steps:
+    assert operation in commit
+assert "return commit_utc_checked(utc,operations);" in clock
+assert "clock.basis_store_.save(storage::RtcTimeBasis::Pending)" in clock
+assert "clock.date_store_.save_configured(false)" in clock
+assert "clock.basis_store_.save(storage::RtcTimeBasis::Utc)" in clock
+assert "clock.date_store_.save_configured(true)" in clock
 assert "if (basis_!=storage::RtcTimeBasis::LegacyLocal || !configured) return;" in clock
 assert "warsaw::local_to_utc(local)" in clock
 assert "LocalStatus::Unique" in clock
