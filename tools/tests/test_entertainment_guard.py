@@ -237,7 +237,9 @@ assert "entertainment_notice != EntertainmentNotice::None" in communicator_exit
 assert "launcher.begin_entertainment(" in communicator_exit
 assert "entertainment_notice_rendered = false;" in communicator_exit
 space_code = (root / "apps/space_defender/space_defender_app.cpp").read_text(encoding="utf-8")
-assert "KONIEC SESJI" in space_code
+assert "KONIEC SESJI" not in space_code
+assert "KONIEC CZASU" in space_code
+assert "world_.mission_enabled=true;" in space_code
 assert "10 MIN GRY" in space_code
 assert '"CZAS NA PRZERWĘ"' not in space_code
 assert "rules::kSessionMs" in space_code
