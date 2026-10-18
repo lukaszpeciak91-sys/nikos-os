@@ -27,6 +27,7 @@ enum class Action : std::uint8_t {
     OpenCoinFlip,
     OpenSpaceDefender,
     OpenFacts,
+    OpenVwGarage,
     BrightnessChanged,
     SignalVolumeChanged,
     AutoPowerOffChanged,

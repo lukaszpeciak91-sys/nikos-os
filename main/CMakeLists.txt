@@ -9,6 +9,7 @@ idf_component_register(
         communicator
         countdown
         facts
+        vw_garage
         font_core
         flashlight
         launcher

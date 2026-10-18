@@ -7,6 +7,7 @@
 #include "communicator/communicator_app.hpp"
 #include "countdown/countdown_service.hpp"
 #include "facts/facts_app.hpp"
+#include "vw_garage/vw_garage_app.hpp"
 #include "font_core/font_core.hpp"
 #include "launcher/launcher.hpp"
 #include "messaging/messaging_service.hpp"
@@ -69,6 +70,7 @@ enum class RuntimeState : std::uint8_t {
     SoundMeter,
     Converter,
     Facts,
+    VwGarage,
     Snake,
     MiniRacer,
     CoinFlip,
@@ -81,6 +83,7 @@ bool is_guarded_entertainment(RuntimeState state) {
         || state == RuntimeState::MiniRacer
         || state == RuntimeState::CoinFlip
         || state == RuntimeState::Facts
+        || state == RuntimeState::VwGarage
         || state == RuntimeState::SpaceDefender;
 }
 bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out) {
@@ -700,6 +703,7 @@ void redraw_runtime_ui(
     nikos::power_diag::PowerDiagSession& power_diag_session,
     nikos::flashlight::FlashlightApp& flashlight,
     nikos::facts::FactsApp& facts,
+    nikos::vw_garage::VwGarageApp& vw_garage,
     nikos::snake::SnakeApp& snake,
     nikos::mini_racer::MiniRacerApp& mini_racer,
     nikos::coin_flip::CoinFlipApp& coin_flip,
@@ -726,6 +730,9 @@ void redraw_runtime_ui(
             break;
         case RuntimeState::Facts:
             facts.redraw();
+            break;
+        case RuntimeState::VwGarage:
+            vw_garage.redraw();
             break;
         case RuntimeState::Snake:
             snake.redraw();
@@ -771,6 +778,7 @@ void enter_communicator_for_incoming(
     bool& resume_converter_after_communicator,
     nikos::converter::ConverterApp& converter,
     bool& resume_facts_after_communicator,
+    bool& resume_vw_garage_after_communicator,
     nikos::communicator::CommunicatorApp& communicator,
     nikos::flashlight::FlashlightApp& flashlight)
 {
@@ -793,13 +801,16 @@ void enter_communicator_for_incoming(
         resume_converter_after_communicator = true;
     } else if (state == RuntimeState::Facts) {
         resume_facts_after_communicator = true;
-    }
+    } else if (state == RuntimeState::VwGarage) {
+                    resume_vw_garage_after_communicator = true;
+                }
 
     if (state == RuntimeState::Launcher
         || state == RuntimeState::PowerDiag
         || state == RuntimeState::Flashlight
         || state == RuntimeState::Converter
         || state == RuntimeState::Facts
+        || state == RuntimeState::VwGarage
         || state == RuntimeState::Snake
         || state == RuntimeState::MiniRacer
         || state == RuntimeState::CoinFlip
@@ -1155,6 +1166,7 @@ extern "C" void app_main(void)
     nikos::sound_meter::SoundMeterApp sound_meter(board);
     nikos::converter::ConverterApp converter(board);
     nikos::facts::FactsApp facts(board);
+    nikos::vw_garage::VwGarageApp vw_garage(board);
     nikos::snake::SnakeApp snake(board, display_lifecycle);
     nikos::mini_racer::MiniRacerApp mini_racer(board, display_lifecycle);
     nikos::coin_flip::CoinFlipApp coin_flip(board);
@@ -1171,6 +1183,7 @@ extern "C" void app_main(void)
     bool resume_flashlight_after_communicator = false;
     bool resume_converter_after_communicator = false;
     bool resume_facts_after_communicator = false;
+    bool resume_vw_garage_after_communicator = false;
 
     RuntimeState state = RuntimeState::Launcher;
     system_text_context.active_screen = &state;
@@ -1294,7 +1307,10 @@ extern "C" void app_main(void)
                 } else if (resume_facts_after_communicator) {
                     resume_facts_after_communicator = false;
                     state = RuntimeState::Facts;
-                                }
+                                } else if (resume_vw_garage_after_communicator) {
+                    resume_vw_garage_after_communicator = false;
+                    state = RuntimeState::VwGarage;
+                }
 
                 charging_mode.communication_active = true;
                 charging_mode.presentation_visible = false;
@@ -1336,7 +1352,9 @@ extern "C" void app_main(void)
                     resume_flashlight_after_communicator = true;
                 } else if (state == RuntimeState::Facts) {
                     resume_facts_after_communicator = true;
-                                }
+                                } else if (state == RuntimeState::VwGarage) {
+                    resume_vw_garage_after_communicator = true;
+                }
                 state = RuntimeState::Communicator;
             } else if (
                 state == RuntimeState::Communicator
@@ -1351,6 +1369,11 @@ extern "C" void app_main(void)
             // and all charging-only presentation state without rebooting.
             display_lifecycle.suppress_user_gesture_until_release();
             display_lifecycle.note_visible_activity();
+            // Do not expose a suspended VW card outside the admitted window.
+            if (state != RuntimeState::VwGarage
+                || (entertainment_guard.phase(loop_now_ms)
+                        == nikos::entertainment_guard::Phase::Window
+                    && !battery_guard.low_battery_reserve_active())) {
             redraw_runtime_ui(
                 state,
                 launcher,
@@ -1359,6 +1382,7 @@ extern "C" void app_main(void)
                 power_diag_session,
                 flashlight,
                 facts,
+                vw_garage,
                 snake,
                 mini_racer,
                 coin_flip,
@@ -1366,6 +1390,7 @@ extern "C" void app_main(void)
                 radiolab,
                 sound_meter,
                 converter);
+            }
         }
 
         const nikos::battery_guard::UpdateResult battery_update =
@@ -1427,7 +1452,8 @@ extern "C" void app_main(void)
                 || resume_mini_racer_after_communicator
                 || resume_coin_flip_after_communicator
                 || resume_space_defender_after_communicator
-                || resume_facts_after_communicator;
+                || resume_facts_after_communicator
+                || resume_vw_garage_after_communicator;
             if (app_was_foreground || app_was_preempted) {
                 if (state == RuntimeState::Snake || resume_snake_after_communicator)
                     snake.end();
@@ -1437,6 +1463,8 @@ extern "C" void app_main(void)
                     || resume_coin_flip_after_communicator) coin_flip.end();
                 if (state == RuntimeState::Facts || resume_facts_after_communicator)
                     facts.end();
+                if (state == RuntimeState::VwGarage || resume_vw_garage_after_communicator)
+                    vw_garage.end();
                 if (state == RuntimeState::SpaceDefender
                     || resume_space_defender_after_communicator)
                     space_defender.end();
@@ -1445,6 +1473,7 @@ extern "C" void app_main(void)
                 resume_coin_flip_after_communicator = false;
                 resume_space_defender_after_communicator = false;
                 resume_facts_after_communicator = false;
+                resume_vw_garage_after_communicator = false;
                 entertainment_warning_visible = false;
                 if (app_was_foreground) {
                     state = RuntimeState::Launcher;
@@ -1497,6 +1526,7 @@ extern "C" void app_main(void)
                     power_diag_session,
                     flashlight,
                     facts,
+                    vw_garage,
                     snake,
                     mini_racer,
                     coin_flip,
@@ -1575,7 +1605,10 @@ extern "C" void app_main(void)
                     } else if (resume_facts_after_communicator) {
                         resume_facts_after_communicator = false;
                         state = RuntimeState::Facts;
-                                        }
+                                        } else if (resume_vw_garage_after_communicator) {
+                    resume_vw_garage_after_communicator = false;
+                    state = RuntimeState::VwGarage;
+                }
 
                     charging_mode.communication_active = true;
                     reset_charging_owner_sequence(charging_mode);
@@ -1728,6 +1761,7 @@ extern "C" void app_main(void)
                     power_diag_session,
                     flashlight,
                     facts,
+                    vw_garage,
                     snake,
                     mini_racer,
                     coin_flip,
@@ -1953,6 +1987,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                 resume_facts_after_communicator,
+                resume_vw_garage_after_communicator,
                 communicator,
                 flashlight);
 
@@ -2011,6 +2046,7 @@ extern "C" void app_main(void)
                 power_diag_session,
                 flashlight,
                 facts,
+                vw_garage,
                 snake,
                 mini_racer,
                 coin_flip,
@@ -2057,6 +2093,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                 resume_facts_after_communicator,
+                resume_vw_garage_after_communicator,
                 communicator,
                 flashlight);
 
@@ -2093,6 +2130,7 @@ extern "C" void app_main(void)
                 power_diag_session,
                 flashlight,
                 facts,
+                vw_garage,
                 snake,
                 mini_racer,
                 coin_flip,
@@ -2175,6 +2213,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             }
@@ -2204,6 +2243,7 @@ extern "C" void app_main(void)
                 power_diag_session,
                 flashlight,
                 facts,
+                vw_garage,
                 snake,
                 mini_racer,
                 coin_flip,
@@ -2240,6 +2280,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator, flashlight);
             } else if (!entertainment_notice_rendered) {
                 render_entertainment_notice(board, entertainment_notice);
@@ -2273,6 +2314,7 @@ extern "C" void app_main(void)
                 else if (state == RuntimeState::CoinFlip)
                     coin_flip.resume();
                 else if (state == RuntimeState::Facts) facts.redraw();
+                else if (state == RuntimeState::VwGarage) vw_garage.redraw();
                 else if (state == RuntimeState::SpaceDefender)
                     space_defender.resume();
                 if (incoming) {
@@ -2286,6 +2328,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                         resume_facts_after_communicator,
+                        resume_vw_garage_after_communicator,
                         communicator, flashlight);
                 }
             }
@@ -2311,6 +2354,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator, flashlight);
             } else {
                 entertainment_guard.acknowledge_warning();
@@ -2364,6 +2408,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             } else if (launcher_visible) {
@@ -2382,7 +2427,8 @@ extern "C" void app_main(void)
                     || action == nikos::launcher::Action::OpenMiniRacer
                     || action == nikos::launcher::Action::OpenCoinFlip
                     || action == nikos::launcher::Action::OpenSpaceDefender
-                    || action == nikos::launcher::Action::OpenFacts;
+                    || action == nikos::launcher::Action::OpenFacts
+                    || action == nikos::launcher::Action::OpenVwGarage;
                 bool entry_refused = guard_entry != recognized_entertainment;
                 if (entry_refused) {
                     ESP_LOGW(kTag, "Entertainment launch contract rejected");
@@ -2543,6 +2589,11 @@ extern "C" void app_main(void)
                     facts.begin();
                     state = RuntimeState::Facts;
                 } else if (
+                    action == nikos::launcher::Action::OpenVwGarage) {
+                    display_lifecycle.note_visible_activity();
+                    vw_garage.begin();
+                    state = RuntimeState::VwGarage;
+                } else if (
                     action == nikos::launcher::Action::OpenSoundMeter) {
                     // Exclusive short-lived diagnostic tool. Preserve previous
                     // session state and never start a previously OFF radio.
@@ -2663,6 +2714,7 @@ extern "C" void app_main(void)
                     || resume_converter_after_communicator
                     || resume_flashlight_after_communicator
                     || resume_facts_after_communicator
+                    || resume_vw_garage_after_communicator
                     )
                 && (communicator_result
                         == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested
@@ -2698,7 +2750,25 @@ extern "C" void app_main(void)
                     resume_facts_after_communicator = false;
                     state = RuntimeState::Facts;
                     facts.redraw();
-                                }
+                } else if (resume_vw_garage_after_communicator) {
+                    resume_vw_garage_after_communicator = false;
+                    if (entertainment_guard.phase(loop_now_ms)
+                            == nikos::entertainment_guard::Phase::Window
+                        && !battery_guard.low_battery_reserve_active()) {
+                        state = RuntimeState::VwGarage;
+                        vw_garage.redraw();
+                    } else {
+                        vw_garage.end();
+                        state = RuntimeState::Launcher;
+                        launcher.begin_entertainment(
+                            communicator_status(communicator_enabled, messaging));
+                        entertainment_notice =
+                            battery_guard.low_battery_reserve_active()
+                                ? EntertainmentNotice::LowBattery
+                                : EntertainmentNotice::Break;
+                        entertainment_notice_rendered = false;
+                    }
+                }
             } else if (
                 communicator_result
                 == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested) {
@@ -2740,6 +2810,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             } else if (
@@ -2810,6 +2881,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             } else if (
@@ -2840,6 +2912,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             } else if (
@@ -2848,6 +2921,37 @@ extern "C" void app_main(void)
                 && facts.update(input)
                     == nikos::facts::FactsApp::UpdateResult::ExitRequested) {
                 facts.end();
+                display_lifecycle.note_visible_activity();
+                launcher.begin_entertainment(
+                    communicator_status(communicator_enabled, messaging));
+                state = RuntimeState::Launcher;
+            }
+        } else if (state == RuntimeState::VwGarage) {
+            if (communicator_enabled
+                && state != RuntimeState::SoundMeter
+                && communicator.process_incoming()) {
+                enter_communicator_for_incoming(
+                    state,
+                    resume_snake_after_communicator,
+                    resume_mini_racer_after_communicator,
+                        resume_coin_flip_after_communicator,
+                    resume_space_defender_after_communicator,
+                    mini_racer,
+                        coin_flip,
+                    space_defender,
+                    resume_flashlight_after_communicator,
+                    resume_converter_after_communicator,
+                    converter,
+                    resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
+                    communicator,
+                    flashlight);
+            } else if (
+                display_lifecycle.state()
+                    != nikos::power::DisplayState::DisplayOff
+                && vw_garage.update(input)
+                    == nikos::vw_garage::VwGarageApp::UpdateResult::ExitRequested) {
+                vw_garage.end();
                 display_lifecycle.note_visible_activity();
                 launcher.begin_entertainment(
                     communicator_status(communicator_enabled, messaging));
@@ -2864,6 +2968,7 @@ extern "C" void app_main(void)
                     resume_flashlight_after_communicator,
                     resume_converter_after_communicator, converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator, flashlight);
             } else if (display_lifecycle.state()
                     != nikos::power::DisplayState::DisplayOff
@@ -2889,6 +2994,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             } else if (display_lifecycle.state()
@@ -2912,6 +3018,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator, flashlight);
             } else if (display_lifecycle.state()
                     != nikos::power::DisplayState::DisplayOff
@@ -2937,6 +3044,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             } else if (display_lifecycle.state()
@@ -2965,6 +3073,7 @@ extern "C" void app_main(void)
                     resume_converter_after_communicator,
                     converter,
                     resume_facts_after_communicator,
+                    resume_vw_garage_after_communicator,
                     communicator,
                     flashlight);
             } else if (

@@ -13,6 +13,7 @@ set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/apps/coin_flip"
     "${CMAKE_CURRENT_LIST_DIR}/apps/space_defender"
     "${CMAKE_CURRENT_LIST_DIR}/apps/facts"
+    "${CMAKE_CURRENT_LIST_DIR}/apps/vw_garage"
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

@@ -15,7 +15,7 @@ The current runtime starts with a lightweight launcher. Its frozen base top-leve
 The hierarchy is deliberately shallow and explicit:
 - `Komunikator` owns the existing communication lifecycle entry/enable UI.
 - `Narzędzia` exposes `Latarka`, `Miernik hałasu`, `Przelicznik`, `PowerDiag`, and visible `Powrót`. RadioLab remains compiled and preserved as a diagnostic application, but has no user-visible launcher entry to prevent accidental high-power field-test sessions. PowerDiag and Flashlight remain launched through the tools category.
-- `Rozrywka` contains `Gry` (Snake, Mini Racer, Space Defender, Rzut monetą, Powrót), direct `Ciekawostki`, and visible `Powrót`. Only game and Facts launches enter the shared Entertainment Guard; menu transitions never consume admission. Snake and Facts are dedicated application runtimes; Launcher owns only category entry/actions. `Zegar` exposes RTC-backed `HH:MM`, `USTAW CZAS`, `USTAW DATE`, `KALENDARZ`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT` through a local scrolling viewport. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
+- `Rozrywka` contains `Gry` (Snake, Mini Racer, Space Defender, Rzut monetą, Powrót), direct `Ciekawostki`, direct `Garaż VW`, and visible `Powrót`. Only game, Facts and VW Garage launches enter the shared Entertainment Guard; menu transitions never consume admission. Snake, Facts and VW Garage are dedicated application runtimes; Launcher owns only category entry/actions. `Zegar` exposes RTC-backed `HH:MM`, `USTAW CZAS`, `USTAW DATE`, `KALENDARZ`, background `MINUTNIK`, local-session `STOPER`, and visible `POWROT` through a local scrolling viewport. `Ustawienia` owns the existing sound, theme, and display-orientation choices.
 - `Wyłącz` remains whole-device shutdown with explicit confirmation.
 
 This remains fixed launcher screen/state handling, not a generic menu tree, navigation stack, dynamic registry, filesystem-like folder model, or plugin framework.
@@ -37,6 +37,18 @@ Owns M5-specific hardware integration:
 - M5-specific hardware integration
 
 Flashlight display helpers do not mutate the configured Active/Dimmed brightness profile and do not change display rotation.
+
+### vw_garage
+
+Owns the entirely offline 25-record chronological Volkswagen catalogue approved in
+`NIKOS_VW_GARAGE_SPEC.md`. Immutable compile-time data preserves the exact
+editorial names, years, types, and two-line Polish descriptions. The app has
+only a retained four-row list and a single-screen card; M5/SIDE navigate
+without persistent storage, networking, background work or new font assets.
+The existing PRE-RENDERED Compact renderer owns all model text. `app_main`
+owns guarded admission, battery reserve, timeout, preemption, charging,
+DisplayOff and redraw. Every entry shares the unchanged 20/60-minute
+Entertainment Guard policy; an expired preempted view cannot resume.
 
 ### facts
 
