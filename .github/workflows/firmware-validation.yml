@@ -58,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           test "${IDF_PATH:+set}" = set
+          source "${IDF_PATH}/export.sh"
           idf.py --version
           grep -q 'CONFIG_IDF_TARGET="esp32"' sdkconfig.defaults
           idf.py build
