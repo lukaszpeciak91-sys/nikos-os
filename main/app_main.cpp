@@ -1307,7 +1307,10 @@ extern "C" void app_main(void)
                 } else if (resume_facts_after_communicator) {
                     resume_facts_after_communicator = false;
                     state = RuntimeState::Facts;
-                                }
+                                } else if (resume_vw_garage_after_communicator) {
+                    resume_vw_garage_after_communicator = false;
+                    state = RuntimeState::VwGarage;
+                }
 
                 charging_mode.communication_active = true;
                 charging_mode.presentation_visible = false;
@@ -1596,7 +1599,10 @@ extern "C" void app_main(void)
                     } else if (resume_facts_after_communicator) {
                         resume_facts_after_communicator = false;
                         state = RuntimeState::Facts;
-                                        }
+                                        } else if (resume_vw_garage_after_communicator) {
+                    resume_vw_garage_after_communicator = false;
+                    state = RuntimeState::VwGarage;
+                }
 
                     charging_mode.communication_active = true;
                     reset_charging_owner_sequence(charging_mode);
