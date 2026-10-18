@@ -312,12 +312,12 @@ void draw_sliced_logo(nikos::board::Board& board, bool show_os)
 
     if (show_os) {
         board.draw_text_region(
-            173,
-            78,
-            52,
-            24,
+            169,
+            80,
+            64,
+            38,
             "OS",
-            2,
+            4,
             nikos::board::DisplayColor::Accent,
             nikos::board::DisplayColor::Background);
     }
