@@ -1443,7 +1443,8 @@ extern "C" void app_main(void)
                 || resume_mini_racer_after_communicator
                 || resume_coin_flip_after_communicator
                 || resume_space_defender_after_communicator
-                || resume_facts_after_communicator;
+                || resume_facts_after_communicator
+                || resume_vw_garage_after_communicator;
             if (app_was_foreground || app_was_preempted) {
                 if (state == RuntimeState::Snake || resume_snake_after_communicator)
                     snake.end();
@@ -1453,6 +1454,8 @@ extern "C" void app_main(void)
                     || resume_coin_flip_after_communicator) coin_flip.end();
                 if (state == RuntimeState::Facts || resume_facts_after_communicator)
                     facts.end();
+                if (state == RuntimeState::VwGarage || resume_vw_garage_after_communicator)
+                    vw_garage.end();
                 if (state == RuntimeState::SpaceDefender
                     || resume_space_defender_after_communicator)
                     space_defender.end();
@@ -1461,6 +1464,7 @@ extern "C" void app_main(void)
                 resume_coin_flip_after_communicator = false;
                 resume_space_defender_after_communicator = false;
                 resume_facts_after_communicator = false;
+                resume_vw_garage_after_communicator = false;
                 entertainment_warning_visible = false;
                 if (app_was_foreground) {
                     state = RuntimeState::Launcher;
@@ -2298,6 +2302,7 @@ extern "C" void app_main(void)
                 else if (state == RuntimeState::CoinFlip)
                     coin_flip.resume();
                 else if (state == RuntimeState::Facts) facts.redraw();
+                else if (state == RuntimeState::VwGarage) vw_garage.redraw();
                 else if (state == RuntimeState::SpaceDefender)
                     space_defender.resume();
                 if (incoming) {
