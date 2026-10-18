@@ -17,7 +17,12 @@ for forbidden in ("charging_observed", "current_ma", "current_supported",
                   "kChargingFullFallbackBatteryMv", "kChargingFullBatteryMv"):
     assert forbidden not in src, forbidden
 assert "kChargingFullConfirmSamples = 3" in src
-assert "state.full_presentation_pending = true;" in src
+# Confirmation is produced with the local state argument; the event loop
+# sets the same ChargingModeState flag via its charging_mode instance.
+assert "charging_mode.full_presentation_pending = true;" in src
+assert "if (update_charging_full_confirmation(" in src
+assert "if (state.full_presentation_pending)" in src
+assert "state.full_presentation_pending = false;" in src
 assert "reset_charging_session(ChargingModeState& state)" in src
 
 class Session:

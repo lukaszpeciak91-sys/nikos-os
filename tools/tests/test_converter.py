@@ -141,7 +141,7 @@ assert "converter.begin();" in main and "converter.end();" in main
 assert "converter.suspend();" in main and "converter.resume();" in main
 assert "converter.update(input)" in main
 assert "return Action::OpenConverter;" in launcher
-assert '"KONWERTER"' in launcher
+assert '"KONWERTER"' in app  # Title belongs to ConverterApp; Launcher routes by Action.
 guard=main.split("bool is_guarded_entertainment(",1)[1].split("bool trusted_civil_minute",1)[0]
 assert "Converter" not in guard
 assert "entertainment_guard" not in app

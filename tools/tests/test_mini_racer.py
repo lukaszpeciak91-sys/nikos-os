@@ -62,8 +62,10 @@ int main() {
         Random g(seed); Traffic t{}; initialize(t,255,g);
         for (int i=0;i<2;++i) {
             const auto gap=(t[i+1].x_q8-t[i].x_q8)/256;
-            assert(gap>=kMinGapPx && gap<=kMaxGapPx);
-            if (gap!=kMinGapPx) varied=true;
+            assert(gap >= 0);
+            const auto unsigned_gap=static_cast<std::uint32_t>(gap);
+            assert(unsigned_gap>=kMinGapPx && unsigned_gap<=kMaxGapPx);
+            if (unsigned_gap!=kMinGapPx) varied=true;
             if (t[i].lane==t[i+1].lane) repeat=true;
             else alternate=true;
         }
@@ -87,7 +89,8 @@ int main() {
         Random g(seed); Traffic t{}; initialize(t,255,g);
         for (std::size_t i=1;i<3;++i) {
             auto gap=(t[i].x_q8-t[i-1].x_q8)/256;
-            assert(gap*1000/75 > kSwitchBudgetMs);
+            assert(gap >= 0);
+            assert(static_cast<std::uint32_t>(gap)*1000U/75U > kSwitchBudgetMs);
             // Choosing the opposite lane from the next oncoming car
             // always avoids its sweep; sufficient time exists to switch.
             assert((t[i].lane ^ 1U)<=1);

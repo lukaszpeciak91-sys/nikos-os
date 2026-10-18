@@ -9,10 +9,14 @@ permissions:
 
 jobs:
   host-tests:
-    name: Clock, Guard and Python host tests
+    name: Firmware host regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check patch whitespace
+        run: git diff --check HEAD^ HEAD
       - name: Compile and run C++ host tests
         shell: bash
         run: |
@@ -36,15 +40,20 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m compileall -q tools/tests
-          shopt -s nullglob
-          tests=(tools/tests/test_*clock*.py
-                 tools/tests/test_*rtc*.py
-                 tools/tests/test_*entertainment*.py)
-          test "${#tests[@]}" -gt 0
-          for test in "${tests[@]}"; do
+          # All repository Python regressions are host-side source checks or
+          # self-contained deterministic tests; no board, secrets or network.
+          failed=0
+          for test in tools/tests/test_*.py; do
             echo "Running $test"
-            python3 "$test"
+            if python3 "$test"; then
+              echo "PASS: $test"
+            else
+              echo "FAIL: $test"
+              failed=$((failed + 1))
+            fi
           done
+          echo "Failed Python regression tests: $failed"
+          test "$failed" -eq 0
 
   firmware:
     name: ESP-IDF 5.5.5 / ESP32 build
