@@ -11,10 +11,10 @@ int main() {
         r.advance(pixels*256U,false,at);
         assert(r.progress_percent()>=before && r.progress_percent()<=100);
     };
-    advance(6999,1000);assert(r.stage()==1);
+    advance(7799,1000);assert(r.stage()==1);
     advance(1,1001);assert(r.stage()==2);
-    advance(7000,1002);assert(r.stage()==3);
-    advance(6999,1003);assert(r.outcome==race::Outcome::Racing);
+    advance(10100,1002);assert(r.stage()==3);
+    advance(10899,1003);assert(r.outcome==race::Outcome::Racing);
     advance(1,1004);assert(r.outcome==race::Outcome::Victory);
     r.advance(100U,true,600100U);assert(r.outcome==race::Outcome::Victory);
     race::Round collision{};collision.begin(10);
@@ -37,15 +37,34 @@ int main() {
     race::Round clean{};clean.begin(0);
     rules::Motion motion{};
     std::uint32_t simulated_ms=0;
+    std::uint32_t stage_two_ms=0;
+    std::uint32_t stage_three_ms=0;
     for(;simulated_ms<600000 && clean.outcome==race::Outcome::Racing;
         simulated_ms+=50U) {
         const auto score=simulated_ms/100U;
         const auto displacement=motion.advance(race::stage_speed(
             rules::speed_for_score(score),clean.stage()),50U);
+        const auto previous_stage=clean.stage();
         clean.advance(displacement,false,simulated_ms);
+        if(previous_stage==1 && clean.stage()==2)
+            stage_two_ms=simulated_ms+50U;
+        if(previous_stage==2 && clean.stage()==3)
+            stage_three_ms=simulated_ms+50U;
     }
     assert(clean.outcome==race::Outcome::Victory);
-    assert(simulated_ms>=4U*60000U && simulated_ms<=7U*60000U);
+    assert(simulated_ms>=420000U && simulated_ms<=450000U);
+    assert(stage_two_ms>=135000U && stage_two_ms<=155000U);
+    assert(stage_three_ms-stage_two_ms>=135000U
+        && stage_three_ms-stage_two_ms<=155000U);
+    assert(simulated_ms-stage_three_ms>=135000U
+        && simulated_ms-stage_three_ms<=155000U);
+    assert(clean.progress_percent()==100U);
+    race::Round late_collision{};
+    late_collision.begin(0);
+    late_collision.advance((race::kFinishPx-1U)*256U,false,100U);
+    late_collision.advance(256U,true,101U);
+    assert(late_collision.outcome==race::Outcome::Collision);
+    assert(late_collision.progress_percent()<100U);
     // Simulate achievable traffic avoidance using the actual spawn/sweep
     // algorithm. The bot has only a 0.6s look-ahead and two discrete lanes.
     for(std::uint32_t seed=1;seed<=30;++seed) {
