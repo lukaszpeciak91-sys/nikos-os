@@ -1,0 +1,96 @@
+#include "mini_racer/race_rules.hpp"
+#include "mini_racer/traffic_rules.hpp"
+#include <cassert>
+using namespace nikos::mini_racer;
+int main() {
+    race::Round r{};
+    r.begin(100U);
+    assert(r.stage()==1 && r.progress_percent()==0);
+    const auto advance=[&](std::uint32_t pixels,std::uint32_t at) {
+        const auto before=r.progress_percent();
+        r.advance(pixels*256U,false,at);
+        assert(r.progress_percent()>=before && r.progress_percent()<=100);
+    };
+    advance(7799,1000);assert(r.stage()==1);
+    advance(1,1001);assert(r.stage()==2);
+    advance(10100,1002);assert(r.stage()==3);
+    advance(10899,1003);assert(r.outcome==race::Outcome::Racing);
+    advance(1,1004);assert(r.outcome==race::Outcome::Victory);
+    r.advance(100U,true,600100U);assert(r.outcome==race::Outcome::Victory);
+    race::Round collision{};collision.begin(10);
+    collision.advance(race::kFinishPx*256U,true,11);
+    assert(collision.outcome==race::Outcome::Collision);
+    collision.advance(race::kFinishPx*256U,false,12);
+    assert(collision.outcome==race::Outcome::Collision);
+    race::Round timeout{};timeout.begin(100);
+    timeout.advance(race::kFinishPx*256U,false,600100);
+    assert(timeout.outcome==race::Outcome::Timeout);
+    race::Round pause{};pause.begin(400);
+    // Pausing and communicators do not change the monotonic round start.
+    pause.advance(0,false,600400);
+    assert(pause.outcome==race::Outcome::Timeout);
+    timeout.begin(600500);
+    assert(timeout.outcome==race::Outcome::Racing);
+    assert(!timeout.deadline(600501) && timeout.deadline(1200500));
+    timeout.begin(0); assert(timeout.progress_percent()==0);
+    // Real production traffic speed + motion integrator: no artificial timer.
+    race::Round clean{};clean.begin(0);
+    rules::Motion motion{};
+    std::uint32_t simulated_ms=0;
+    std::uint32_t stage_two_ms=0;
+    std::uint32_t stage_three_ms=0;
+    for(;simulated_ms<600000 && clean.outcome==race::Outcome::Racing;
+        simulated_ms+=50U) {
+        const auto score=simulated_ms/100U;
+        const auto displacement=motion.advance(race::stage_speed(
+            rules::speed_for_score(score),clean.stage()),50U);
+        const auto previous_stage=clean.stage();
+        clean.advance(displacement,false,simulated_ms);
+        if(previous_stage==1 && clean.stage()==2)
+            stage_two_ms=simulated_ms+50U;
+        if(previous_stage==2 && clean.stage()==3)
+            stage_three_ms=simulated_ms+50U;
+    }
+    assert(clean.outcome==race::Outcome::Victory);
+    assert(simulated_ms>=420000U && simulated_ms<=450000U);
+    assert(stage_two_ms>=135000U && stage_two_ms<=155000U);
+    assert(stage_three_ms-stage_two_ms>=135000U
+        && stage_three_ms-stage_two_ms<=155000U);
+    assert(simulated_ms-stage_three_ms>=135000U
+        && simulated_ms-stage_three_ms<=155000U);
+    assert(clean.progress_percent()==100U);
+    race::Round late_collision{};
+    late_collision.begin(0);
+    late_collision.advance((race::kFinishPx-1U)*256U,false,100U);
+    late_collision.advance(256U,true,101U);
+    assert(late_collision.outcome==race::Outcome::Collision);
+    assert(late_collision.progress_percent()<100U);
+    // Simulate achievable traffic avoidance using the actual spawn/sweep
+    // algorithm. The bot has only a 0.6s look-ahead and two discrete lanes.
+    for(std::uint32_t seed=1;seed<=30;++seed) {
+        rules::Traffic traffic{};
+        rules::Random rng(seed);
+        rules::initialize(traffic,255,rng);
+        rules::Motion traffic_motion{};
+        race::Round reachable{};
+        reachable.begin(0);
+        std::uint8_t lane=1;
+        for(std::uint32_t ms=50;ms<race::kDeadlineMs
+                && reachable.outcome==race::Outcome::Racing;ms+=50) {
+            for(const auto& car:traffic) {
+                const auto x=car.x_q8/256;
+                if (x>=rules::kPlayerLeft-25 && x<=105
+                    && car.lane==lane) lane^=1U;
+            }
+            const auto speed=race::stage_speed(
+                rules::speed_for_score(ms/100U),reachable.stage());
+            const auto displacement=traffic_motion.advance(speed,50U);
+            const bool collision_hit=rules::advance(
+                traffic,displacement,lane,rng);
+            reachable.advance(displacement,collision_hit,ms);
+        }
+        assert(reachable.outcome==race::Outcome::Victory);
+    }
+    static_assert(race::kFinishPx*256U<UINT32_MAX);
+    static_assert(race::kDeadlineMs==10U*60000U);
+}

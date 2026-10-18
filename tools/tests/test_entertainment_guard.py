@@ -273,8 +273,9 @@ assert "10 MIN GRY" not in snake_code
 assert "State::GameOver" in snake_code
 # Mini Racer's existing 10-minute session is intentionally unchanged in R0.
 racer_code = (root / "apps/mini_racer/mini_racer_app.cpp").read_text(encoding="utf-8")
-assert "KONIEC SESJI" in racer_code
-assert "10 MIN GRY" in racer_code
+assert "KONIEC SESJI" not in racer_code
+assert "KONIEC CZASU" in racer_code
+assert "round_.begin(now);" in racer_code
 print("Entertainment Guard policy and integration host tests PASS")
 
 # Every entertainment action including CoinFlip is covered by the one-use

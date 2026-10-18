@@ -15,11 +15,11 @@ std::uint32_t MiniRacerApp::now_ms() {
 void MiniRacerApp::begin() {
     active_ = true;
     suspended_ = false;
-    session_started_ms_ = now_ms();
-    start_round(session_started_ms_);
+    start_round(now_ms());
 }
 void MiniRacerApp::start_round(std::uint32_t now) {
     state_ = State::Playing;
+    round_.begin(now);
     player_lane_ = 1;
     rng_ = rules::Random(esp_random());
     rules::initialize(enemies_, kSpawnX, rng_);
@@ -52,13 +52,21 @@ MiniRacerApp::UpdateResult MiniRacerApp::update(const board::InputState& input) 
     if (!active_ || input.secondary_long) return UpdateResult::ExitRequested;
     if (suspended_) return UpdateResult::Running;
     const std::uint32_t now = now_ms();
-    // The 10-minute bound is wall-clock time including pause, screen-off
-    // and background foreground-takeover intervals.
-    if (state_ != State::TimeLimit
-        && now - session_started_ms_ >= kSessionLimitMs) {
+    // Deadline belongs to this attempt, including pause and suspension.
+    // A completed finish or collision remains the final round outcome.
+    if ((state_ == State::Playing || state_ == State::Paused)
+        && round_.deadline(now)) {
+        round_.advance(0U,false,now);
         state_ = State::TimeLimit;
         menu_selection_ = 1;
         render();
+    }
+    if (state_ == State::FinishCrossing) {
+        if (now-crossing_started_ms_ >= 650U) {
+            state_ = State::Victory;
+            render();
+        }
+        return UpdateResult::Running;
     }
     if (state_ == State::Playing) {
         if (input.secondary_short) {
@@ -71,6 +79,9 @@ MiniRacerApp::UpdateResult MiniRacerApp::update(const board::InputState& input) 
             }
             tick(now);
         }
+    } else if (state_ == State::Victory || state_ == State::TimeLimit) {
+        if (input.primary_short) start_round(now);
+        else if (input.secondary_short) return UpdateResult::ExitRequested;
     } else if (state_ == State::Paused || state_ == State::GameOver) {
         if (input.secondary_short) {
             menu_selection_ ^= 1U;
@@ -86,8 +97,6 @@ MiniRacerApp::UpdateResult MiniRacerApp::update(const board::InputState& input) 
                 start_round(now);
             }
         }
-    } else if (input.primary_short || input.secondary_short) {
-        return UpdateResult::ExitRequested;
     }
     return UpdateResult::Running;
 }
@@ -101,11 +110,20 @@ void MiniRacerApp::tick(std::uint32_t now) {
         active_play_ms_ += dt;
         score_ = active_play_ms_ / 100U;
         record_ = std::max(record_, score_);
-        const std::uint32_t speed = rules::speed_for_score(score_);
+        const std::uint32_t speed = race::stage_speed(
+            rules::speed_for_score(score_),round_.stage());
         const std::uint32_t displacement = motion_.advance(speed, dt);
-        if (rules::advance(enemies_, displacement, player_lane_, rng_)) {
+        const bool collision=rules::advance(
+            enemies_,displacement,player_lane_,rng_);
+        round_.advance(displacement,collision,now);
+        if (collision) {
             state_ = rules::hit(state_);
             menu_selection_ = 0;
+            break;
+        }
+        if (round_.outcome==race::Outcome::Victory) {
+            state_=State::FinishCrossing;
+            crossing_started_ms_=now;
             break;
         }
         divider_offset_q8_ =
@@ -114,6 +132,8 @@ void MiniRacerApp::tick(std::uint32_t now) {
     }
     if (state_ == State::GameOver) {
         render();
+    } else if (state_ == State::FinishCrossing) {
+        render_finish_crossing();
     } else if (changed && now - last_frame_ms_ >= kFramePeriodMs) {
         last_frame_ms_ = now;
         display_.note_visible_activity();
@@ -191,9 +211,21 @@ void MiniRacerApp::render_playing(bool full) {
     drawn_player_lane_ = player_lane_;
     drawn_enemies_ = enemies_;
     frame_valid_ = true;
+    // Keep the two-lane road unchanged. Progress occupies the narrow
+    // strip between road and navigation footer, refreshed only on redraw.
+    board_.fill_rect(5,113,230,7,board::DisplayColor::Background);
+    const std::int16_t bar_width=static_cast<std::int16_t>(
+        round_.progress_percent()*145U/100U);
+    board_.fill_rect(5,115,bar_width,4,board::DisplayColor::Accent);
+    char stage[22]{};
+    std::snprintf(stage,sizeof(stage),"ETAP %u  %u%%",
+        static_cast<unsigned>(round_.stage()),
+        static_cast<unsigned>(round_.progress_percent()));
+    board_.draw_text_region(157,112,80,9,stage,1,
+        board::DisplayColor::SecondaryText);
     if (full) {
-        board_.draw_text_region(5, 120, 120, 13, "M5 ZMIANA PASA", 1);
-        board_.draw_text_region(140, 120, 96, 13, "SIDE PAUZA", 1);
+        board_.draw_text_region(5, 122, 120, 12, "M5 ZMIANA PASA", 1);
+        board_.draw_text_region(140, 122, 96, 12, "SIDE PAUZA", 1);
     }
 }
 void MiniRacerApp::render_menu(bool game_over) {
@@ -252,16 +284,43 @@ void MiniRacerApp::render_menu(bool game_over) {
                                 : board::DisplayColor::Background);
     board_.draw_text_region(12, 125, 224, 10, "SIDE ZMIANA   M5 OK", 1);
 }
+void MiniRacerApp::render_finish_crossing() {
+    render_playing(true);
+    // Last stretch: explicit line at the player's nose before results appear.
+    for(std::int16_t y=29;y<110;y+=10) {
+        board_.fill_rect(61,y,6,5,board::DisplayColor::PrimaryText);
+        board_.fill_rect(67,y+5,6,5,board::DisplayColor::Accent);
+    }
+}
+
+void MiniRacerApp::render_victory() {
+    board_.clear_screen();
+    board_.draw_text_region(57,12,145,30,"META!",3,
+        board::DisplayColor::Accent);
+    board_.draw_polish_ui_text_region(16,49,222,24,
+        "TRASA UKOŃCZONA",1,board::DisplayColor::PrimaryText);
+    char result[30]{};
+    const auto sec=active_play_ms_/1000U;
+    std::snprintf(result,sizeof(result),"CZAS %lu:%02lu",
+        static_cast<unsigned long>(sec/60U),
+        static_cast<unsigned long>(sec%60U));
+    board_.draw_text_region(52,76,155,17,result,1);
+    board_.draw_polish_ui_text_region(22,97,210,17,"M5 PONOWNIE  SIDE WYJDŹ",1);
+    board_.draw_polish_ui_text_region(22,117,210,14,"BOCZNY DŁUGO = WYJDŹ",1);
+}
+
 void MiniRacerApp::render() {
     switch(state_) {
     case State::Playing: render_playing(); break;
     case State::Paused: render_menu(false); break;
     case State::GameOver: render_menu(true); break;
+    case State::FinishCrossing: render_finish_crossing(); break;
+    case State::Victory: render_victory(); break;
     case State::TimeLimit:
         board_.clear_screen();
-        board_.draw_text_region(18, 36, 218, 30, "KONIEC SESJI", 2);
+        board_.draw_text_region(18, 36, 218, 30, "KONIEC CZASU", 2);
         board_.draw_text_region(18, 77, 218, 21, "10 MIN GRY", 2);
-        board_.draw_text_region(18, 112, 218, 17, "M5 / SIDE: POWRÓT", 1);
+        board_.draw_text_region(18, 112, 218, 17, "M5 PONÓW  SIDE WYJDŹ", 1);
         break;
     }
 }

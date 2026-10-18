@@ -3,6 +3,7 @@
 #include <array>
 #include "board/board.hpp"
 #include "mini_racer/traffic_rules.hpp"
+#include "mini_racer/race_rules.hpp"
 #include "power/display_lifecycle.hpp"
 namespace nikos::mini_racer {
 class MiniRacerApp final {
@@ -20,7 +21,6 @@ public:
 private:
     using State = rules::State;
     static std::uint32_t now_ms();
-    static constexpr std::uint32_t kSessionLimitMs = 600000;
     static constexpr std::int32_t kSpawnX = 255;
     static constexpr std::int32_t kPlayerLeft = 33;
     static constexpr std::int32_t kPlayerRight = 59;
@@ -32,6 +32,8 @@ private:
     void render();
     void render_playing(bool full = true);
     void render_menu(bool game_over);
+    void render_victory();
+    void render_finish_crossing();
     void render_car(std::int16_t x, std::uint8_t lane, board::DisplayColor color);
     board::Board& board_;
     power::DisplayLifecycle& display_;
@@ -48,7 +50,8 @@ private:
     std::uint32_t last_drawn_score_ = 0;
     std::uint32_t last_tick_ms_ = 0;
     std::uint32_t last_frame_ms_ = 0;
-    std::uint32_t session_started_ms_ = 0;
+    race::Round round_{};
+    std::uint32_t crossing_started_ms_=0;
     std::uint32_t active_play_ms_ = 0;
     std::uint32_t score_ = 0;
     std::uint32_t record_ = 0;

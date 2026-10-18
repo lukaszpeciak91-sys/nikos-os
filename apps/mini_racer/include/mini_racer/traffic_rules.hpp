@@ -14,7 +14,7 @@ constexpr std::int32_t kMaxGapPx = 180;
 constexpr std::uint32_t kInitialSpeedQ8 = 36U * 256U;
 constexpr std::uint32_t kSpeedStepQ8 = 5U * 256U;
 constexpr std::uint32_t kMaxSpeedQ8 = 75U * 256U;
-enum class State : std::uint8_t { Playing, Paused, GameOver, TimeLimit };
+enum class State : std::uint8_t { Playing, Paused, GameOver, TimeLimit, FinishCrossing, Victory };
 inline State pause(State state) { return state == State::Playing ? State::Paused : state; }
 inline State resume(State state) { return state == State::Paused ? State::Playing : state; }
 inline State hit(State state) { return state == State::Playing ? State::GameOver : state; }
