@@ -711,7 +711,7 @@ Action Launcher::update(const board::InputState& input)
             render();
         } else if (input.primary_short || input.secondary_short) {
             world_city_ = static_cast<std::uint8_t>(
-                (world_city_ + (input.primary_short ? 1U : 4U))
+                (world_city_ + (input.primary_short ? 1U : clock::world::kCityCount - 1U))
                 % clock::world::kCityCount);
             render_world_clock_if_changed(true);
         } else {
@@ -2045,7 +2045,10 @@ void Launcher::render_world_clock_if_changed(bool force)
     font_renderer_.draw("ZEGAR ŚWIATOWY",{12,5,205,18},
         board::DisplayColor::SecondaryText);
     font_renderer_.set_size(font_core::Size::Readable);
-    font_renderer_.draw(clock::world::city_name(city),{12,29,215,24},
+    const char* name=clock::world::city_name(city);
+    if (!font_renderer_.measure(name,215,24).fits)
+        font_renderer_.set_size(font_core::Size::Compact);
+    font_renderer_.draw(name,{12,29,215,24},
         board::DisplayColor::PrimaryText);
     if (shown.valid) {
         char time[6]{};
@@ -2068,8 +2071,16 @@ void Launcher::render_world_clock_if_changed(bool force)
         font_renderer_.draw("BRAK CZASU",{20,65,200,24},
             board::DisplayColor::Attention);
     }
-    char position[] = "1/5";
-    position[0]=static_cast<char>('1'+world_city_);
+    char position[6]{};
+    const unsigned index=static_cast<unsigned>(world_city_%clock::world::kCityCount)+1U;
+    if (index>=10U) {
+        position[0]='1';
+        position[1]=static_cast<char>('0'+index-10U);
+        position[2]='/';position[3]='1';position[4]='5';
+    } else {
+        position[0]=static_cast<char>('0'+index);
+        position[1]='/';position[2]='1';position[3]='5';
+    }
     font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw(position,{196,6,42,18},
         board::DisplayColor::Accent);
