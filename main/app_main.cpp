@@ -2708,6 +2708,7 @@ extern "C" void app_main(void)
                     || resume_converter_after_communicator
                     || resume_flashlight_after_communicator
                     || resume_facts_after_communicator
+                    || resume_vw_garage_after_communicator
                     )
                 && (communicator_result
                         == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested
@@ -2743,7 +2744,25 @@ extern "C" void app_main(void)
                     resume_facts_after_communicator = false;
                     state = RuntimeState::Facts;
                     facts.redraw();
-                                }
+                } else if (resume_vw_garage_after_communicator) {
+                    resume_vw_garage_after_communicator = false;
+                    if (entertainment_guard.phase(loop_now_ms)
+                            == nikos::entertainment_guard::Phase::Window
+                        && !battery_guard.low_battery_reserve_active()) {
+                        state = RuntimeState::VwGarage;
+                        vw_garage.redraw();
+                    } else {
+                        vw_garage.end();
+                        state = RuntimeState::Launcher;
+                        launcher.begin_entertainment(
+                            communicator_status(communicator_enabled, messaging));
+                        entertainment_notice =
+                            battery_guard.low_battery_reserve_active()
+                                ? EntertainmentNotice::LowBattery
+                                : EntertainmentNotice::Break;
+                        entertainment_notice_rendered = false;
+                    }
+                }
             } else if (
                 communicator_result
                 == nikos::communicator::CommunicatorApp::UpdateResult::ExitRequested) {
