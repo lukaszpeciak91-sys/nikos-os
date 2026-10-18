@@ -91,7 +91,7 @@ constexpr bool cairo_dst(DateTime utc) {
 constexpr bool auckland_dst(DateTime utc) {
     const auto y=utc.year;
     const auto end=warsaw::seconds({y,4,static_cast<std::uint8_t>(nth_sunday(y,4,1)),0,0,0})-10*3600;
-    const auto start=warsaw::seconds({y,9,warsaw::last_sunday(y,9),0,0,0})-10*3600;
+    const auto start=warsaw::seconds({y,9,static_cast<std::uint8_t>(last_weekday(y,9,0)),0,0,0})-10*3600;
     const auto current=warsaw::seconds(utc);
     return current<end || current>=start;
 }
