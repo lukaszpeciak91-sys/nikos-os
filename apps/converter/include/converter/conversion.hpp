@@ -44,7 +44,7 @@ inline void format(double v,char (&buf)[24]) {
 }
 struct Editor {
     // Sign (temperature only), four integer digits, decimal tenths.
-    char digits[6]={'0','0','2','0','0','0'};
+    char digits[5]={'0','0','2','0','0'};
     std::uint8_t cursor=0; bool negative=false;bool temperature=false;
     void begin(double value,bool temp) {
         temperature=temp;negative=temp&&value<0;cursor=0;
