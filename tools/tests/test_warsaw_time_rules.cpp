@@ -55,7 +55,7 @@ int main() {
     assert(local_to_utc({2026,2,30,0,0,0}).status==LocalStatus::Invalid);
     ZonedTime invalid{};
     assert(!utc_to_local({2026,2,30,0,0,0},invalid));
-    assert(local_to_utc({2000,1,1,0,30,0}).status==LocalStatus::Nonexistent);
+    assert(local_to_utc({2000,1,1,0,30,0}).status==LocalStatus::Invalid);
     assert(!utc_to_local({2099,12,31,23,59,0},invalid));
     for(unsigned m=1;m<=12;++m) {
         const DateTime utc{2026,static_cast<std::uint8_t>(m),15,12,0,0};
