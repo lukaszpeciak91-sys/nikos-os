@@ -33,8 +33,9 @@ assert "entertainment_guard.phase(" in main
 assert "if (entertainment_warning_visible &&" in main
 assert "snake.suspend_for_entertainment_warning();" in main
 assert "snake.resume_from_entertainment_warning();" in main
-assert "kSessionLimitMs" in racer
-assert "session_started_ms_" in racer
+assert "race::stage_speed(" in racer
+assert "round_.begin(now);" in racer
+assert "session_started_ms_" not in racer
 assert "rules::kSessionMs" in defender
 assert "session_started_ms_" in defender
 assert "CoinFlipApp::update(" in coin
