@@ -4,6 +4,11 @@ namespace nikos::mini_racer::race {
 constexpr std::uint32_t kStageLengthPx=7000U;
 constexpr std::uint32_t kFinishPx=3U*kStageLengthPx;
 constexpr std::uint32_t kDeadlineMs=600000U;
+// Sections are genuinely different in speed/difficulty without changing
+// original traffic spawning, collision sweeping, or lane rules.
+constexpr std::uint32_t stage_speed(std::uint32_t base_q8,std::uint8_t stage) {
+    return base_q8*(stage==1U?85U:stage==2U?93U:100U)/100U;
+}
 enum class Outcome : std::uint8_t { Racing, Collision, Victory, Timeout };
 struct Round {
     std::uint32_t started_ms=0;
