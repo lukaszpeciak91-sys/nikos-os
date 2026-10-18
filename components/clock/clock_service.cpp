@@ -1,4 +1,5 @@
 #include "clock/clock_service.hpp"
+#include "clock/rtc_utc_commit.hpp"
 
 #include <cstdio>
 
@@ -188,34 +189,44 @@ bool ClockService::local_now(warsaw::DateTime& out) const
 
 bool ClockService::commit_utc(const warsaw::DateTime& utc) const
 {
-    if (!warsaw::valid(utc) || !board_.rtc_available()) return false;
-    // The pending marker is committed BEFORE either independent RTC write.
-    // A reboot in any partial state cannot authorize or re-convert the RTC.
-    if (!basis_store_.save(storage::RtcTimeBasis::Pending)) return false;
-    basis_=storage::RtcTimeBasis::Pending;
-    date_configured_=false;
-    marker_known_false_=date_store_.save_configured(false);
-    if (!marker_known_false_) return false;
-
-    const board::RtcDate date{utc.year,utc.month,utc.day};
-    const board::RtcTime time{utc.hour,utc.minute,utc.second};
-    if (!board_.write_rtc_date(date) || !board_.write_rtc_time(time)) return false;
-
-    warsaw::DateTime verified{};
-    // The verified clock may cross a minute or midnight while reading back.
-    // Compare whole timestamps instead of insisting on identical minute fields.
-    if (!raw_rtc(verified)) return false;
-    const auto elapsed=warsaw::seconds(verified)-warsaw::seconds(utc);
-    if (elapsed<0 || elapsed>3) return false;
-
-    if (!basis_store_.save(storage::RtcTimeBasis::Utc)) return false;
-    basis_=storage::RtcTimeBasis::Utc;
-    if (!date_store_.save_configured(true)) return false;
-    date_configured_=true;
-    marker_known_false_=false;
-    staged_time_=false;
-    staged_date_=false;
-    return true;
+    // The host tests exercise this exact sequence through fake operations.
+    struct Operations {
+        const ClockService& clock;
+        bool available() const { return clock.board_.rtc_available(); }
+        bool save_pending() const {
+            return clock.basis_store_.save(storage::RtcTimeBasis::Pending);
+        }
+        void mark_pending() const {
+            clock.basis_=storage::RtcTimeBasis::Pending;
+            clock.date_configured_=false;
+        }
+        bool invalidate_date_trust() const {
+            clock.marker_known_false_=clock.date_store_.save_configured(false);
+            return clock.marker_known_false_;
+        }
+        bool write_date(const warsaw::DateTime& t) const {
+            return clock.board_.write_rtc_date({t.year,t.month,t.day});
+        }
+        bool write_time(const warsaw::DateTime& t) const {
+            return clock.board_.write_rtc_time({t.hour,t.minute,t.second});
+        }
+        bool readback(warsaw::DateTime& t) const { return clock.raw_rtc(t); }
+        bool save_utc_basis() const {
+            return clock.basis_store_.save(storage::RtcTimeBasis::Utc);
+        }
+        bool restore_date_trust() const {
+            return clock.date_store_.save_configured(true);
+        }
+        void mark_trusted_utc() const {
+            clock.basis_=storage::RtcTimeBasis::Utc;
+            clock.date_configured_=true;
+            clock.marker_known_false_=false;
+            clock.staged_time_=false;
+            clock.staged_date_=false;
+        }
+    };
+    Operations operations{*this};
+    return commit_utc_checked(utc,operations);
 }
 
 bool ClockService::write_local(const warsaw::DateTime& local) const
