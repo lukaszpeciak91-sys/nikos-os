@@ -1369,6 +1369,11 @@ extern "C" void app_main(void)
             // and all charging-only presentation state without rebooting.
             display_lifecycle.suppress_user_gesture_until_release();
             display_lifecycle.note_visible_activity();
+            // Do not expose a suspended VW card outside the admitted window.
+            if (state != RuntimeState::VwGarage
+                || (entertainment_guard.phase(loop_now_ms)
+                        == nikos::entertainment_guard::Phase::Window
+                    && !battery_guard.low_battery_reserve_active())) {
             redraw_runtime_ui(
                 state,
                 launcher,
@@ -1385,6 +1390,7 @@ extern "C" void app_main(void)
                 radiolab,
                 sound_meter,
                 converter);
+            }
         }
 
         const nikos::battery_guard::UpdateResult battery_update =
