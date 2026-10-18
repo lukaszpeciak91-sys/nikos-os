@@ -27,11 +27,13 @@ jobs:
             tools/tests/test_ent1_migration_contract.cpp \
             tools/tests/test_clock_utc_migration.cpp \
             tools/tests/test_rtc_utc_commit_failures.cpp \
-            tools/tests/test_world_clock.cpp; do
+            tools/tests/test_world_clock.cpp \
+            tools/tests/test_mini_racer_race.cpp; do
             binary="/tmp/nikos-host/$(basename "${source%.cpp}")"
             g++ -std=c++17 -Wall -Wextra -Werror \
               -Icomponents/clock/include \
               -Icomponents/entertainment_guard/include \
+              -Iapps/mini_racer/include \
               "$source" -o "$binary"
             "$binary"
             echo "PASS: $source"
