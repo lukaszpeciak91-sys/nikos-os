@@ -190,6 +190,7 @@ private:
     std::uint8_t clock_selection_ = 0;
     std::uint8_t world_city_ = 0;
     bool world_rendered_valid_ = false;
+    std::uint32_t world_last_sample_ms_ = 0;
     bool world_rendered_trusted_ = false;
     std::uint32_t world_rendered_minute_ = 0;
     std::uint8_t clock_view_start_ = 0;
