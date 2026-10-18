@@ -198,13 +198,11 @@ bool ClockService::commit_utc(const warsaw::DateTime& utc) const
     if (!board_.write_rtc_date(date) || !board_.write_rtc_time(time)) return false;
 
     warsaw::DateTime verified{};
-    if (!raw_rtc(verified)
-        || verified.year!=utc.year || verified.month!=utc.month
-        || verified.day!=utc.day || verified.hour!=utc.hour
-        || verified.minute!=utc.minute
-        || verified.second < utc.second
-        || verified.second > static_cast<unsigned>(utc.second)+2U)
-        return false;
+    // The verified clock may cross a minute or midnight while reading back.
+    // Compare whole timestamps instead of insisting on identical minute fields.
+    if (!raw_rtc(verified)) return false;
+    const auto elapsed=warsaw::seconds(verified)-warsaw::seconds(utc);
+    if (elapsed<0 || elapsed>3) return false;
 
     if (!basis_store_.save(storage::RtcTimeBasis::Utc)) return false;
     basis_=storage::RtcTimeBasis::Utc;
