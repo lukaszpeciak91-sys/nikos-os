@@ -854,7 +854,8 @@ Action Launcher::update(const board::InputState& input)
         if (clock_service_.set_time(edit_hour_, edit_minute_)) {
             update_clock_sample(now, true);
             clock_selection_ = 0;
-            screen_ = Screen::Clock;
+            screen_ = clock_service_.pending_local_date()
+                ? Screen::ClockNeedsDate : Screen::Clock;
         } else {
             update_clock_sample(now, true);
             screen_ = Screen::ClockSetFailed;
@@ -863,7 +864,7 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
-    if (screen_ == Screen::ClockSetFailed) {
+    if (screen_ == Screen::ClockSetFailed || screen_ == Screen::ClockNeedsDate) {
         if (input.primary_short
             || input.secondary_short
             || input.secondary_long) {
@@ -1557,6 +1558,9 @@ void Launcher::render()
             break;
         case Screen::ClockSetFailed:
             render_clock_set_failed();
+            break;
+        case Screen::ClockNeedsDate:
+            render_clock_needs_date();
             break;
         case Screen::ClockSetDateDay:
         case Screen::ClockSetDateMonth:
@@ -2285,36 +2289,33 @@ void Launcher::render_clock_editor(bool editing_hour)
 void Launcher::render_clock_set_failed()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        16,
-        212,
-        20,
-        "USTAW CZAS",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        44,
-        54,
-        170,
-        22,
-        "NIE ZAPISANO",
-        2,
-        board::DisplayColor::Danger,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        42,
-        108,
-        180,
-        14,
-        "M5 / BOCZNY = POWROT",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Readable);
+    font_renderer_.draw("USTAW CZAS",{12,14,216,24});
+    const auto status=clock_service_.last_local_status();
+    const char* message=status==clock::warsaw::LocalStatus::Nonexistent
+        ? "NIE MA TEJ GODZINY"
+        : status==clock::warsaw::LocalStatus::Ambiguous
+            ? "GODZINA PODWÓJNA" : "NIE ZAPISANO";
+    font_renderer_.draw(message,{10,57,220,24},
+        board::DisplayColor::Danger);
+    font_renderer_.set_size(font_core::Size::Compact);
+    font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
+        board::DisplayColor::SecondaryText);
 }
 
+void Launcher::render_clock_needs_date()
+{
+    clear_shell(board_);
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Readable);
+    font_renderer_.draw("CZAS WPROWADZONY",{10,20,220,24});
+    font_renderer_.draw("USTAW JESZCZE DATĘ",{10,62,220,24},
+        board::DisplayColor::Attention);
+    font_renderer_.set_size(font_core::Size::Compact);
+    font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
+        board::DisplayColor::SecondaryText);
+}
 
 void Launcher::render_date_editor()
 {
@@ -2388,36 +2389,19 @@ void Launcher::render_date_editor()
 void Launcher::render_date_set_failed()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        16,
-        212,
-        20,
-        "USTAW DATE",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        44,
-        54,
-        170,
-        22,
-        "NIE ZAPISANO",
-        2,
-        board::DisplayColor::Danger,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        42,
-        108,
-        180,
-        14,
-        "M5 / BOCZNY = POWROT",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Readable);
+    font_renderer_.draw("USTAW DATĘ",{12,14,216,24});
+    const auto status=clock_service_.last_local_status();
+    const char* message=status==clock::warsaw::LocalStatus::Nonexistent
+        ? "NIE MA TEJ GODZINY"
+        : status==clock::warsaw::LocalStatus::Ambiguous
+            ? "GODZINA PODWÓJNA" : "NIE ZAPISANO";
+    font_renderer_.draw(message,{10,57,220,24},board::DisplayColor::Danger);
+    font_renderer_.set_size(font_core::Size::Compact);
+    font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
+        board::DisplayColor::SecondaryText);
 }
-
 
 void Launcher::render_date_needs_time()
 {
