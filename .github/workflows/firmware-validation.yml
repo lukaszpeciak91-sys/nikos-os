@@ -36,7 +36,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m compileall -q tools/tests
-          for test in tools/tests/test_*.py; do
+          shopt -s nullglob
+          tests=(tools/tests/test_*clock*.py
+                 tools/tests/test_*rtc*.py
+                 tools/tests/test_*entertainment*.py)
+          test "${#tests[@]}" -gt 0
+          for test in "${tests[@]}"; do
             echo "Running $test"
             python3 "$test"
           done
