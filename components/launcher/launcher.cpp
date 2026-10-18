@@ -2413,7 +2413,7 @@ void Launcher::render_date_needs_time()
     font_renderer_.select(font_core::Mode::PreRendered);
     font_renderer_.set_size(font_core::Size::Readable);
     font_renderer_.draw("USTAW DATĘ",{12,14,216,24});
-    font_renderer_.draw("NAJPIERW USTAW CZAS",{10,57,220,24},
+    font_renderer_.draw("NAJPIERW CZAS",{10,57,220,24},
         board::DisplayColor::Attention);
     font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
