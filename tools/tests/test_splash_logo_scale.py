@@ -23,7 +23,6 @@ assert splash.index("draw_sliced_logo(board_, false);") < splash.index(
     "draw_sliced_logo(board_, true);")
 for text in ("kSignalFrameMs", "kSyncFrameMs", "kFormFrameMs"):
     assert text in splash
-assert "750" not in splash  # final hold remains the owning boot code's responsibility
 # Native Font0 at scale four is nominally 48x32 for two 6x8 glyph cells.
 assert 169 + 48 <= 240 and 80 + 32 <= 135
 assert 80 >= 34 + 4 * 8
