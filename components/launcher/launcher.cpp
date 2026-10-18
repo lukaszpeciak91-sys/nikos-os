@@ -2050,8 +2050,8 @@ void Launcher::render_world_clock_if_changed(bool force)
     if (shown.valid) {
         char time[6]{};
         std::snprintf(time,sizeof(time),"%02u:%02u",
-            static_cast<unsigned>(shown.local.hour),
-            static_cast<unsigned>(shown.local.minute));
+            static_cast<unsigned>(shown.local.hour % 24U),
+            static_cast<unsigned>(shown.local.minute % 60U));
         board_.draw_text_region(69,55,114,31,time,3,
             board::DisplayColor::PrimaryText,
             board::DisplayColor::Background);
@@ -2068,9 +2068,8 @@ void Launcher::render_world_clock_if_changed(bool force)
         font_renderer_.draw("BRAK CZASU",{20,65,200,24},
             board::DisplayColor::Attention);
     }
-    char position[5]{};
-    std::snprintf(position,sizeof(position),"%u/5",
-        static_cast<unsigned>(world_city_+1));
+    char position[] = "1/5";
+    position[0]=static_cast<char>('1'+world_city_);
     font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw(position,{196,6,42,18},
         board::DisplayColor::Accent);
