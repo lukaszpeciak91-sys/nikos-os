@@ -18,6 +18,9 @@ assert "FontSelector" not in launcher
 assert "font_mode" not in launcher
 
 # UTF-8 metadata must not reach byte-oriented Font0 unconverted.
-assert "ctx.board->draw_polish_ui_text_region(" in main
+# Clock Glance uses the current direct Board reference, not obsolete ctx.board.
+assert "board.draw_polish_ui_text_region(" in main
+assert "date_text, date_scale" in main
+assert "board.polish_ui_text_width(date_text)" in main
 assert "ctx.charging && ctx.charging->active" in main
 print("Fixed PRE-RENDERED Polish menu regression checks PASS")
