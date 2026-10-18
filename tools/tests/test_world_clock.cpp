@@ -63,7 +63,7 @@ int main() {
         && same(delhi.local,{2027,1,1,2,30,0}));
     for(unsigned i=0;i<kCityCount;++i) {
         const auto city=static_cast<City>(i);
-        assert(city_name(city)[0]!='\\0');
+        assert(city_name(city)[0]!=0);
         assert(convert(city,{2026,10,18,12,0,0}).valid);
         assert((i+1)%kCityCount<kCityCount);
         assert((i+kCityCount-1)%kCityCount<kCityCount);
