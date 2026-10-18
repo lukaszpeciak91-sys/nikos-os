@@ -616,7 +616,7 @@ Action Launcher::update(const board::InputState& input)
         }
         if (input.secondary_short) {
             entertainment_selection_ =
-                static_cast<std::uint8_t>((entertainment_selection_ + 1U) % 3U);
+                static_cast<std::uint8_t>((entertainment_selection_ + 1U) % 4U);
             render();
             return Action::None;
         }
@@ -628,6 +628,7 @@ Action Launcher::update(const board::InputState& input)
                 return Action::None;
             }
             if (entertainment_selection_ == 1U) return Action::OpenFacts;
+            if (entertainment_selection_ == 2U) return Action::OpenVwGarage;
             screen_ = Screen::Main;
             render();
         }
@@ -1863,9 +1864,10 @@ void Launcher::render_entertainment()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[3] = {
+    constexpr const char* kItems[4] = {
         "GRY",
         "CIEKAWOSTKI",
+        "GARAŻ VW",
         "POWRÓT",
     };
 
