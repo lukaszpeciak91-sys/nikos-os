@@ -46,7 +46,32 @@ int main() {
     }
     assert(clean.outcome==race::Outcome::Victory);
     assert(simulated_ms>=4U*60000U && simulated_ms<=7U*60000U);
-    // Traffic remains independently collision tested by test_mini_racer.py.
+    // Simulate achievable traffic avoidance using the actual spawn/sweep
+    // algorithm. The bot has only a 0.6s look-ahead and two discrete lanes.
+    for(std::uint32_t seed=1;seed<=30;++seed) {
+        rules::Traffic traffic{};
+        rules::Random rng(seed);
+        rules::initialize(traffic,255,rng);
+        rules::Motion traffic_motion{};
+        race::Round reachable{};
+        reachable.begin(0);
+        std::uint8_t lane=1;
+        for(std::uint32_t ms=50;ms<race::kDeadlineMs
+                && reachable.outcome==race::Outcome::Racing;ms+=50) {
+            for(const auto& car:traffic) {
+                const auto x=car.x_q8/256;
+                if (x>=rules::kPlayerLeft-25 && x<=105
+                    && car.lane==lane) lane^=1U;
+            }
+            const auto speed=race::stage_speed(
+                rules::speed_for_score(ms/100U),reachable.stage());
+            const auto displacement=traffic_motion.advance(speed,50U);
+            const bool collision_hit=rules::advance(
+                traffic,displacement,lane,rng);
+            reachable.advance(displacement,collision_hit,ms);
+        }
+        assert(reachable.outcome==race::Outcome::Victory);
+    }
     static_assert(race::kFinishPx*256U<UINT32_MAX);
     static_assert(race::kDeadlineMs==10U*60000U);
 }
