@@ -4,6 +4,12 @@
 
 Communicator v0.1 core UX over the long-lived messaging infrastructure.
 
+## Volkswagen Garage v0.1 (PR #103 — independent audit pending)
+- Added a static, fully offline chronological 25-model VW catalogue under Entertainment. The approved Polish descriptions and fixed two-line breaks are measured with the existing PRE-RENDERED Compact font in deterministic host tests.
+- Two screens only: four-row scrolling selection with right-aligned debut years, and a single-screen model card. SIDE short advances, M5 opens/returns, SIDE long navigates back, and the selected model and viewport are retained.
+- Admission, 18-minute warning, 20-minute expiry, 60-minute cooldown, low battery reserve, Communicator interruption, POWER/DisplayOff and charging remain owned by existing central infrastructure. No new per-app Guard or persistence.
+- Firmware CI and on-device checks gate independent audit; do not merge or flash before approval.
+
 ## Mini Racer v0.2 finite race (PR #100)
 - Three duration-balanced stages: 7,800 px, 10,100 px, and 10,900 px (28,800 total) lead to a visible finish-line crossing and explicit victory. Traffic spawning and swept collision rules are retained; stage-relative speed scales the existing progression to 85%, 93%, and 100%.
 - The prior continuous app-session limit has become a ten-minute **attempt** deadline. A retry starts a fresh attempt; pause, display interruption, and Communicator takeover do not reset its monotonic start. Victory and collision outcomes remain final; there is no automatic restart.
