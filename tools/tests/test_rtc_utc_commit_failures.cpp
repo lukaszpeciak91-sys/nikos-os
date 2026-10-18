@@ -1,6 +1,7 @@
 #include "clock/rtc_utc_commit.hpp"
 #include "clock/warsaw_time_rules.hpp"
 #include <cassert>
+#include <stdexcept>
 using namespace nikos::clock;
 using namespace nikos::clock::warsaw;
 
@@ -11,36 +12,38 @@ struct Fake {
     bool online=true, pending=false, utc_basis=false, trust=true;
     bool trusted_now=true;
     unsigned writes=0;
+    int phase=0, crash_after=0;
+    void checkpoint() { if(crash_after && ++phase==crash_after) throw std::runtime_error("power loss"); }
     DateTime rtc{2026,7,15,13,40,0};
     bool available() const { return online; }
-    bool save_pending() { return failure!=PendingNvs; }
+    bool save_pending() { if(failure==PendingNvs)return false; checkpoint();return true; }
     void mark_pending() { pending=true;utc_basis=false;trusted_now=false; }
     bool invalidate_date_trust() {
         if(failure==TrustInvalidate)return false;
-        trust=false;return true;
+        trust=false;checkpoint();return true;
     }
     bool write_date(const DateTime& t) {
         if(failure==DateWrite)return false;
-        rtc.year=t.year;rtc.month=t.month;rtc.day=t.day;++writes;return true;
+        rtc.year=t.year;rtc.month=t.month;rtc.day=t.day;++writes;checkpoint();return true;
     }
     bool write_time(const DateTime& t) {
         if(failure==TimeWrite)return false;
-        rtc.hour=t.hour;rtc.minute=t.minute;rtc.second=t.second;++writes;
+        rtc.hour=t.hour;rtc.minute=t.minute;rtc.second=t.second;++writes;checkpoint();
         return true;
     }
     bool readback(DateTime& out) {
         if(failure==Readback)return false;
         out=rtc;
         if(failure==WrongReadback)++out.minute;
-        return true;
+        checkpoint();return true;
     }
     bool save_utc_basis() {
         if(failure==UtcNvs)return false;
-        utc_basis=true;return true;
+        utc_basis=true;checkpoint();return true;
     }
     bool restore_date_trust() {
         if(failure==TrustRestore)return false;
-        trust=true;return true;
+        trust=true;checkpoint();return true;
     }
     void mark_trusted_utc() {pending=false;trusted_now=true;}
     // Boot authorization is based only on the persistent basis + date marker.
@@ -69,6 +72,23 @@ int main() {
         } else {
             assert(fake.pending && !fake.trusted_now);
             assert(!fake.boot_trusted());
+        }
+    }
+    // Simulate abrupt power loss after each completed irreversible action.
+    // Next boot must never authorize partially written UTC or retry offset.
+    for(int checkpoint=1;checkpoint<=7;++checkpoint) {
+        Fake interrupted{};
+        interrupted.crash_after=checkpoint;
+        bool crashed=false;
+        try { (void)commit_utc_checked(target,interrupted); }
+        catch(const std::runtime_error&) { crashed=true; }
+        assert(crashed);
+        if(checkpoint==1) {
+            // Pending was durably written before mark_pending() returned.
+            // Fresh boot sees Pending and must refuse clock trust.
+            assert(!interrupted.utc_basis);
+        } else {
+            assert(!interrupted.boot_trusted());
         }
     }
     Fake unavailable{};
