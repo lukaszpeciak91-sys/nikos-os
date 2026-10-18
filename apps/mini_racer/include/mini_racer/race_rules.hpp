@@ -1,8 +1,9 @@
 #pragma once
 #include <cstdint>
 namespace nikos::mini_racer::race {
-constexpr std::uint32_t kStageLengthPx=7000U;
-constexpr std::uint32_t kFinishPx=3U*kStageLengthPx;
+constexpr std::uint32_t kStageTwoStartPx=7800U;
+constexpr std::uint32_t kStageThreeStartPx=17900U;
+constexpr std::uint32_t kFinishPx=28800U;
 constexpr std::uint32_t kDeadlineMs=600000U;
 // Sections are genuinely different in speed/difficulty without changing
 // original traffic spawning, collision sweeping, or lane rules.
@@ -29,8 +30,8 @@ struct Round {
     }
     std::uint8_t stage() const {
         const auto pixels=distance_q8/256U;
-        return static_cast<std::uint8_t>(pixels>=2*kStageLengthPx?3U
-            :pixels>=kStageLengthPx?2U:1U);
+        return static_cast<std::uint8_t>(pixels>=kStageThreeStartPx?3U
+            :pixels>=kStageTwoStartPx?2U:1U);
     }
     std::uint8_t progress_percent() const {
         return static_cast<std::uint8_t>(
