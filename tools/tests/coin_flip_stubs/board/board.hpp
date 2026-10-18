@@ -67,7 +67,9 @@ public:
         native={};
         native.x=x; native.y=y; native.w=w; native.h=h;
         native.size=size; native.called=true;
-        std::strncpy(native.text,text,sizeof(native.text)-1);
+        const auto length = std::min(std::strlen(text), sizeof(native.text)-1U);
+        std::memcpy(native.text, text, length);
+        native.text[length] = '\0';
         // The native Font0 raster is owned by M5GFX and not reimplemented
         // in this stub; assert its existing 6x8 cell placement instead.
         fill_rect(x,y,w,h,bg);
