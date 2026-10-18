@@ -40,6 +40,22 @@ jobs:
             "$binary"
             echo "PASS: $source"
           done
+      - name: Run remaining standalone C++ host regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nikos-host
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -Itools/tests/font_core_stubs \
+            -Icomponents/font_core/include \
+            tools/tests/font_core_test.cpp components/font_core/font_core.cpp \
+            -o /tmp/nikos-host/font_core_test
+          /tmp/nikos-host/font_core_test
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -Iapps/sound_meter/include \
+            tools/tests/sound_meter_level_test.cpp apps/sound_meter/level_processor.cpp \
+            -o /tmp/nikos-host/sound_meter_level_test
+          /tmp/nikos-host/sound_meter_level_test
       - name: Run repository Python regression tests
         shell: bash
         run: |
