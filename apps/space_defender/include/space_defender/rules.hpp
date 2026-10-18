@@ -10,12 +10,14 @@ constexpr std::size_t kMaxHostileShots = 4;
 constexpr std::uint32_t kFireIntervalMs = 350;
 constexpr std::uint32_t kInvulnerableMs = 1500;
 constexpr std::uint32_t kSessionMs = 600000;
+constexpr std::uint32_t kWaveMs = 140000;
+constexpr std::uint32_t kInvasionMs = 3U * kWaveMs;
 constexpr std::uint32_t kMaxElapsedMs = 120;
 constexpr std::uint32_t kStepMs = 20;
 constexpr int kPlayerX = 24;
 constexpr int kLaneY[3] = {44, 70, 96};
 enum class Type : std::uint8_t { Scout, Armored, Shooter };
-enum class Phase : std::uint8_t { Playing, Paused, GameOver, TimeLimit };
+enum class Phase : std::uint8_t { Playing, Paused, GameOver, TimeLimit, Victory };
 struct Random {
     std::uint32_t value = 1;
     explicit Random(std::uint32_t seed = 1) : value(seed ? seed : 1) {}
@@ -48,6 +50,8 @@ struct World {
     std::uint32_t time_ms = 0, last_fire_ms = 0, next_spawn_ms = 0;
     std::uint32_t invulnerable_until_ms = 0;
     std::uint32_t score = 0, record = 0;
+    bool mission_enabled = false;
+    std::uint8_t wave = 1;
     std::uint8_t lane = 1, lives = 3;
     std::uint32_t motion_remainder[3]{}; // player shot, enemy, hostile fractional Q8
 };
@@ -68,6 +72,17 @@ inline void reset(World& w, std::uint32_t seed, std::uint32_t record) {
     w.rng = Random(seed);
     w.record = record;
     w.next_spawn_ms = 800;
+}
+inline std::uint8_t wave_at(std::uint32_t ms) {
+    return ms < kWaveMs ? 1U : ms < 2U*kWaveMs ? 2U : 3U;
+}
+inline bool invasion_active(const World& w) {
+    return !w.mission_enabled || w.time_ms < kInvasionMs;
+}
+inline bool threats_clear(const World& w) {
+    for(const auto& e:w.enemies) if(e.active) return false;
+    for(const auto& shot:w.hostile) if(shot.active) return false;
+    return true;
 }
 inline void cycle_lane(World& w) { if (w.phase == Phase::Playing) w.lane = (w.lane + 1U) % 3U; }
 inline void damage(World& w) {
@@ -143,12 +158,16 @@ inline bool safe_spawn(const World& w, std::uint8_t lane, Type type,
     return true;
 }
 inline void spawn(World& w) {
+    if (!invasion_active(w)) return;
     if (active_enemies(w) >= concurrent_limit(w.score)) return;
     Enemy* slot = nullptr;
     for (auto& e : w.enemies) if (!e.active) { slot = &e; break; }
     if (!slot) return;
     // One sampled type/lane. Fixed bounded spatial offsets (no reroll loop).
-    const Type type = choose_type(w.rng, w.score);
+    const Type type = w.mission_enabled
+        ? choose_type(w.rng, w.wave == 1U ? 0U
+            : (w.wave == 2U ? 130U : 500U))
+        : choose_type(w.rng, w.score);
     const auto lane = static_cast<std::uint8_t>(w.rng.range(3));
     std::int32_t x = 244 * 256;
     for (const auto& e : w.enemies) if (e.active && e.x_q8 >= x - 80 * 256)
@@ -165,11 +184,12 @@ inline void spawn(World& w) {
 inline void substep(World& w, std::uint32_t dt) {
     if (w.phase != Phase::Playing || dt == 0) return;
     w.time_ms += dt;
+    if(w.mission_enabled) w.wave=wave_at(w.time_ms);
     if (w.time_ms - w.last_fire_ms >= kFireIntervalMs) {
         w.last_fire_ms += kFireIntervalMs;
         fire(w);
     }
-    if (w.time_ms >= w.next_spawn_ms) {
+    if (invasion_active(w) && w.time_ms >= w.next_spawn_ms) {
         spawn(w);
         w.next_spawn_ms = w.time_ms + (w.score >= 500 ? 800 : 1100) + w.rng.range(501);
     }
@@ -224,6 +244,11 @@ inline void substep(World& w, std::uint32_t dt) {
         }
         if (s.x_q8 < 0) s.active = false;
     }
+    // No timer-only victory: all remaining enemy hulls and hostile bullets
+    // must physically resolve after the final spawning window closes.
+    if(w.mission_enabled && w.phase==Phase::Playing
+        && w.time_ms>=kInvasionMs && threats_clear(w))
+        w.phase=Phase::Victory;
 }
 inline void advance(World& w, std::uint32_t elapsed_ms) {
     if (w.phase != Phase::Playing) return;

@@ -37,7 +37,8 @@ assert "race::stage_speed(" in racer
 assert "round_.begin(now);" in racer
 assert "session_started_ms_" not in racer
 assert "rules::kSessionMs" in defender
-assert "session_started_ms_" in defender
+assert "attempt_started_ms_" in defender
+assert "world_.mission_enabled=true;" in defender
 assert "CoinFlipApp::update(" in coin
 assert "CoinFlipApp::begin(" in coin
 print("Snake/Guard central policy and game-limit isolation PASS")

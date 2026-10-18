@@ -16,6 +16,11 @@ Communicator v0.1 core UX over the long-lived messaging infrastructure.
 - Mini Racer still uses `session_started_ms_` and `kSessionLimitMs` (10 minutes counted from entry) and Space Defender still uses `session_started_ms_` with `rules::kSessionMs` (10 minutes counted from entry). These are **not** yet per-round deadlines. Dedicated finale PRs must start a fresh 10-minute *gameplay-round* deadline on each new round, while leaving Entertainment Guard session and cooldown untouched; round failure/retry must never call Guard enter as a new window.
 - No changes to charging, communications, power, battery, or Guard persistence.
 
+## Space Defender v0.2 finite mission (PR pending)
+- Three finite waves using the existing combat engine, paced at 140 seconds of active simulation each: reconnaissance Scouts; mixed Scouts/Armored; final mixed Scouts/Armored/Shooters. No new enemy systems or background tasks.
+- After 420 seconds the spawn gate closes; victory requires every enemy hull and hostile projectile to resolve. Death always overrides victory. The attempt's 600-second monotonic wall-clock deadline includes pause, DisplayOff, and Communicator interruption; retry resets this attempt deadline only.
+- The central 20/60-minute Entertainment Guard, charging lifecycle, power and communications remain unchanged. Seeded reachability evidence and hardware testing are required before merging.
+
 ## Current state
 - System message typography v0.1: system-owned Entertainment break/reserve/near-expiry notices, BatteryGuard advisories/critical shutdown, Timer completion and Charging Lock caption now use the existing PRE-RENDERED Polish UI renderer with Readable/Compact sizing and bounded layouts. Native numeric charging percentages, OK glyphs and clock time remain unchanged; state machines and notice timing are unaffected.
 
