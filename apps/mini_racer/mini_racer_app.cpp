@@ -79,8 +79,10 @@ MiniRacerApp::UpdateResult MiniRacerApp::update(const board::InputState& input) 
             }
             tick(now);
         }
-    } else if (state_ == State::Paused || state_ == State::GameOver
-        || state_ == State::Victory) {
+    } else if (state_ == State::Victory || state_ == State::TimeLimit) {
+        if (input.primary_short) start_round(now);
+        else if (input.secondary_short) return UpdateResult::ExitRequested;
+    } else if (state_ == State::Paused || state_ == State::GameOver) {
         if (input.secondary_short) {
             menu_selection_ ^= 1U;
             render();
@@ -95,8 +97,6 @@ MiniRacerApp::UpdateResult MiniRacerApp::update(const board::InputState& input) 
                 start_round(now);
             }
         }
-    } else if (input.primary_short || input.secondary_short) {
-        return UpdateResult::ExitRequested;
     }
     return UpdateResult::Running;
 }
@@ -320,7 +320,7 @@ void MiniRacerApp::render() {
         board_.clear_screen();
         board_.draw_text_region(18, 36, 218, 30, "KONIEC CZASU", 2);
         board_.draw_text_region(18, 77, 218, 21, "10 MIN GRY", 2);
-        board_.draw_text_region(18, 112, 218, 17, "M5 / SIDE: POWRÓT", 1);
+        board_.draw_text_region(18, 112, 218, 17, "M5 PONÓW  SIDE WYJDŹ", 1);
         break;
     }
 }
