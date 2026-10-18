@@ -1,5 +1,6 @@
 #include "clock/world_clock_rules.hpp"
 #include <cassert>
+#include <cstdio>
 using namespace nikos::clock::world;
 using namespace nikos::clock::warsaw;
 constexpr bool same(DateTime a,DateTime b){
@@ -8,7 +9,14 @@ constexpr bool same(DateTime a,DateTime b){
 }
 void check(City city,DateTime utc,DateTime expected,int offset) {
     const auto result=convert(city,utc);
-    assert(result.valid && same(result.local,expected));
+    if (!result.valid || !same(result.local,expected)) {
+        std::fprintf(stderr,
+            "WorldClock fixture mismatch city=%u UTC=%04u-%02u-%02u %02u:%02u got=%04u-%02u-%02u %02u:%02u expected=%04u-%02u-%02u %02u:%02u valid=%d\\n",
+            static_cast<unsigned>(city),utc.year,utc.month,utc.day,utc.hour,utc.minute,
+            result.local.year,result.local.month,result.local.day,result.local.hour,result.local.minute,
+            expected.year,expected.month,expected.day,expected.hour,expected.minute,result.valid);
+        assert(false);
+    }
     assert(result.offset_minutes==offset*60);
     assert(same(convert(city,utc).local,expected));
 }
