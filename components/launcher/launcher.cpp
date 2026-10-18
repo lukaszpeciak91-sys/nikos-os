@@ -24,7 +24,7 @@ constexpr std::array<Entry, 6> kEntries = {{
 }};
 
 constexpr std::size_t kVisibleLauncherRows = 4;
-constexpr std::uint8_t kClockMenuItemCount = 6;
+constexpr std::uint8_t kClockMenuItemCount = 7;
 constexpr std::uint8_t kClockVisibleRows = 2;
 constexpr std::uint8_t kClockTimerIndex = 3;
 constexpr std::int16_t kClockMenuFirstY = 57;
@@ -691,12 +691,32 @@ Action Launcher::update(const board::InputState& input)
             } else if (clock_selection_ == 4U) {
                 reset_stopwatch_session();
                 screen_ = Screen::Stopwatch;
+            } else if (clock_selection_ == 5U) {
+                world_city_ = 0;
+                screen_ = Screen::WorldClock;
             } else {
                 screen_ = Screen::Main;
             }
             render();
         }
 
+        return Action::None;
+    }
+
+    if (screen_ == Screen::WorldClock) {
+        if (input.secondary_long) {
+            clock_selection_ = 5U;
+            update_clock_viewport();
+            screen_ = Screen::Clock;
+            render();
+        } else if (input.primary_short || input.secondary_short) {
+            world_city_ = static_cast<std::uint8_t>(
+                (world_city_ + (input.primary_short ? 1U : 4U))
+                % clock::world::kCityCount);
+            render_world_clock_if_changed(true);
+        } else {
+            render_world_clock_if_changed();
+        }
         return Action::None;
     }
 
@@ -1541,6 +1561,9 @@ void Launcher::render()
         case Screen::Clock:
             render_clock();
             break;
+        case Screen::WorldClock:
+            render_world_clock();
+            break;
         case Screen::TimerSetup:
             render_timer_setup();
             break;
@@ -1963,7 +1986,8 @@ void Launcher::render_clock()
     board_.draw_text_region(14, 4, 212, 18, "ZEGAR", 2);
     render_clock_time_if_changed();
     constexpr const char* kItems[kClockMenuItemCount] = {
-        "USTAW CZAS", "USTAW DATE", "KALENDARZ", nullptr, "STOPER", "POWRÓT",
+        "USTAW CZAS", "USTAW DATE", "KALENDARZ", nullptr, "STOPER",
+        "ZEGAR ŚWIATOWY", "POWRÓT",
     };
     font_renderer_.select(font_core::Mode::PreRendered);
     font_renderer_.set_size(font_core::Size::Readable);
@@ -1986,6 +2010,68 @@ void Launcher::render_clock()
     board_.draw_text_region(14, 122, 212, 12,
         "M5 WYBIERZ | BOCZNY DALEJ", 1,
         board::DisplayColor::SecondaryText);
+}
+
+void Launcher::render_world_clock()
+{
+    clear_shell(board_);
+    world_rendered_valid_=false;
+    render_world_clock_if_changed(true);
+}
+
+void Launcher::render_world_clock_if_changed(bool force)
+{
+    clock::warsaw::DateTime utc{};
+    const bool trusted=clock_service_.read_utc(utc);
+    const auto city=static_cast<clock::world::City>(world_city_);
+    const auto shown=trusted ? clock::world::convert(city,utc)
+                            : clock::world::Reading{};
+    const std::uint32_t minute=shown.valid
+        ? static_cast<std::uint32_t>(clock::warsaw::seconds(shown.local)/60)
+        : 0U;
+    if (!force && world_rendered_valid_ && world_rendered_minute_==minute
+        && world_rendered_trusted_==shown.valid) return;
+    world_rendered_minute_=minute;
+    world_rendered_trusted_=shown.valid;
+    world_rendered_valid_=true;
+    // Static header and labels are redrawn only on minute/city/trust changes.
+    clear_shell(board_);
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Compact);
+    font_renderer_.draw("ZEGAR ŚWIATOWY",{12,5,205,18},
+        board::DisplayColor::SecondaryText);
+    font_renderer_.set_size(font_core::Size::Readable);
+    font_renderer_.draw(clock::world::city_name(city),{12,29,215,24},
+        board::DisplayColor::PrimaryText);
+    if (shown.valid) {
+        char time[6]{};
+        std::snprintf(time,sizeof(time),"%02u:%02u",
+            static_cast<unsigned>(shown.local.hour),
+            static_cast<unsigned>(shown.local.minute));
+        board_.draw_text_region(69,55,114,31,time,3,
+            board::DisplayColor::PrimaryText,
+            board::DisplayColor::Background);
+        char date[16]{};
+        std::snprintf(date,sizeof(date),"%02u.%02u.%04u",
+            static_cast<unsigned>(shown.local.day),
+            static_cast<unsigned>(shown.local.month),
+            static_cast<unsigned>(shown.local.year));
+        font_renderer_.set_size(font_core::Size::Compact);
+        font_renderer_.draw(date,{67,91,120,18},
+            board::DisplayColor::SecondaryText);
+    } else {
+        font_renderer_.set_size(font_core::Size::Readable);
+        font_renderer_.draw("BRAK CZASU",{20,65,200,24},
+            board::DisplayColor::Attention);
+    }
+    char position[5]{};
+    std::snprintf(position,sizeof(position),"%u/5",
+        static_cast<unsigned>(world_city_+1));
+    font_renderer_.set_size(font_core::Size::Compact);
+    font_renderer_.draw(position,{196,6,42,18},
+        board::DisplayColor::Accent);
+    font_renderer_.draw("M5 >  BOCZNY <  DLUGO POWROT",
+        {8,116,224,18},board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_timer_setup()
