@@ -4,6 +4,12 @@
 
 Communicator v0.1 core UX over the long-lived messaging infrastructure.
 
+## Entertainment game limits cleanup R0
+- Snake has no separate 10-minute continuous-session timeout. Natural collision/game-over, score, restart, warning suspension, and exit behavior remain. The existing central 20-minute Entertainment window / 60-minute break remains the only time admission restriction across games.
+- Coin Flip retains its natural single-flip completion, with no gameplay or timing modification in R0.
+- Mini Racer still uses `session_started_ms_` and `kSessionLimitMs` (10 minutes counted from entry) and Space Defender still uses `session_started_ms_` with `rules::kSessionMs` (10 minutes counted from entry). These are **not** yet per-round deadlines. Dedicated finale PRs must start a fresh 10-minute *gameplay-round* deadline on each new round, while leaving Entertainment Guard session and cooldown untouched; round failure/retry must never call Guard enter as a new window.
+- No changes to charging, communications, power, battery, or Guard persistence.
+
 ## Current state
 - System message typography v0.1: system-owned Entertainment break/reserve/near-expiry notices, BatteryGuard advisories/critical shutdown, Timer completion and Charging Lock caption now use the existing PRE-RENDERED Polish UI renderer with Readable/Compact sizing and bounded layouts. Native numeric charging percentages, OK glyphs and clock time remain unchanged; state machines and notice timing are unaffected.
 

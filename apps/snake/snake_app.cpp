@@ -13,7 +13,6 @@ constexpr std::int16_t kCellSizePx = 6;
 constexpr std::uint32_t kInitialMoveIntervalMs = 220;
 constexpr std::uint32_t kMinimumMoveIntervalMs = 95;
 constexpr std::uint32_t kSpeedStepMs = 8;
-constexpr std::uint32_t kSessionLimitMs = 10U * 60U * 1000U;
 constexpr std::size_t kInitialSnakeLength = 4;
 
 }  // namespace
@@ -34,8 +33,7 @@ SnakeApp::SnakeApp(
 void SnakeApp::begin()
 {
     active_ = true;
-    session_started_ms_ = now_ms();
-    start_game(session_started_ms_);
+    start_game(now_ms());
     display_lifecycle_.note_visible_activity();
     render_game();
 }
@@ -70,9 +68,6 @@ void SnakeApp::redraw()
         case State::GameOver:
             render_game_over();
             break;
-        case State::TimeLimit:
-            render_time_limit();
-            break;
     }
 }
 
@@ -87,20 +82,7 @@ SnakeApp::UpdateResult SnakeApp::update(
         return UpdateResult::ExitRequested;
     }
 
-    if (state_ == State::TimeLimit) {
-        if (input.primary_short || input.secondary_short) {
-            return UpdateResult::ExitRequested;
-        }
-        return UpdateResult::Running;
-    }
-
     const std::uint32_t now = now_ms();
-
-    if (now - session_started_ms_ >= kSessionLimitMs) {
-        state_ = State::TimeLimit;
-        render_time_limit();
-        return UpdateResult::Running;
-    }
 
     if (state_ == State::GameOver) {
         if (input.primary_short) {
@@ -450,47 +432,6 @@ void SnakeApp::render_game_over()
         210,
         14,
         "BOCZNY = POWROT",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-}
-
-void SnakeApp::render_time_limit()
-{
-    board_.clear_screen();
-
-    char score_text[24]{};
-    std::snprintf(
-        score_text,
-        sizeof(score_text),
-        "WYNIK: %u",
-        static_cast<unsigned>(score_));
-
-    board_.draw_text_region(
-        34,
-        25,
-        190,
-        20,
-        "KONIEC SESJI",
-        2,
-        board::DisplayColor::Attention,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        70,
-        59,
-        120,
-        20,
-        score_text,
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(62, 86, 150, 15, "10 MIN GRY", 1);
-    board_.draw_text_region(
-        31,
-        105,
-        195,
-        14,
-        "M5 / BOCZNY = POWROT",
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);

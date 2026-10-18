@@ -37,7 +37,6 @@ private:
     enum class State : std::uint8_t {
         Playing,
         GameOver,
-        TimeLimit,
     };
 
     enum class Direction : std::uint8_t {
@@ -69,7 +68,6 @@ private:
     void render_game();
     void render_hud();
     void render_game_over();
-    void render_time_limit();
 
     board::Board& board_;
     power::DisplayLifecycle& display_lifecycle_;
@@ -89,7 +87,6 @@ private:
     bool active_ = false;
     bool turn_consumed_since_move_ = false;
     std::uint32_t warning_move_elapsed_ms_ = 0;
-    std::uint32_t session_started_ms_ = 0;
     std::uint32_t last_move_ms_ = 0;
 };
 
