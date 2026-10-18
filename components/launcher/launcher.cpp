@@ -2410,43 +2410,14 @@ void Launcher::render_date_set_failed()
 void Launcher::render_date_needs_time()
 {
     clear_shell(board_);
-
-    board_.draw_text_region(
-        14,
-        12,
-        212,
-        20,
-        "USTAW DATE",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        66,
-        47,
-        130,
-        20,
-        "NAJPIERW",
-        2,
-        board::DisplayColor::Attention,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        55,
-        70,
-        150,
-        20,
-        "USTAW CZAS",
-        2,
-        board::DisplayColor::PrimaryText,
-        board::DisplayColor::Background);
-    board_.draw_text_region(
-        42,
-        112,
-        180,
-        14,
-        "M5 / BOCZNY = POWROT",
-        1,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Readable);
+    font_renderer_.draw("USTAW DATĘ",{12,14,216,24});
+    font_renderer_.draw("NAJPIERW USTAW CZAS",{10,57,220,24},
+        board::DisplayColor::Attention);
+    font_renderer_.set_size(font_core::Size::Compact);
+    font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
+        board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_calendar()
