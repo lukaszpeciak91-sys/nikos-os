@@ -26,7 +26,8 @@ jobs:
             tools/tests/test_warsaw_time_rules.cpp \
             tools/tests/test_ent1_migration_contract.cpp \
             tools/tests/test_clock_utc_migration.cpp \
-            tools/tests/test_rtc_utc_commit_failures.cpp; do
+            tools/tests/test_rtc_utc_commit_failures.cpp \
+            tools/tests/test_world_clock.cpp; do
             binary="/tmp/nikos-host/$(basename "${source%.cpp}")"
             g++ -std=c++17 -Wall -Wextra -Werror \
               -Icomponents/clock/include \

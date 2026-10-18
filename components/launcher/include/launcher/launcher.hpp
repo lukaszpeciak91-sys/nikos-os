@@ -5,6 +5,7 @@
 #include "board/board.hpp"
 #include "font_core/font_core.hpp"
 #include "clock/clock_service.hpp"
+#include "clock/world_clock_rules.hpp"
 #include "countdown/countdown_service.hpp"
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
@@ -104,6 +105,7 @@ private:
         ClockDateSetFailed,
         ClockDateNeedsTime,
         Calendar,
+        WorldClock,
         Settings,
         SoundMenu,
         SignalSound,
@@ -145,6 +147,8 @@ private:
     void render_date_set_failed();
     void render_date_needs_time();
     void render_calendar();
+    void render_world_clock();
+    void render_world_clock_if_changed(bool force = false);
     void render_header_time_if_changed();
     void render_clock_time_if_changed();
     void render_clock_timer_if_changed();
@@ -184,6 +188,11 @@ private:
     std::uint8_t entertainment_selection_ = 0;
     std::uint8_t games_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
+    std::uint8_t world_city_ = 0;
+    bool world_rendered_valid_ = false;
+    std::uint32_t world_last_sample_ms_ = 0;
+    bool world_rendered_trusted_ = false;
+    std::uint32_t world_rendered_minute_ = 0;
     std::uint8_t clock_view_start_ = 0;
     std::uint8_t timer_selection_ = 0;
     StopwatchState stopwatch_state_ = StopwatchState::Idle;
