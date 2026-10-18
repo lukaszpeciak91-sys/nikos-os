@@ -297,16 +297,16 @@ void MiniRacerApp::render_victory() {
     board_.clear_screen();
     board_.draw_text_region(57,12,145,30,"META!",3,
         board::DisplayColor::Accent);
-    board_.draw_text_region(16,49,222,24,"TRASA UKOŃCZONA",2,
-        board::DisplayColor::PrimaryText);
+    board_.draw_polish_ui_text_region(16,49,222,24,
+        "TRASA UKOŃCZONA",1,board::DisplayColor::PrimaryText);
     char result[30]{};
     const auto sec=active_play_ms_/1000U;
     std::snprintf(result,sizeof(result),"CZAS %lu:%02lu",
         static_cast<unsigned long>(sec/60U),
         static_cast<unsigned long>(sec%60U));
     board_.draw_text_region(52,76,155,17,result,1);
-    board_.draw_text_region(22,97,210,17,"M5 PONOWNIE  SIDE WYJDŹ",1);
-    board_.draw_text_region(22,117,210,14,"BOCZNY DŁUGO = WYJDŹ",1);
+    board_.draw_polish_ui_text_region(22,97,210,17,"M5 PONOWNIE  SIDE WYJDŹ",1);
+    board_.draw_polish_ui_text_region(22,117,210,14,"BOCZNY DŁUGO = WYJDŹ",1);
 }
 
 void MiniRacerApp::render() {
