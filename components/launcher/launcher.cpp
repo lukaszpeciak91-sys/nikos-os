@@ -2294,9 +2294,11 @@ void Launcher::render_clock_set_failed()
     font_renderer_.draw("USTAW CZAS",{12,14,216,24});
     const auto status=clock_service_.last_local_status();
     const char* message=status==clock::warsaw::LocalStatus::Nonexistent
-        ? "NIE MA TEJ GODZINY"
+        ? "BRAK TEJ GODZINY"
         : status==clock::warsaw::LocalStatus::Ambiguous
             ? "GODZINA PODWÓJNA" : "NIE ZAPISANO";
+    if (!font_renderer_.measure(message,220,24).fits)
+        font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw(message,{10,57,220,24},
         board::DisplayColor::Danger);
     font_renderer_.set_size(font_core::Size::Compact);
@@ -2310,7 +2312,7 @@ void Launcher::render_clock_needs_date()
     font_renderer_.select(font_core::Mode::PreRendered);
     font_renderer_.set_size(font_core::Size::Readable);
     font_renderer_.draw("CZAS WPROWADZONY",{10,20,220,24});
-    font_renderer_.draw("USTAW JESZCZE DATĘ",{10,62,220,24},
+    font_renderer_.draw("USTAW DATĘ",{10,62,220,24},
         board::DisplayColor::Attention);
     font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
@@ -2394,9 +2396,11 @@ void Launcher::render_date_set_failed()
     font_renderer_.draw("USTAW DATĘ",{12,14,216,24});
     const auto status=clock_service_.last_local_status();
     const char* message=status==clock::warsaw::LocalStatus::Nonexistent
-        ? "NIE MA TEJ GODZINY"
+        ? "BRAK TEJ GODZINY"
         : status==clock::warsaw::LocalStatus::Ambiguous
             ? "GODZINA PODWÓJNA" : "NIE ZAPISANO";
+    if (!font_renderer_.measure(message,220,24).fits)
+        font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw(message,{10,57,220,24},board::DisplayColor::Danger);
     font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
