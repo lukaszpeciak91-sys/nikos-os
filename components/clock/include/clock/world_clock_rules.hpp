@@ -51,6 +51,17 @@ constexpr bool ny_dst(DateTime utc) {
         {y,static_cast<std::uint8_t>(spring_month),static_cast<std::uint8_t>(spring_day),7,0,0},
         {y,static_cast<std::uint8_t>(fall_month),static_cast<std::uint8_t>(fall_day),6,0,0});
 }
+constexpr bool pacific_dst(DateTime utc) {
+    const auto y=utc.year;
+    const unsigned spring_month=y>=2007?3:4;
+    const unsigned spring_day=y>=2007?nth_sunday(y,3,2):nth_sunday(y,4,1);
+    const unsigned fall_month=y>=2007?11:10;
+    const unsigned fall_day=y>=2007?nth_sunday(y,11,1):warsaw::last_sunday(y,10);
+    // Both American zones switch at 02:00 LOCAL, not at one shared UTC hour.
+    return in_interval(warsaw::seconds(utc),
+        {y,static_cast<std::uint8_t>(spring_month),static_cast<std::uint8_t>(spring_day),10,0,0},
+        {y,static_cast<std::uint8_t>(fall_month),static_cast<std::uint8_t>(fall_day),9,0,0});
+}
 constexpr bool london_dst(DateTime utc) {
     const auto y=utc.year;
     return in_interval(warsaw::seconds(utc),
@@ -112,7 +123,7 @@ constexpr Reading convert(City city,DateTime utc) {
         case City::Cairo: offset_minutes=cairo_dst(utc)?180:120;break;
         case City::CapeTown: offset_minutes=120;break;
         case City::NewYork: offset_minutes=ny_dst(utc)?-240:-300;break;
-        case City::LosAngeles: offset_minutes=ny_dst(utc)?-420:-480;break;
+        case City::LosAngeles: offset_minutes=pacific_dst(utc)?-420:-480;break;
         case City::Rio: offset_minutes=-180;break;
         case City::BuenosAires: offset_minutes=-180;break;
         case City::Dubai: offset_minutes=240;break;
