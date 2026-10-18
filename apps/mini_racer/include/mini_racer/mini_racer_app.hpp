@@ -21,7 +21,6 @@ public:
 private:
     using State = rules::State;
     static std::uint32_t now_ms();
-    static constexpr std::uint32_t kSessionLimitMs = 600000;
     static constexpr std::int32_t kSpawnX = 255;
     static constexpr std::int32_t kPlayerLeft = 33;
     static constexpr std::int32_t kPlayerRight = 59;
