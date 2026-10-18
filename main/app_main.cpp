@@ -3,6 +3,7 @@
 #include "storage/entertainment_cycle_store.hpp"
 #include "board/board.hpp"
 #include "clock/clock_service.hpp"
+#include "clock/legacy_civil_minutes.hpp"
 #include "communicator/communicator_app.hpp"
 #include "countdown/countdown_service.hpp"
 #include "facts/facts_app.hpp"
@@ -90,30 +91,18 @@ bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out)
     return true;
 }
 
-bool migrate_legacy_cycle_minutes(
+void migrate_legacy_cycle_minutes(
     nikos::storage::EntertainmentCycle& cycle) {
-    if (!cycle.active || !cycle.legacy_local) return true;
-    // ENT1's origin was 2000-01-01, in Polish LOCAL civil minutes.
-    // Never treat its minute counter as an already-UTC timestamp.
-    if (cycle.civil_valid) {
-        nikos::clock::warsaw::DateTime local{};
-        if (!nikos::clock::warsaw::from_seconds(
-                static_cast<std::int64_t>(cycle.civil_start)*60,local)) {
-            cycle.civil_valid=false;
-        } else {
-            const auto conversion=nikos::clock::warsaw::local_to_utc(local);
-            if (conversion.status==nikos::clock::warsaw::LocalStatus::Unique) {
-                const auto utc=nikos::clock::warsaw::valid(conversion.daylight_utc)
-                    ? conversion.daylight_utc : conversion.standard_utc;
-                cycle.civil_start=static_cast<std::uint32_t>(
-                    nikos::clock::warsaw::seconds(utc)/60);
-            } else {
-                // Ambiguous legacy autumn hours are not silently guessed.
-                cycle.civil_valid=false;
-            }
-        }
+    if (!cycle.active || !cycle.legacy_local || !cycle.civil_valid) return;
+    std::uint32_t utc_minutes=0;
+    if (nikos::clock::legacy_local_minutes_to_utc(
+            cycle.civil_start,utc_minutes)) {
+        cycle.civil_start=utc_minutes;
+    } else {
+        // Ambiguous or invalid legacy timestamps use the existing safe
+        // Guard fallback; they are never reinterpreted as UTC.
+        cycle.civil_valid=false;
     }
-    return true;
 }
 // System-owned overlays use the same pre-rendered glyphs as Launcher.
 // Coordinates stay within 240x135; heading falls back to Compact when needed.
@@ -1122,7 +1111,7 @@ extern "C" void app_main(void)
     if (!entertainment_store.load(stored_entertainment)) {
         ESP_LOGW(kTag, "Entertainment cycle NVS unavailable");
     }
-    (void)migrate_legacy_cycle_minutes(stored_entertainment);
+    migrate_legacy_cycle_minutes(stored_entertainment);
     std::uint32_t boot_civil_minute = 0;
     const bool boot_clock_trusted =
         trusted_civil_minute(clock_service, boot_civil_minute);
