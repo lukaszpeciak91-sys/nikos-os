@@ -60,7 +60,7 @@ int main() {
     for (unsigned i = 1; i <= 24; ++i) {
         app.update(side_short());
         assert(board.bounds_ok);
-        assert(board.marker_y == 29 + 22 * (i < 4 ? i : 3));
+        assert(board.marker_y == 29 + 22 * static_cast<int>(i < 4 ? i : 3));
     }
     app.update(m5_short());   // Last card (25/25).
     app.update(side_short()); // Wrap to first card (01/25).

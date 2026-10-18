@@ -90,7 +90,7 @@ void VwGarageApp::render_list() {
         }
         renderer_.draw(model.name,
             {16, static_cast<std::int16_t>(y + 1), 164, 19}, fg, bg);
-        char year[5];
+        char year[6];
         std::snprintf(year, sizeof(year), "%u",
             static_cast<unsigned>(model.debut_year));
         const auto width = renderer_.measure(year, 45, 19).width_px;
@@ -111,7 +111,7 @@ void VwGarageApp::render_card() {
     renderer_.draw(model.name, {12, 28, 216, 19}, board::DisplayColor::Accent);
     board_.draw_text_region(12, 57, 42, 12, "DEBIUT", 1,
         board::DisplayColor::SecondaryText, board::DisplayColor::Background);
-    char year[5];
+    char year[6];
     std::snprintf(year, sizeof(year), "%u",
         static_cast<unsigned>(model.debut_year));
     renderer_.draw(year, {56, 53, 55, 19});

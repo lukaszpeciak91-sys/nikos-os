@@ -141,7 +141,7 @@ def check_contract(screen_text, update_text, recognized_text, runtime_text):
     if "entertainment_action(" in screen_text:
         return False
     routes = re.findall(r"return\s+Action::(Open\w+)\s*;", screen_text)
-    if len(routes)!=5 or len(routes)!=len(set(routes)):
+    if len(routes)!=6 or len(routes)!=len(set(routes)):
         return False
     for action in routes:
         if "Action::"+action not in recognized_text:
@@ -305,9 +305,11 @@ games = launcher.split("if (screen_ == Screen::Games)",1)[1].split(
 assert "screen_ = Screen::Games;" in menu
 assert "screen_ = Screen::Entertainment;" in games
 assert "return Action::OpenFacts;" in menu
+assert "return Action::OpenVwGarage;" in menu
 assert "Action::OpenSnake" not in menu
 assert "Action::OpenFacts" not in games
-assert "(entertainment_selection_ + 1U) % 3U" in menu
+assert "Action::OpenVwGarage" not in games
+assert "(entertainment_selection_ + 1U) % 4U" in menu
 assert "(games_selection_ + 1U) % 5U" in games
 for action in ("OpenSnake", "OpenMiniRacer", "OpenSpaceDefender", "OpenCoinFlip"):
     assert ("return Action::"+action+";") in games
