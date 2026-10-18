@@ -2021,6 +2021,10 @@ void Launcher::render_world_clock()
 
 void Launcher::render_world_clock_if_changed(bool force)
 {
+    const std::uint32_t sample_now=now_ms();
+    if (!force && world_rendered_valid_
+        && sample_now-world_last_sample_ms_<kClockSampleIntervalMs) return;
+    world_last_sample_ms_=sample_now;
     clock::warsaw::DateTime utc{};
     const bool trusted=clock_service_.read_utc(utc);
     const auto city=static_cast<clock::world::City>(world_city_);
