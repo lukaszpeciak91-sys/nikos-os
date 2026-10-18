@@ -136,7 +136,11 @@ ClockService::ClockService(
 
 bool ClockService::raw_rtc(warsaw::DateTime& out) const
 {
-    if (!board_.rtc_available() || board_.rtc_voltage_low()) return false;
+    if (!board_.rtc_available()) return false;
+    if (board_.rtc_voltage_low()) {
+        (void)invalidate_date_trust(false);
+        return false;
+    }
     // Date/time registers are read separately. Reject rollover during a read.
     for (int attempt = 0; attempt < 3; ++attempt) {
         board::RtcDate before{}, after{};
@@ -252,7 +256,11 @@ Reading ClockService::read() const
 {
     Reading reading{};
     if (basis_==storage::RtcTimeBasis::LegacyLocal) {
-        if (!board_.rtc_available() || board_.rtc_voltage_low()) return reading;
+        if (!board_.rtc_available()) return reading;
+        if (board_.rtc_voltage_low()) {
+            (void)invalidate_date_trust(false);
+            return reading;
+        }
         board::RtcTime raw{};
         if (!board_.read_rtc_time(raw)) return reading;
         reading.valid=true;
