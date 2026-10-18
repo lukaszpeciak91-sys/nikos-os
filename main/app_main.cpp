@@ -95,8 +95,9 @@ void migrate_legacy_cycle_minutes(
     nikos::storage::EntertainmentCycle& cycle) {
     if (!cycle.active || !cycle.legacy_local || !cycle.civil_valid) return;
     std::uint32_t utc_minutes=0;
-    if (nikos::clock::legacy_local_minutes_to_utc(
-            cycle.civil_start,utc_minutes)) {
+    const auto converted=nikos::clock::legacy_local_minutes_to_utc(
+        cycle.civil_start,utc_minutes);
+    if (converted!=nikos::clock::LegacyMinuteStatus::Invalid) {
         cycle.civil_start=utc_minutes;
     } else {
         // Ambiguous or invalid legacy timestamps use the existing safe
