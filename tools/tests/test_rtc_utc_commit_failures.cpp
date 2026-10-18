@@ -87,6 +87,9 @@ int main() {
             // Pending was durably written before mark_pending() returned.
             // Fresh boot sees Pending and must refuse clock trust.
             assert(!interrupted.utc_basis);
+        } else if(checkpoint==7) {
+            // All durable markers committed: reboot may trust UTC safely.
+            assert(interrupted.boot_trusted());
         } else {
             assert(!interrupted.boot_trusted());
         }
