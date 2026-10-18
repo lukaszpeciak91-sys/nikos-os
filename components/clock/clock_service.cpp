@@ -134,184 +134,196 @@ ClockService::ClockService(
 {
 }
 
+bool ClockService::raw_rtc(warsaw::DateTime& out) const
+{
+    if (!board_.rtc_available() || board_.rtc_voltage_low()) return false;
+    // Date/time registers are read separately. Reject rollover during a read.
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        board::RtcDate before{}, after{};
+        board::RtcTime time{};
+        if (!board_.read_rtc_date(before) || !board_.read_rtc_time(time)
+            || !board_.read_rtc_date(after)) return false;
+        if (before.year != after.year || before.month != after.month
+            || before.day != after.day) continue;
+        const warsaw::DateTime candidate{
+            before.year,before.month,before.day,time.hour,time.minute,time.second};
+        if (!warsaw::valid(candidate)) return false;
+        out=candidate;
+        return true;
+    }
+    return false;
+}
+
+bool ClockService::trusted_utc(warsaw::DateTime& out) const
+{
+    return basis_ == storage::RtcTimeBasis::Utc
+        && date_trust_initialized_ && date_configured_
+        && raw_rtc(out);
+}
+
+bool ClockService::read_utc(warsaw::DateTime& out) const
+{
+    return trusted_utc(out);
+}
+
+bool ClockService::local_now(warsaw::DateTime& out) const
+{
+    warsaw::DateTime raw{};
+    if (basis_ == storage::RtcTimeBasis::Utc) {
+        warsaw::ZonedTime converted{};
+        if (!trusted_utc(raw) || !warsaw::utc_to_local(raw,converted))
+            return false;
+        out=converted.time;
+        return true;
+    }
+    if (basis_ != storage::RtcTimeBasis::LegacyLocal || !raw_rtc(raw))
+        return false;
+    out=raw;
+    return true;
+}
+
+bool ClockService::commit_utc(const warsaw::DateTime& utc) const
+{
+    if (!warsaw::valid(utc) || !board_.rtc_available()) return false;
+    // The pending marker is committed BEFORE either independent RTC write.
+    // A reboot in any partial state cannot authorize or re-convert the RTC.
+    if (!basis_store_.save(storage::RtcTimeBasis::Pending)) return false;
+    basis_=storage::RtcTimeBasis::Pending;
+    date_configured_=false;
+    marker_known_false_=date_store_.save_configured(false);
+    if (!marker_known_false_) return false;
+
+    const board::RtcDate date{utc.year,utc.month,utc.day};
+    const board::RtcTime time{utc.hour,utc.minute,utc.second};
+    if (!board_.write_rtc_date(date) || !board_.write_rtc_time(time)) return false;
+
+    warsaw::DateTime verified{};
+    if (!raw_rtc(verified)
+        || verified.year!=utc.year || verified.month!=utc.month
+        || verified.day!=utc.day || verified.hour!=utc.hour
+        || verified.minute!=utc.minute
+        || verified.second < utc.second
+        || verified.second > static_cast<unsigned>(utc.second)+2U)
+        return false;
+
+    if (!basis_store_.save(storage::RtcTimeBasis::Utc)) return false;
+    basis_=storage::RtcTimeBasis::Utc;
+    if (!date_store_.save_configured(true)) return false;
+    date_configured_=true;
+    marker_known_false_=false;
+    staged_time_=false;
+    staged_date_=false;
+    return true;
+}
+
+bool ClockService::write_local(const warsaw::DateTime& local) const
+{
+    const auto resolution=warsaw::local_to_utc(local);
+    last_local_status_=resolution.status;
+    if (resolution.status!=warsaw::LocalStatus::Unique) return false;
+    // Exactly one candidate is valid for an unambiguous local instant.
+    const auto utc=warsaw::valid(resolution.daylight_utc)
+        ? resolution.daylight_utc : resolution.standard_utc;
+    return commit_utc(utc);
+}
+
 void ClockService::initialize_date_trust()
 {
-    date_trust_initialized_ = true;
-    date_configured_ = false;
-    marker_known_false_ = false;
-
-    if (!board_.rtc_available()) {
-        return;
-    }
-
+    date_trust_initialized_=true;
+    date_configured_=false;
+    marker_known_false_=false;
+    basis_=basis_store_.load();
+    if (!board_.rtc_available()) return;
     if (board_.rtc_voltage_low()) {
-        marker_known_false_ = date_store_.save_configured(false);
+        marker_known_false_=date_store_.save_configured(false);
         return;
     }
+    bool configured=false;
+    if (!date_store_.load_configured(configured)) return;
+    date_configured_=configured;
+    marker_known_false_=!configured;
+    if (basis_!=storage::RtcTimeBasis::LegacyLocal || !configured) return;
 
-    bool configured = false;
-    if (!date_store_.load_configured(configured)) {
-        return;
-    }
-
-    date_configured_ = configured;
-    marker_known_false_ = !configured;
+    // Existing valid RTC stores Polish local time. Only an unambiguous
+    // timestamp may be migrated automatically; no guessing of autumn 02:xx.
+    warsaw::DateTime local{};
+    if (raw_rtc(local)) (void)write_local(local);
 }
 
 Reading ClockService::read() const
 {
-    Reading reading;
-
-    if (!board_.rtc_available()) {
+    Reading reading{};
+    if (basis_==storage::RtcTimeBasis::LegacyLocal) {
+        if (!board_.rtc_available() || board_.rtc_voltage_low()) return reading;
+        board::RtcTime raw{};
+        if (!board_.read_rtc_time(raw)) return reading;
+        reading.valid=true;
+        reading.time={raw.hour,raw.minute};
         return reading;
     }
-
-    if (board_.rtc_voltage_low()) {
-        (void)invalidate_date_trust(false);
-        return reading;
-    }
-
-    board::RtcTime rtc_time;
-    if (!board_.read_rtc_time(rtc_time)
-        || rtc_time.hour > 23
-        || rtc_time.minute > 59
-        || rtc_time.second > 59) {
-        return reading;
-    }
-
-    reading.valid = true;
-    reading.time.hour = rtc_time.hour;
-    reading.time.minute = rtc_time.minute;
+    warsaw::DateTime local{};
+    if (!local_now(local)) return reading;
+    reading.valid=true;
+    reading.time={local.hour,local.minute};
     return reading;
 }
 
-bool ClockService::set_time(
-    std::uint8_t hour,
-    std::uint8_t minute) const
+bool ClockService::set_time(std::uint8_t hour,std::uint8_t minute) const
 {
-    if (hour > 23 || minute > 59 || !board_.rtc_available()) {
-        return false;
+    last_local_status_=warsaw::LocalStatus::Invalid;
+    if (hour>23 || minute>59 || !board_.rtc_available()) return false;
+    warsaw::DateTime local{};
+    if (local_now(local) && (basis_!=storage::RtcTimeBasis::LegacyLocal
+                            || date_configured_)) {
+        local.hour=hour; local.minute=minute; local.second=0;
+        return write_local(local);
     }
-
-    if (board_.rtc_voltage_low()) {
-        // PCF8563 VL lives in the seconds register. setTime() replaces that
-        // register, so durable date invalidation must succeed before the time
-        // write is allowed to clear VL.
-        if (!invalidate_date_trust(true)) {
-            return false;
-        }
-    }
-
-    const board::RtcTime requested{
-        hour,
-        minute,
-        0,
-    };
-
-    if (!board_.write_rtc_time(requested)) {
-        return false;
-    }
-
-    board::RtcTime verified_time;
-    if (board_.rtc_voltage_low()
-        || !board_.read_rtc_time(verified_time)) {
-        return false;
-    }
-
-    return verified_time.hour == hour
-        && verified_time.minute == minute
-        && verified_time.second <= 1U;
+    staged_local_.hour=hour;
+    staged_local_.minute=minute;
+    staged_local_.second=0;
+    staged_time_=true;
+    if (staged_date_) return write_local(staged_local_);
+    return true; // Time retained in RAM until user also configures the date.
 }
 
 DateReading ClockService::read_date() const
 {
-    DateReading reading;
-
-    if (!date_trust_initialized_
-        || !date_configured_
-        || !board_.rtc_available()) {
-        return reading;
-    }
-
-    if (board_.rtc_voltage_low()) {
-        (void)invalidate_date_trust(false);
-        return reading;
-    }
-
-    board::RtcDate rtc_date;
-    if (!board_.read_rtc_date(rtc_date)) {
-        return reading;
-    }
-
-    const Date date{
-        rtc_date.year,
-        rtc_date.month,
-        rtc_date.day,
-    };
-    if (!valid_date(date)) {
-        return reading;
-    }
-
-    reading.valid = true;
-    reading.date = date;
-    return reading;
+    DateReading result{};
+    warsaw::DateTime local{};
+    if (!date_trust_initialized_ || !date_configured_
+        || !local_now(local)) return result;
+    result.valid=true;
+    result.date={local.year,local.month,local.day};
+    return result;
 }
 
 DateSetResult ClockService::set_date(const Date& date) const
 {
-    if (!date_trust_initialized_
-        || !valid_date(date)
-        || !board_.rtc_available()) {
-        return DateSetResult::Failed;
+    last_local_status_=warsaw::LocalStatus::Invalid;
+    if (!date_trust_initialized_ || !valid_date(date)
+        || !board_.rtc_available()) return DateSetResult::Failed;
+    warsaw::DateTime local{};
+    if (local_now(local) && date_configured_) {
+        local.year=date.year; local.month=date.month; local.day=date.day;
+    } else {
+        staged_local_.year=date.year;
+        staged_local_.month=date.month;
+        staged_local_.day=date.day;
+        staged_date_=true;
+        if (staged_time_) local=staged_local_;
+        else if (basis_==storage::RtcTimeBasis::LegacyLocal
+            && !board_.rtc_voltage_low()) {
+            board::RtcTime raw{};
+            if (!board_.read_rtc_time(raw)) return DateSetResult::TimeUntrusted;
+            local={date.year,date.month,date.day,raw.hour,raw.minute,raw.second};
+        } else return DateSetResult::TimeUntrusted;
     }
-
-    // Date-only setDate() does not touch the shared PCF8563 VL bit.
-    // Require trustworthy time/integrity first rather than silently rewriting
-    // HH:MM:SS just to clear VL.
-    if (!read().valid) {
-        return DateSetResult::TimeUntrusted;
-    }
-
-    // Persist false first so a later partial failure cannot leave an older
-    // configured=true marker authorizing a hardware date we failed to commit
-    // as trusted.
-    date_configured_ = false;
-    marker_known_false_ = date_store_.save_configured(false);
-    if (!marker_known_false_) {
-        return DateSetResult::Failed;
-    }
-
-    const board::RtcDate requested{
-        date.year,
-        date.month,
-        date.day,
-    };
-    if (!board_.write_rtc_date(requested)) {
-        return DateSetResult::Failed;
-    }
-
-    board::RtcDate verified;
-    const bool voltage_low = board_.rtc_voltage_low();
-    if (voltage_low
-        || !board_.read_rtc_date(verified)
-        || verified.year != date.year
-        || verified.month != date.month
-        || verified.day != date.day) {
-        return voltage_low
-            ? DateSetResult::TimeUntrusted
-            : DateSetResult::Failed;
-    }
-
-    if (!date_store_.save_configured(true)) {
-        // The pre-write false marker remains authoritative.
-        date_configured_ = false;
-        marker_known_false_ = true;
-        return DateSetResult::Failed;
-    }
-
-    date_configured_ = true;
-    marker_known_false_ = false;
-    return DateSetResult::Success;
+    if (write_local(local)) return DateSetResult::Success;
+    if (last_local_status_==warsaw::LocalStatus::Nonexistent)
+        return DateSetResult::NonexistentLocalTime;
+    if (last_local_status_==warsaw::LocalStatus::Ambiguous)
+        return DateSetResult::AmbiguousLocalTime;
+    return DateSetResult::Failed;
 }
 
 bool ClockService::invalidate_date_trust(bool force_persist) const
