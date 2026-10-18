@@ -52,7 +52,7 @@ public:
 
     DateReading read_date() const;
     bool read_utc(warsaw::DateTime& utc) const;
-    bool pending_local_date() const { return staged_time_ && !date_configured_; }
+    bool pending_local_date() const { return staged_time_ && (basis_ != storage::RtcTimeBasis::Utc || !date_configured_); }
     warsaw::LocalStatus last_local_status() const { return last_local_status_; }
     DateSetResult set_date(const Date& date) const;
 
