@@ -83,7 +83,19 @@ jobs:
       image: espressif/idf:v5.5.5
     steps:
       - uses: actions/checkout@v4
-      - name: Validate classic ESP32 and build firmware
+        with:
+          fetch-depth: 0
+      - name: Build baseline main and measure binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "${IDF_PATH}/export.sh"
+          git worktree add --detach /tmp/nikos-ent-baseline "origin/main"
+          (cd /tmp/nikos-ent-baseline && idf.py build)
+          app_bin="$(find /tmp/nikos-ent-baseline/build -maxdepth 1 -type f -name '*.bin' -print -quit)"
+          test -n "$app_bin"
+          stat -c '%s' "$app_bin" > /tmp/nikos-ent-baseline-size
+      - name: Validate ESP-IDF 5.5.5 and compare binary size
         shell: bash
         run: |
           set -euo pipefail
@@ -92,3 +104,15 @@ jobs:
           idf.py --version
           grep -q 'CONFIG_IDF_TARGET="esp32"' sdkconfig.defaults
           idf.py build
+          app_bin="$(find build -maxdepth 1 -type f -name '*.bin' -print -quit)"
+          test -n "$app_bin"
+          before="$(cat /tmp/nikos-ent-baseline-size)"
+          after="$(stat -c '%s' "$app_bin")"
+          delta="$((after-before))"
+          printf 'Firmware application binary: main=%s bytes, PR=%s bytes, delta=%+d bytes\\n' "$before" "$after" "$delta"
+          {
+            echo '### Firmware size (ESP-IDF 5.5.5)'
+            echo "| main | PR | delta |"
+            echo "| ---: | ---: | ---: |"
+            echo "| $before B | $after B | $delta B |"
+          } >> "$GITHUB_STEP_SUMMARY"
