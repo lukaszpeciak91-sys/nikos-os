@@ -9,7 +9,11 @@ assert "board_.fill_circle(cx, cy, radius - 3" in coin
 assert "board::DisplayColor::CoinGold" in coin
 assert "board::DisplayColor::Attention" not in coin
 assert "if (half < 28) return;" in coin
-assert 'font_.draw("ZŁ"' in coin
+# The denomination now spells ZŁOTY and its glyph bounds are checked
+# against the real pre-rendered raster in test_coin_flip_visual.py.
+assert 'constexpr const char* label = "ZŁOTY";' in coin
+assert 'font_.measure(label' in coin
+assert 'font_.draw(label' in coin
 assert "esp_random()" in coin
 assert "state_.tick(now)" in coin
 assert "font_.set_size(font_core::Size::Readable)" in converter
