@@ -166,8 +166,8 @@ int main() {
     const std::uint32_t at=0xFFF00000U;
     assert(wrap.enter(at,true,base));
     wrap.settled();
-    tick(wrap,at,true);
-    tick(wrap,at+Guard::kWindowMs,true);
+    tick(wrap,at,true,true,base);
+    tick(wrap,at+Guard::kWindowMs,true,true,base+1200U);
     assert(wrap.phase(at+Guard::kWindowMs)==Phase::Cooldown);
     return 0;
 }
