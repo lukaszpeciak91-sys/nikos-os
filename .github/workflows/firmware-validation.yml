@@ -56,6 +56,16 @@ jobs:
             tools/tests/sound_meter_level_test.cpp apps/sound_meter/level_processor.cpp \
             -o /tmp/nikos-host/sound_meter_level_test
           /tmp/nikos-host/sound_meter_level_test
+      - name: Test ENT3 storage with injected NVS failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -Itools/tests/ent3_stubs \
+            -Icomponents/storage/include \
+            tools/tests/test_ent3_storage.cpp \
+            -o /tmp/nikos-host/test_ent3_storage
+          /tmp/nikos-host/test_ent3_storage
       - name: Run repository Python regression tests
         shell: bash
         run: |
