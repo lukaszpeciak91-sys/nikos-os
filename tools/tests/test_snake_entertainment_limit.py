@@ -21,8 +21,9 @@ assert "render_game_over();" in snake and "secondary_long" in snake
 assert "suspend_for_entertainment_warning()" in snake
 assert "resume_from_entertainment_warning()" in snake
 assert "display_lifecycle_.note_visible_activity();" in snake
-assert "kWindowMs=20U*60U*1000U" in guard
-assert "kBreakMs=60U*60U*1000U" in guard
+assert "kWindowMs = 20U * 60U * 1000U" in guard
+assert "kBreakMs = 60U * 60U * 1000U" in guard
+assert "kIdleResetMs = 15U * 60U * 1000U" in guard
 assert "if (entertainment_locked || reserve_entertainment)" in main
 assert "snake.end();" in main
 assert "resume_snake_after_communicator = false;" in main
