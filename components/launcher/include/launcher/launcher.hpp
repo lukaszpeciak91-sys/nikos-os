@@ -214,6 +214,7 @@ private:
     std::uint8_t calendar_month_ = 1;
     std::uint8_t calendar_action_selection_ = 0;
     std::uint8_t settings_selection_ = 0;
+    std::uint8_t about_page_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
     std::uint8_t sound_menu_selection_ = 0;
     std::uint8_t signal_volume_selection_ = 4;
