@@ -1473,6 +1473,15 @@ extern "C" void app_main(void)
             } else {
                 ESP_LOGE(kTag, "Entertainment NVS checkpoint failed; locking");
                 entertainment_guard.storage_failure(loop_now_ms);
+                // One bounded fail-safe retry persists the mandatory lock
+                // if the underlying failure was transient.
+                const auto lock = entertainment_guard.snapshot();
+                if (!entertainment_store.save(
+                        {lock.active, lock.civil_valid, lock.civil_start,
+                         lock.warning_shown, false, lock.used_ms,
+                         lock.anchor_utc_s, lock.paused, lock.cooldown, false})) {
+                    ESP_LOGE(kTag, "Entertainment fallback cooldown not durable");
+                }
             }
         }
         const auto entertainment_phase = entertainment_guard.phase(loop_now_ms);
@@ -2411,6 +2420,13 @@ extern "C" void app_main(void)
                 } else {
                     ESP_LOGE(kTag, "Entertainment warning marker failed; locking");
                     entertainment_guard.storage_failure(loop_now_ms);
+                    const auto lock = entertainment_guard.snapshot();
+                    if (!entertainment_store.save(
+                            {lock.active, lock.civil_valid, lock.civil_start,
+                             lock.warning_shown, false, lock.used_ms,
+                             lock.anchor_utc_s, lock.paused, lock.cooldown, false})) {
+                        ESP_LOGE(kTag, "Entertainment warning fail-safe not durable");
+                    }
                     entertainment_warning_visible = false;
                     vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
                     continue;
@@ -2517,6 +2533,14 @@ extern "C" void app_main(void)
                                      cycle.paused, cycle.cooldown, false})) {
                                 ESP_LOGW(kTag, "Entertainment admission not persisted; denying entry");
                                 entertainment_guard.abort_unpersisted_start();
+                                const auto lock = entertainment_guard.snapshot();
+                                if (!entertainment_store.save(
+                                        {lock.active, lock.civil_valid,
+                                         lock.civil_start, lock.warning_shown,
+                                         false, lock.used_ms, lock.anchor_utc_s,
+                                         lock.paused, lock.cooldown, false})) {
+                                    ESP_LOGE(kTag, "Entertainment admission fail-safe not durable");
+                                }
                                 entertainment_notice = EntertainmentNotice::Break;
                                 entry_refused = true;
                             } else {
