@@ -108,6 +108,7 @@ private:
         Calendar,
         WorldClock,
         Settings,
+        About,
         SoundMenu,
         SignalSound,
         SignalVolume,
@@ -156,6 +157,7 @@ private:
     void render_timer_countdown_if_changed();
     void render_stopwatch_time_if_changed();
     void render_settings();
+    void render_about();
     void draw_pilot_text(std::int16_t x, std::int16_t y,
         std::int16_t width, std::int16_t height, const char* text,
         std::uint8_t standard_size, board::DisplayColor fg,
