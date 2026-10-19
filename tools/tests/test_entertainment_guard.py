@@ -331,7 +331,7 @@ assert "resume_coin_flip_after_communicator" in restoration
 assert "entertainment_store.clear()" in main
 store = (root / "components/storage/entertainment_cycle_store.cpp").read_text(encoding="utf-8")
 assert "static_assert(sizeof(Record) == 24U" in store
-assert 'kKey[]="ent_cycle"' in store
+assert re.search(r'\bkKey\s*\[\s*\]\s*=\s*"ent_cycle"\s*;', store)
 assert "warning_shown" in store
 assert "resume_snake_after_communicator = false;" in main
 assert "resume_mini_racer_after_communicator = false;" in main
