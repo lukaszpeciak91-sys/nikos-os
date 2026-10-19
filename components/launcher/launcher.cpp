@@ -1073,6 +1073,7 @@ Action Launcher::update(const board::InputState& input)
                     settings_.auto_power_off_enabled ? 0U : 1U;
                 screen_ = Screen::AutoPowerOff;
             } else if (settings_selection_ == 5U) {
+                about_page_ = 0;
                 screen_ = Screen::About;
             } else {
                 signal_sound_.stop();
@@ -1086,10 +1087,24 @@ Action Launcher::update(const board::InputState& input)
     }
 
     if (screen_ == Screen::About) {
-        if (input.primary_short || input.secondary_short || input.secondary_long) {
+        if (input.secondary_long) {
             screen_ = Screen::Settings;
-            render();
+        } else if (input.secondary_short) {
+            if (about_page_ == 0U) {
+                screen_ = Screen::Settings;
+            } else {
+                --about_page_;
+            }
+        } else if (input.primary_short) {
+            if (about_page_ == 0U) {
+                about_page_ = 1U;
+            } else {
+                screen_ = Screen::Settings;
+            }
+        } else {
+            return Action::None;
         }
+        render();
         return Action::None;
     }
 
@@ -2960,47 +2975,79 @@ void Launcher::render_about()
 {
     clear_shell(board_);
 
-    draw_pilot_text(
-        18, 7, 204, 25, "NIKOS OS", 2,
-        board::DisplayColor::Accent,
-        board::DisplayColor::Background);
-    board_.draw_line(18, 35, 222, 35, board::DisplayColor::Accent);
+    // Facts/Quiz readable raster: 24 px lines, not the 9 px Polish UI font.
+    // Both pages are laid out for the 240x135 display, with no text scaling.
+    font_renderer_.select(font_core::Mode::PreRendered);
+    font_renderer_.set_size(font_core::Size::Readable);
 
-    // A static dedication. The existing small Polish UI font keeps both
-    // sentences on single lines without touching global text settings.
     const auto centered = [this](const char* text, std::int16_t y,
-                                board::DisplayColor foreground) {
-        const std::int32_t width = board_.polish_ui_text_width(text);
-        if (width <= 0 || width > 220) {
+                                  board::DisplayColor color) {
+        const auto measured = font_renderer_.measure(text, 228, 24);
+        if (!measured.fits || !measured.supported || measured.lines != 1U
+            || measured.width_px == 0U) {
+            board_.draw_text_region(12, y, 216, 12, "FONT FIT ERROR", 1,
+                board::DisplayColor::Danger, board::DisplayColor::Background);
             return;
         }
-        const auto x = static_cast<std::int16_t>((240 - width) / 2);
-        board_.draw_polish_ui_text_region(
-            x, y, static_cast<std::int16_t>(width + 1), 14,
-            text, 1, foreground, board::DisplayColor::Background);
+        const auto x = static_cast<std::int16_t>(
+            (240 - measured.width_px) / 2);
+        font_renderer_.draw(text,
+            {x, y, static_cast<std::int16_t>(measured.width_px), 24},
+            color, board::DisplayColor::Background);
     };
 
-    centered("Jedyny taki system na świecie.", 44,
-             board::DisplayColor::PrimaryText);
-    centered("Stworzony specjalnie dla Nikodema.", 65,
-             board::DisplayColor::PrimaryText);
+    if (about_page_ == 0U) {
+        centered("NIKOS OS", 8, board::DisplayColor::Accent);
+        board_.draw_line(18, 37, 222, 37, board::DisplayColor::Accent);
+        centered("Jedyny taki system", 45,
+                 board::DisplayColor::PrimaryText);
+        centered("na świecie.", 74,
+                 board::DisplayColor::PrimaryText);
 
-    // Draw the copyright mark directly: the existing fonts do not contain ©.
-    board_.fill_circle(101, 91, 7, board::DisplayColor::SecondaryText);
-    board_.fill_circle(101, 91, 5, board::DisplayColor::Background);
-    board_.draw_line(103, 88, 99, 88, board::DisplayColor::SecondaryText);
-    board_.draw_line(99, 88, 98, 91, board::DisplayColor::SecondaryText);
-    board_.draw_line(98, 91, 99, 94, board::DisplayColor::SecondaryText);
-    board_.draw_line(99, 94, 103, 94, board::DisplayColor::SecondaryText);
-    board_.draw_text_region(
-        113, 86, 40, 13, "2026", 1,
+        // Full-sized navigation hints; short SIDE goes back to Settings.
+        font_renderer_.draw("SIDE <", {17, 106, 92, 24},
+            board::DisplayColor::SecondaryText,
+            board::DisplayColor::Background);
+        font_renderer_.draw("M5 >", {172, 106, 60, 24},
+            board::DisplayColor::Accent,
+            board::DisplayColor::Background);
+    } else {
+        centered("Stworzony specjalnie", 0,
+                 board::DisplayColor::PrimaryText);
+        centered("dla Nikodema.", 24,
+                 board::DisplayColor::PrimaryText);
+
+        // Existing raster font has no U+00A9. Draw a large © mark next
+        // to a full-sized, pre-rendered year, with no additional glyphs.
+        board_.fill_circle(95, 60, 10,
+            board::DisplayColor::SecondaryText);
+        board_.fill_circle(95, 60, 8,
+            board::DisplayColor::Background);
+        board_.draw_line(99, 55, 94, 55,
+            board::DisplayColor::SecondaryText);
+        board_.draw_line(94, 55, 91, 59,
+            board::DisplayColor::SecondaryText);
+        board_.draw_line(91, 59, 91, 62,
+            board::DisplayColor::SecondaryText);
+        board_.draw_line(91, 62, 94, 65,
+            board::DisplayColor::SecondaryText);
+        board_.draw_line(94, 65, 99, 65,
+            board::DisplayColor::SecondaryText);
+        font_renderer_.draw("2026", {115, 48, 62, 24},
+            board::DisplayColor::SecondaryText,
+            board::DisplayColor::Background);
+
+        centered("Wszystkie prawa", 72,
+                 board::DisplayColor::SecondaryText);
+        centered("zastrzeżone", 96,
+                 board::DisplayColor::SecondaryText);
+    }
+
+    // Metadata only; every line of the dedication uses the large font.
+    board_.draw_text_region(206, 122, 28, 11,
+        about_page_ == 0U ? "1/2" : "2/2", 1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
-
-    centered("Wszystkie prawa zastrzeżone", 103,
-             board::DisplayColor::SecondaryText);
-    centered("M5 / BOCZNY = POWRÓT", 120,
-             board::DisplayColor::Accent);
 }
 
 void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
