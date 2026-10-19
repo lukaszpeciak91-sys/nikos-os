@@ -8,6 +8,21 @@ int main() {
     assert(wave_at(0)==1 && wave_at(139999)==1);
     assert(wave_at(140000)==2 && wave_at(279999)==2);
     assert(wave_at(280000)==3 && wave_at(420000)==3);
+    // One-button movement must bounce: top -> mid -> bottom -> mid -> top.
+    World lanes{};
+    reset(lanes,12,0);
+    lanes.lane = 0;
+    for (const auto expected : {1U, 2U, 1U, 0U, 1U, 2U}) {
+        cycle_lane(lanes);
+        assert(lanes.lane == expected);
+    }
+    lanes.phase = Phase::Paused;
+    cycle_lane(lanes);
+    assert(lanes.lane == 2U);
+    reset(lanes,12,0);
+    assert(lanes.lane == 1U);
+    cycle_lane(lanes);
+    assert(lanes.lane == 2U);
     World w{};reset(w,12,0);w.mission_enabled=true;
     assert(invasion_active(w));
     w.time_ms=kInvasionMs;
