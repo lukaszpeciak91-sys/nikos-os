@@ -22,6 +22,7 @@ int main() {
     reset(w,3,90);
     assert(w.lives==3 && w.lane==1 && w.record==90 && w.score==0);
     cycle_lane(w); assert(w.lane==2);
+    cycle_lane(w); assert(w.lane==1);
     cycle_lane(w); assert(w.lane==0);
     cycle_lane(w); assert(w.lane==1);
     advance(w,120);
@@ -226,6 +227,7 @@ int main() {
     reset(w,5,0);w.lane=0;
     cycle_lane(w);assert(w.lane==1);
     cycle_lane(w);assert(w.lane==2);
+    cycle_lane(w);assert(w.lane==1);
     cycle_lane(w);assert(w.lane==0);
     // Sweep: a delayed frame crossing player's collision box is damage.
     reset(w,13,0);

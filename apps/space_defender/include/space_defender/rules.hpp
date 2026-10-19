@@ -53,6 +53,7 @@ struct World {
     bool mission_enabled = false;
     std::uint8_t wave = 1;
     std::uint8_t lane = 1, lives = 3;
+    bool moving_down = true;
     std::uint32_t motion_remainder[3]{}; // player shot, enemy, hostile fractional Q8
 };
 inline std::uint8_t hp_for(Type t) { return t == Type::Armored ? 3 : (t == Type::Shooter ? 2 : 1); }
@@ -84,7 +85,12 @@ inline bool threats_clear(const World& w) {
     for(const auto& shot:w.hostile) if(shot.active) return false;
     return true;
 }
-inline void cycle_lane(World& w) { if (w.phase == Phase::Playing) w.lane = (w.lane + 1U) % 3U; }
+inline void cycle_lane(World& w) {
+    if (w.phase != Phase::Playing) return;
+    if (w.lane == 0) w.moving_down = true;
+    else if (w.lane == 2) w.moving_down = false;
+    w.lane = static_cast<std::uint8_t>(w.moving_down ? w.lane + 1U : w.lane - 1U);
+}
 inline void damage(World& w) {
     if (w.phase != Phase::Playing || w.lives == 0
         || (w.invulnerable_until_ms && w.time_ms < w.invulnerable_until_ms)) return;
