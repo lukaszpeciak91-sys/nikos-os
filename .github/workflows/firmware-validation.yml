@@ -56,6 +56,16 @@ jobs:
             tools/tests/sound_meter_level_test.cpp apps/sound_meter/level_processor.cpp \
             -o /tmp/nikos-host/sound_meter_level_test
           /tmp/nikos-host/sound_meter_level_test
+      - name: Test ENT3 storage with injected NVS failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -Itools/tests/ent3_stubs \
+            -Icomponents/storage/include \
+            tools/tests/test_ent3_storage.cpp \
+            -o /tmp/nikos-host/test_ent3_storage
+          /tmp/nikos-host/test_ent3_storage
       - name: Run repository Python regression tests
         shell: bash
         run: |
@@ -83,7 +93,23 @@ jobs:
       image: espressif/idf:v5.5.5
     steps:
       - uses: actions/checkout@v4
-      - name: Validate classic ESP32 and build firmware
+        with:
+          fetch-depth: 0
+      - name: Build baseline main and measure binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "${IDF_PATH}/export.sh"
+          # The IDF container runs as a different user than actions/checkout.
+          # Trust only this checkout and our one detached baseline worktree.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory /tmp/nikos-ent-baseline
+          git worktree add --detach /tmp/nikos-ent-baseline "origin/main"
+          (cd /tmp/nikos-ent-baseline && idf.py build)
+          app_bin="$(find /tmp/nikos-ent-baseline/build -maxdepth 1 -type f -name '*.bin' -print -quit)"
+          test -n "$app_bin"
+          stat -c '%s' "$app_bin" > /tmp/nikos-ent-baseline-size
+      - name: Validate ESP-IDF 5.5.5 and compare binary size
         shell: bash
         run: |
           set -euo pipefail
@@ -92,3 +118,15 @@ jobs:
           idf.py --version
           grep -q 'CONFIG_IDF_TARGET="esp32"' sdkconfig.defaults
           idf.py build
+          app_bin="$(find build -maxdepth 1 -type f -name '*.bin' -print -quit)"
+          test -n "$app_bin"
+          before="$(cat /tmp/nikos-ent-baseline-size)"
+          after="$(stat -c '%s' "$app_bin")"
+          delta="$((after-before))"
+          printf 'Firmware application binary: main=%s bytes, PR=%s bytes, delta=%+d bytes\\n' "$before" "$after" "$delta"
+          {
+            echo '### Firmware size (ESP-IDF 5.5.5)'
+            echo "| main | PR | delta |"
+            echo "| ---: | ---: | ---: |"
+            echo "| $before B | $after B | $delta B |"
+          } >> "$GITHUB_STEP_SUMMARY"

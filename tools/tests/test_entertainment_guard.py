@@ -14,94 +14,161 @@ source = r"""
 #include <cstdint>
 #include "entertainment_guard/guard.hpp"
 using namespace nikos::entertainment_guard;
+constexpr std::uint32_t m = 60000U;
+constexpr std::uint64_t base = 100000U;
+void tick(Guard& g, std::uint32_t now, bool visible,
+          bool trusted=true, std::uint64_t utc=0) {
+    g.tick(now, visible, trusted, utc ? utc : base + now/1000U);
+    if (g.pending_write()) g.settled(); // Simulated durable NVS commit.
+}
 int main() {
-    constexpr std::uint32_t minute = 60000;
     Guard g;
+    g.restore({},0,true,base);
     assert(g.phase(0)==Phase::Available);
-    // Opening the Entertainment menu never calls enter().
-    assert(g.phase(700*minute)==Phase::Available);
-    assert(g.enter(700*minute,false,0));   // Snake
-    assert(g.pending_write());
-    assert(g.snapshot().active && !g.snapshot().civil_valid);
+    tick(g,5*m,false);
+    assert(g.phase(5*m)==Phase::Available); // Menu is free.
+    assert(g.enter(5*m,true,base+300U));
+    assert(g.snapshot().used_ms==Guard::kCheckpointMs); // Ahead reservation.
     g.settled();
-    assert(g.enter(715*minute,false,0));   // Facts / Quiz
-    assert(g.enter(717*minute,false,0));   // Mini Racer
-    assert(!g.pending_write());
-    assert(!g.warning_due(717*minute+59999));
-    assert(g.warning_due(718*minute));
+    tick(g,5*m,true);
+    tick(g,13*m,false); // Played 8m.
+    assert(g.used_ms()==8U*m);
+    tick(g,18*m,false);
+    assert(g.enter(18*m,true,base+18U*60U));
+    g.settled();
+    tick(g,18*m,true);
+    tick(g,28*m,true); // 18m cumulative.
+    assert(g.warning_due(28*m));
     g.acknowledge_warning();
-    assert(g.pending_write());
     assert(g.snapshot().warning_shown);
     g.settled();
-    assert(!g.warning_due(718*minute));
-    assert(!g.warning_due(719*minute));
-    assert(g.phase(720*minute)==Phase::Cooldown);
-    assert(!g.enter(720*minute,true,200000));
-    assert(!g.enter(779*minute,true,200000));
-    assert(g.phase(780*minute)==Phase::Available);
+    assert(!g.warning_due(28*m));
+    tick(g,30*m,true); // Exactly 20m cumulative, not 20m since first start.
+    assert(g.phase(30*m)==Phase::Cooldown);
+    assert(!g.enter(30*m,true,base+1800U));
+    assert(g.phase(30*m+Guard::kBreakMs-1U)==Phase::Cooldown);
+    assert(g.phase(30*m+Guard::kBreakMs)==Phase::Available);
     assert(g.pending_clear());
-    g.settled();
-    assert(g.enter(780*minute,false,0));
-    assert(g.pending_write());
-    // Trusted civil-minute restoration counts time powered off.
-    Guard fresh;
-    fresh.restore({true,true,20000},1500000,true,20005);
-    assert(fresh.phase(1500000)==Phase::Window);
-    assert(fresh.warning_due(1500000+13*minute));
-    Guard restored_warning;
-    restored_warning.restore({true,true,20000,true},1500000,true,20018);
-    assert(!restored_warning.warning_due(1500000));
-    Guard locked;
-    locked.restore({true,true,20000},1500000,true,20030);
-    assert(locked.phase(1500000)==Phase::Cooldown);
-    assert(!locked.enter(1500001,true,20030));
-    Guard expired;
-    expired.restore({true,true,20000},1500000,true,20080);
-    assert(expired.phase(1500000)==Phase::Available);
-    assert(expired.pending_clear());
-    // Without a trustworthy RTC/date, persisted state cannot grant play.
-    Guard untrusted;
-    untrusted.restore({true,true,20000},1000,false,0);
-    assert(untrusted.phase(1000)==Phase::Cooldown);
-    assert(!untrusted.enter(1000,true,20001));
-    assert(untrusted.phase(1000+59*minute)==Phase::Cooldown);
-    assert(untrusted.phase(1000+60*minute)==Phase::Available);
-    assert(untrusted.pending_clear());
-    Guard marker_only;
-    marker_only.restore({true,false,0},500,false,0);
-    assert(marker_only.phase(500)==Phase::Cooldown);
-    assert(marker_only.phase(500+60*minute)==Phase::Available);
-    // Fault injection: storage refuses the first transition write.
-    Guard first_write_failure;
-    assert(first_write_failure.enter(0,true,20000));
-    assert(first_write_failure.pending_write());
-    const bool injected_first_save_ok=false;
-    if (!injected_first_save_ok) first_write_failure.abort_unpersisted_start();
-    assert(first_write_failure.phase(0)==Phase::Available);
-    assert(!first_write_failure.pending_write());
-    // Recovery after NVS becomes writable must start a new persisted cycle.
-    assert(first_write_failure.enter(1000,true,20000));
-    assert(first_write_failure.pending_write());
-    first_write_failure.settled();
-    assert(first_write_failure.phase(1000)==Phase::Window);
-    // Failed expiry clear remains pending until an explicit successful clear.
-    Guard failed_clear;
-    assert(failed_clear.enter(0,true,20000));
-    failed_clear.settled();
-    assert(failed_clear.phase(80*minute)==Phase::Available);
-    assert(failed_clear.pending_clear());
-    const bool injected_clear_ok=false;
-    if(injected_clear_ok) failed_clear.settled();
-    assert(failed_clear.pending_clear());
-    failed_clear.settled(); // simulated recovery
-    assert(!failed_clear.pending_clear());
-    // Repeated phase reads do not request periodic writes.
-    Guard monotonic;
-    assert(monotonic.enter(0,false,0));
-    monotonic.settled();
-    for (std::uint32_t now=1;now<20*minute;now+=17)
-        (void)monotonic.phase(now);
-    assert(!monotonic.pending_write() && !monotonic.pending_clear());
+
+    Guard reset;
+    assert(reset.enter(0,true,base));
+    reset.settled();
+    tick(reset,0,true);
+    tick(reset,8*m,false);
+    assert(reset.used_ms()==8*m);
+    tick(reset,23*m-1U,false);
+    assert(reset.phase(23*m-1U)==Phase::Window);
+    tick(reset,23*m,false);
+    assert(reset.phase(23*m)==Phase::Available);
+    assert(reset.pending_clear());
+    reset.settled();
+    assert(reset.enter(23*m,true,base+23U*60U));
+    assert(reset.used_ms()==0);
+    reset.settled();
+
+    // Visible in-app menu counts; screen off / communicator / warning does not.
+    Guard visibility;
+    assert(visibility.enter(0,true,base));
+    visibility.settled();
+    tick(visibility,0,true);
+    tick(visibility,7*m,true); // Includes in-app menu.
+    tick(visibility,7*m,false); // Communicator takeover.
+    tick(visibility,10*m,false); // No buttons, no counting.
+    assert(visibility.used_ms()==7U*m);
+    assert(visibility.enter(10*m,true,base+10U*60U));
+    visibility.settled();
+    tick(visibility,10*m,true);
+    tick(visibility,11*m,false); // DisplayOff.
+    assert(visibility.used_ms()==8U*m);
+
+    // ENT3 active checkpoint survives reboot, charging reserved seconds.
+    Guard active;
+    assert(active.enter(0,true,base));
+    const auto initial_reserved=active.snapshot();
+    assert(!initial_reserved.paused && initial_reserved.used_ms==m);
+    active.settled();
+    tick(active,0,true);
+    tick(active,8*m,true);
+    const auto active_disk=active.snapshot();
+    assert(active_disk.used_ms==9*m);
+    Guard restarted;
+    restarted.restore(active_disk,700,true,base+8U*60U);
+    assert(restarted.phase(700)==Phase::Window);
+    assert(restarted.used_ms()==9*m); // Never a free reboot reset.
+    tick(restarted,700,false,true,base+8U*60U);
+    tick(restarted,700+Guard::kIdleResetMs-1U,false,true,base+8U*60U+899U);
+    assert(restarted.phase(700+Guard::kIdleResetMs-1U)==Phase::Window);
+    tick(restarted,700+Guard::kIdleResetMs,false,true,base+8U*60U+900U);
+    assert(restarted.phase(700+Guard::kIdleResetMs)==Phase::Available);
+
+    // Inactivity deadline restores when the saved state was already paused.
+    Guard idle;
+    assert(idle.enter(0,true,base));
+    idle.settled();
+    tick(idle,0,true);
+    tick(idle,8*m,false);
+    const auto paused_disk=idle.snapshot();
+    assert(paused_disk.paused && paused_disk.used_ms==8*m);
+    Guard idle_reboot;
+    idle_reboot.restore(paused_disk,1000,true,base+12U*60U);
+    assert(idle_reboot.phase(1000)==Phase::Window);
+    tick(idle_reboot,1000+11*m-1U,false,true,base+23U*60U-1U);
+    assert(idle_reboot.phase(1000+11*m-1U)==Phase::Window);
+    tick(idle_reboot,1000+11*m,false,true,base+23U*60U);
+    assert(idle_reboot.phase(1000+11*m)==Phase::Available);
+
+    // Cooldown reboot retains the UTC deadline; rollback/untrusted gets 60m.
+    Guard cooling;
+    cooling.restore({true,true,0,true,Guard::kWindowMs,
+                     base+20U*60U,false,true,false},
+                    1500,true,base+40U*60U);
+    assert(cooling.phase(1500)==Phase::Cooldown);
+    assert(cooling.phase(1500+39*m)==Phase::Cooldown);
+    assert(cooling.phase(1500+40*m)==Phase::Available);
+    Guard rollback;
+    rollback.restore(paused_disk,0,true,base-100U);
+    assert(rollback.phase(0)==Phase::Cooldown);
+    Guard missing_rtc;
+    missing_rtc.restore(paused_disk,0,false,0);
+    assert(missing_rtc.phase(0)==Phase::Cooldown);
+    assert(missing_rtc.phase(Guard::kBreakMs-1U)==Phase::Cooldown);
+    assert(missing_rtc.phase(Guard::kBreakMs)==Phase::Available);
+    Guard live_rollback;
+    assert(live_rollback.enter(0,true,base));
+    live_rollback.settled();
+    tick(live_rollback,0,true,true,base+100U);
+    tick(live_rollback,m,true,true,base+1U);
+    assert(live_rollback.phase(m)==Phase::Cooldown);
+
+    // A failed save denies play. A failed clear stays pending until success.
+    Guard nvs_failure;
+    assert(nvs_failure.enter(0,true,base));
+    assert(nvs_failure.pending_write());
+    nvs_failure.abort_unpersisted_start();
+    assert(nvs_failure.phase(0)==Phase::Cooldown);
+    assert(!nvs_failure.enter(1000,true,base));
+    Guard clear_failure;
+    assert(clear_failure.enter(0,true,base));
+    clear_failure.settled();
+    tick(clear_failure,0,true);
+    tick(clear_failure,Guard::kWindowMs,true);
+    assert(clear_failure.phase(Guard::kWindowMs)==Phase::Cooldown);
+    assert(clear_failure.phase(Guard::kWindowMs+Guard::kBreakMs)==Phase::Available);
+    assert(clear_failure.pending_clear());
+    const bool simulated_commit_ok=false;
+    if (simulated_commit_ok) clear_failure.settled();
+    assert(!clear_failure.enter(Guard::kWindowMs+Guard::kBreakMs,true,base));
+    clear_failure.settled();
+    assert(clear_failure.enter(Guard::kWindowMs+Guard::kBreakMs,true,base));
+
+    // 32-bit monotonic wrap: elapsed 20 minutes still charged accurately.
+    Guard wrap;
+    const std::uint32_t at=0xFFF00000U;
+    assert(wrap.enter(at,true,base));
+    wrap.settled();
+    tick(wrap,at,true,true,base);
+    tick(wrap,at+Guard::kWindowMs,true,true,base+1200U);
+    assert(wrap.phase(at+Guard::kWindowMs)==Phase::Cooldown);
     return 0;
 }
 """
@@ -132,7 +199,7 @@ update_start = launcher.split("Action Launcher::update(",1)[1].split(
 recognized = main.split("const bool recognized_entertainment =",1)[1].split(
     "bool entry_refused",1)[0]
 predicate = main.split("bool is_guarded_entertainment(",1)[1].split(
-    "bool trusted_civil_minute",1)[0]
+    "bool trusted_utc_second",1)[0]
 def check_contract(screen_text, update_text, recognized_text, runtime_text):
     # The screen origin is tagged once before dispatch; individual routes
     # must not rely on manual wrapping or enum numeric position.
@@ -213,7 +280,7 @@ assert "facts.end();" in main
 assert "space_defender.end();" in main
 assert "coin_flip.end();" in main
 predicate = main.split("bool is_guarded_entertainment(", 1)[1].split(
-    "bool trusted_civil_minute", 1)[0]
+    "bool trusted_utc_second", 1)[0]
 assert "RuntimeState::SpaceDefender" in predicate
 assert "RuntimeState::CoinFlip" in predicate
 termination = main.split("if (entertainment_locked || reserve_entertainment)", 1)[1].split(
@@ -252,6 +319,9 @@ assert "entertainment_guard.warning_due(loop_now_ms)" in main
 assert "entertainment_guard.pending_clear()" in main
 assert "entertainment_store.save(" in main
 assert "abort_unpersisted_start()" in main
+assert "entertainment_guard.tick(" in main
+assert "const bool entertainment_visible =" in main
+assert "entertainment_guard.storage_failure(" in main
 assert "entertainment_clear_failed" in main
 assert "if (entertainment_store.clear())" in main
 assert "&& !entertainment_warning_visible" in main
@@ -260,8 +330,8 @@ assert "resume_space_defender_after_communicator" in restoration
 assert "resume_coin_flip_after_communicator" in restoration
 assert "entertainment_store.clear()" in main
 store = (root / "components/storage/entertainment_cycle_store.cpp").read_text(encoding="utf-8")
-assert "static_assert(sizeof(Record)==12U" in store
-assert 'kKey[]="ent_cycle"' in store
+assert "static_assert(sizeof(Record) == 24U" in store
+assert re.search(r'\bkKey\s*\[\s*\]\s*=\s*"ent_cycle"\s*;', store)
 assert "warning_shown" in store
 assert "resume_snake_after_communicator = false;" in main
 assert "resume_mini_racer_after_communicator = false;" in main

@@ -86,11 +86,10 @@ bool is_guarded_entertainment(RuntimeState state) {
         || state == RuntimeState::VwGarage
         || state == RuntimeState::SpaceDefender;
 }
-bool trusted_civil_minute(nikos::clock::ClockService& clock, std::uint32_t& out) {
+bool trusted_utc_second(nikos::clock::ClockService& clock, std::uint64_t& out) {
     nikos::clock::warsaw::DateTime utc{};
     if (!clock.read_utc(utc)) return false;
-    out=static_cast<std::uint32_t>(
-        nikos::clock::warsaw::seconds(utc)/60);
+    out = nikos::clock::warsaw::seconds(utc);
     return true;
 }
 
@@ -1121,16 +1120,19 @@ extern "C" void app_main(void)
     nikos::entertainment_guard::Guard entertainment_guard;
     nikos::storage::EntertainmentCycle stored_entertainment;
     if (!entertainment_store.load(stored_entertainment)) {
-        ESP_LOGW(kTag, "Entertainment cycle NVS unavailable");
+        ESP_LOGW(kTag, "Entertainment cycle NVS unavailable; fail closed");
     }
     migrate_legacy_cycle_minutes(stored_entertainment);
-    std::uint32_t boot_civil_minute = 0;
+    std::uint64_t boot_utc_s = 0;
     const bool boot_clock_trusted =
-        trusted_civil_minute(clock_service, boot_civil_minute);
+        trusted_utc_second(clock_service, boot_utc_s);
     entertainment_guard.restore(
         {stored_entertainment.active, stored_entertainment.civil_valid,
-         stored_entertainment.civil_start, stored_entertainment.warning_shown},
-        now_ms(), boot_clock_trusted, boot_civil_minute);
+         stored_entertainment.civil_start, stored_entertainment.warning_shown,
+         stored_entertainment.used_ms, stored_entertainment.anchor_utc_s,
+         stored_entertainment.paused, stored_entertainment.cooldown,
+         stored_entertainment.legacy},
+        now_ms(), boot_clock_trusted, boot_utc_s);
     bool entertainment_clear_failed = false;
     if (entertainment_guard.pending_clear()) {
         if (entertainment_store.clear()) entertainment_guard.settled();
@@ -1139,6 +1141,11 @@ extern "C" void app_main(void)
             entertainment_clear_failed = true;
         }
     }
+    // Poll RTC at a bounded cadence; interpolate with wrap-safe monotonic
+    // ticks between polls. No RTC/I2C read or flash commit on every frame.
+    std::uint32_t entertainment_rtc_sample_ms = now_ms();
+    bool entertainment_clock_trusted = boot_clock_trusted;
+    std::uint64_t entertainment_utc_s = boot_utc_s;
 
     nikos::storage::SignalVolumeStore signal_volume_store;
     settings.signal_volume_level = signal_volume_store.load_level();
@@ -1426,12 +1433,57 @@ extern "C" void app_main(void)
                 radio);
         }
 
-        // Policy advances from the main loop even during charging, overlays,
-        // Communicator takeover, pause and DisplayOff. No periodic NVS writes.
+        // Charge only semantic visible entertainment foreground time. In-app
+        // pause/menus count; Launcher, POWER/DisplayOff, Charging Lock, incoming
+        // Communicator and system-owned overlays do not.
+        if (loop_now_ms - entertainment_rtc_sample_ms >= 5000U) {
+            entertainment_rtc_sample_ms = loop_now_ms;
+            entertainment_clock_trusted =
+                trusted_utc_second(clock_service, entertainment_utc_s);
+        }
+        const std::uint64_t entertainment_now_utc_s =
+            entertainment_utc_s
+            + (entertainment_clock_trusted
+                ? (loop_now_ms - entertainment_rtc_sample_ms) / 1000U : 0U);
+        const bool entertainment_visible =
+            is_guarded_entertainment(state)
+            && display_lifecycle.state()
+                != nikos::power::DisplayState::DisplayOff
+            && (!charging_mode.active || charging_mode.owner_override_active)
+            && !entertainment_warning_visible
+            && !timer_alert_visible && !battery_advisory_visible
+            && !clock_glance_active && !countdown.expired_pending();
+        entertainment_guard.tick(
+            loop_now_ms, entertainment_visible,
+            entertainment_clock_trusted, entertainment_now_utc_s);
         if ((charging_mode.active && !charging_mode.owner_override_active)
             || battery_advisory_visible
             || countdown.expired_pending() || clock_glance_active)
             entertainment_notice_rendered = false;
+
+        // Persist foreground transitions and the reserved 60-second checkpoint
+        // at most once per interval, NOT per 20-ms loop frame.
+        if (entertainment_guard.pending_write()) {
+            const auto saved = entertainment_guard.snapshot();
+            if (entertainment_store.save(
+                    {saved.active, saved.civil_valid, saved.civil_start,
+                     saved.warning_shown, false, saved.used_ms,
+                     saved.anchor_utc_s, saved.paused, saved.cooldown, false})) {
+                entertainment_guard.settled();
+            } else {
+                ESP_LOGE(kTag, "Entertainment NVS checkpoint failed; locking");
+                entertainment_guard.storage_failure(loop_now_ms);
+                // One bounded fail-safe retry persists the mandatory lock
+                // if the underlying failure was transient.
+                const auto lock = entertainment_guard.snapshot();
+                if (!entertainment_store.save(
+                        {lock.active, lock.civil_valid, lock.civil_start,
+                         lock.warning_shown, false, lock.used_ms,
+                         lock.anchor_utc_s, lock.paused, lock.cooldown, false})) {
+                    ESP_LOGE(kTag, "Entertainment fallback cooldown not durable");
+                }
+            }
+        }
         const auto entertainment_phase = entertainment_guard.phase(loop_now_ms);
         if (entertainment_guard.pending_clear()
             && !entertainment_clear_failed) {
@@ -2360,13 +2412,24 @@ extern "C" void app_main(void)
                 entertainment_guard.acknowledge_warning();
                 const auto warned = entertainment_guard.snapshot();
                 if (entertainment_store.save(
-                        {warned.active,warned.civil_valid,
-                         warned.civil_start,warned.warning_shown})) {
+                        {warned.active, warned.civil_valid,
+                         warned.civil_start, warned.warning_shown,
+                         false, warned.used_ms, warned.anchor_utc_s,
+                         warned.paused, warned.cooldown, false})) {
                     entertainment_guard.settled();
                 } else {
-                    // Retain pending transition in memory. Retry only during
-                    // a later protected admission, never on every OS frame.
-                    ESP_LOGW(kTag, "Entertainment warning marker not persisted");
+                    ESP_LOGE(kTag, "Entertainment warning marker failed; locking");
+                    entertainment_guard.storage_failure(loop_now_ms);
+                    const auto lock = entertainment_guard.snapshot();
+                    if (!entertainment_store.save(
+                            {lock.active, lock.civil_valid, lock.civil_start,
+                             lock.warning_shown, false, lock.used_ms,
+                             lock.anchor_utc_s, lock.paused, lock.cooldown, false})) {
+                        ESP_LOGE(kTag, "Entertainment warning fail-safe not durable");
+                    }
+                    entertainment_warning_visible = false;
+                    vTaskDelay(pdMS_TO_TICKS(kLoopDelayMs));
+                    continue;
                 }
                 entertainment_warning_visible = true;
                 entertainment_warning_started_ms = loop_now_ms;
@@ -2435,13 +2498,15 @@ extern "C" void app_main(void)
                     entertainment_notice = EntertainmentNotice::Break;
                 }
                 if (guard_entry && !entry_refused) {
-                    // Retry a failed expiry clear only on explicit admission,
-                    // never in the 20ms OS loop. Deny while NVS is uncertain.
-                    if (entertainment_clear_failed) {
+                    // Clear the expired ENT3 record before any fresh entry.
+                    // Failed clears are retried on admission, not every frame.
+                    if (entertainment_clear_failed
+                        || entertainment_guard.pending_clear()) {
                         if (entertainment_store.clear()) {
                             entertainment_clear_failed = false;
                             entertainment_guard.settled();
                         } else {
+                            entertainment_clear_failed = true;
                             entertainment_notice = EntertainmentNotice::Break;
                             entry_refused = true;
                         }
@@ -2452,20 +2517,30 @@ extern "C" void app_main(void)
                         entertainment_notice = EntertainmentNotice::LowBattery;
                         entry_refused = true;
                     } else {
-                        std::uint32_t civil_minute = 0;
+                        std::uint64_t civil_second = 0;
                         const bool trusted =
-                            trusted_civil_minute(clock_service, civil_minute);
-                        if (!entertainment_guard.enter(loop_now_ms, trusted, civil_minute)) {
+                            trusted_utc_second(clock_service, civil_second);
+                        if (!entertainment_guard.enter(loop_now_ms, trusted, civil_second)) {
                             entertainment_notice = EntertainmentNotice::Break;
                             entry_refused = true;
                         }
-                        if (entertainment_guard.pending_write()) {
+                        if (!entry_refused && entertainment_guard.pending_write()) {
                             const auto cycle = entertainment_guard.snapshot();
                             if (!entertainment_store.save(
-                                    {cycle.active,cycle.civil_valid,
-                                     cycle.civil_start,cycle.warning_shown})) {
-                                ESP_LOGW(kTag, "Entertainment cycle start not persisted; denying entry");
+                                    {cycle.active, cycle.civil_valid,
+                                     cycle.civil_start, cycle.warning_shown,
+                                     false, cycle.used_ms, cycle.anchor_utc_s,
+                                     cycle.paused, cycle.cooldown, false})) {
+                                ESP_LOGW(kTag, "Entertainment admission not persisted; denying entry");
                                 entertainment_guard.abort_unpersisted_start();
+                                const auto lock = entertainment_guard.snapshot();
+                                if (!entertainment_store.save(
+                                        {lock.active, lock.civil_valid,
+                                         lock.civil_start, lock.warning_shown,
+                                         false, lock.used_ms, lock.anchor_utc_s,
+                                         lock.paused, lock.cooldown, false})) {
+                                    ESP_LOGE(kTag, "Entertainment admission fail-safe not durable");
+                                }
                                 entertainment_notice = EntertainmentNotice::Break;
                                 entry_refused = true;
                             } else {

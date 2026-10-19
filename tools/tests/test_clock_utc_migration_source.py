@@ -42,14 +42,16 @@ assert "bool ClockService::read_utc(" in clock and "trusted_utc(out)" in clock
 assert "warsaw::utc_to_local(raw,converted)" in clock
 assert "staged_time_" in clock and "staged_date_" in clock
 assert "pending_local_date()" in header
-assert "kLegacyMarker=0x454E5431U" in nvs
-assert "kUtcMarker=0x454E5432U" in nvs
-assert "record.marker==kLegacyMarker" in nvs
-assert "const Record record{kUtcMarker,cycle.civil_start" in nvs
+assert "kLegacyMarker = 0x454E5431U" in nvs
+assert "kUtcMarker = 0x454E5432U" in nvs
+assert "old.marker == kLegacyMarker" in nvs
+assert "kSessionMarker = 0x454E5433U" in nvs
+assert "static_assert(sizeof(Record) == 24U" in nvs
 assert "if (!saved.active) return;" in guard
-assert "fallback_?kBreakMs:kCycleMs" in guard
-assert "kWindowMs=20U*60U*1000U" in guard
-assert "kBreakMs=60U*60U*1000U" in guard
+assert "begin_cooldown(now, false, 0);" in guard
+assert "kIdleResetMs = 15U * 60U * 1000U" in guard
+assert "kWindowMs = 20U * 60U * 1000U" in guard
+assert "kBreakMs = 60U * 60U * 1000U" in guard
 assert "migrate_legacy_cycle_minutes(stored_entertainment)" in main
 assert "legacy_local_minutes_to_utc(" in main
 assert "clock.read_utc(utc)" in main
