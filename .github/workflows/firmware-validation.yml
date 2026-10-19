@@ -100,6 +100,10 @@ jobs:
         run: |
           set -euo pipefail
           source "${IDF_PATH}/export.sh"
+          # The IDF container runs as a different user than actions/checkout.
+          # Trust only this checkout and our one detached baseline worktree.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory /tmp/nikos-ent-baseline
           git worktree add --detach /tmp/nikos-ent-baseline "origin/main"
           (cd /tmp/nikos-ent-baseline && idf.py build)
           app_bin="$(find /tmp/nikos-ent-baseline/build -maxdepth 1 -type f -name '*.bin' -print -quit)"
