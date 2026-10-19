@@ -1046,7 +1046,7 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.secondary_short) {
             settings_selection_ =
-                static_cast<std::uint8_t>((settings_selection_ + 1U) % 6U);
+                static_cast<std::uint8_t>((settings_selection_ + 1U) % 7U);
             render();
             return Action::None;
         }
@@ -1072,6 +1072,8 @@ Action Launcher::update(const board::InputState& input)
                 auto_power_off_selection_ =
                     settings_.auto_power_off_enabled ? 0U : 1U;
                 screen_ = Screen::AutoPowerOff;
+            } else if (settings_selection_ == 5U) {
+                screen_ = Screen::About;
             } else {
                 signal_sound_.stop();
                 screen_ = Screen::Main;
@@ -1080,6 +1082,14 @@ Action Launcher::update(const board::InputState& input)
             render();
         }
 
+        return Action::None;
+    }
+
+    if (screen_ == Screen::About) {
+        if (input.primary_short || input.secondary_short || input.secondary_long) {
+            screen_ = Screen::Settings;
+            render();
+        }
         return Action::None;
     }
 
@@ -1602,6 +1612,9 @@ void Launcher::render()
             break;
         case Screen::Settings:
             render_settings();
+            break;
+        case Screen::About:
+            render_about();
             break;
         case Screen::SoundMenu:
             render_sound_menu();
@@ -2885,12 +2898,13 @@ void Launcher::render_settings()
         board::DisplayColor::PrimaryText,
         board::DisplayColor::Background);
 
-    constexpr const char* kItems[6] = {
+    constexpr const char* kItems[7] = {
         "DŹWIĘK",
         "JASNOŚĆ",
         "MOTYW",
         "ORIENTACJA",
         "AUTO WYŁĄCZ.",
+        "O NIKOS OS",
         "POWRÓT",
     };
 
@@ -2940,6 +2954,53 @@ void Launcher::render_settings()
         1,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
+}
+
+void Launcher::render_about()
+{
+    clear_shell(board_);
+
+    draw_pilot_text(
+        18, 7, 204, 25, "NIKOS OS", 2,
+        board::DisplayColor::Accent,
+        board::DisplayColor::Background);
+    board_.draw_line(18, 35, 222, 35, board::DisplayColor::Accent);
+
+    // A static dedication. The existing small Polish UI font keeps both
+    // sentences on single lines without touching global text settings.
+    const auto centered = [this](const char* text, std::int16_t y,
+                                board::DisplayColor foreground) {
+        const std::int32_t width = board_.polish_ui_text_width(text);
+        if (width <= 0 || width > 220) {
+            return;
+        }
+        const auto x = static_cast<std::int16_t>((240 - width) / 2);
+        board_.draw_polish_ui_text_region(
+            x, y, static_cast<std::int16_t>(width + 1), 14,
+            text, 1, foreground, board::DisplayColor::Background);
+    };
+
+    centered("Jedyny taki system na świecie.", 44,
+             board::DisplayColor::PrimaryText);
+    centered("Stworzony specjalnie dla Nikodema.", 65,
+             board::DisplayColor::PrimaryText);
+
+    // Draw the copyright mark directly: the existing fonts do not contain ©.
+    board_.fill_circle(101, 91, 7, board::DisplayColor::SecondaryText);
+    board_.fill_circle(101, 91, 5, board::DisplayColor::Background);
+    board_.draw_line(103, 88, 99, 88, board::DisplayColor::SecondaryText);
+    board_.draw_line(99, 88, 98, 91, board::DisplayColor::SecondaryText);
+    board_.draw_line(98, 91, 99, 94, board::DisplayColor::SecondaryText);
+    board_.draw_line(99, 94, 103, 94, board::DisplayColor::SecondaryText);
+    board_.draw_text_region(
+        113, 86, 40, 13, "2026", 1,
+        board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+
+    centered("Wszystkie prawa zastrzeżone", 103,
+             board::DisplayColor::SecondaryText);
+    centered("M5 / BOCZNY = POWRÓT", 120,
+             board::DisplayColor::Accent);
 }
 
 void Launcher::draw_pilot_text(std::int16_t x, std::int16_t y,
