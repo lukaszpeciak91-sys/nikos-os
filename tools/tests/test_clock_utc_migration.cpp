@@ -1,6 +1,5 @@
 // g++ -std=c++17 -Wall -Wextra -Werror -Icomponents/clock/include
 //     -Icomponents/entertainment_guard/include tools/tests/test_clock_utc_migration.cpp -o /tmp/utc_migration
-// /tmp/utc_migration
 #include "clock/legacy_civil_minutes.hpp"
 #include "entertainment_guard/guard.hpp"
 #include <cassert>
@@ -12,7 +11,6 @@ constexpr std::uint32_t local_minutes(DateTime time) {
 }
 int main() {
     std::uint32_t utc_start=0;
-    // Legacy winter cycle translates one hour back; summer two hours.
     assert(legacy_local_minutes_to_utc(
         local_minutes({2026,1,15,12,0,0}),utc_start)==LegacyMinuteStatus::Exact);
     assert(utc_start==local_minutes({2026,1,15,11,0,0}));
@@ -27,24 +25,24 @@ int main() {
     assert(utc_start==local_minutes({2026,3,29,1,30,0}));
     assert(legacy_local_minutes_to_utc(0,utc_start)==LegacyMinuteStatus::Invalid);
 
-    // Existing behavior remains monotonic once boot recovery finishes.
     Guard none;
     none.restore({},1000,false,0);
     assert(none.phase(1000)==Phase::Available);
     Guard active;
     const std::uint32_t start=local_minutes({2026,7,15,10,0,0});
-    active.restore({true,true,start,false},1000,true,start+30);
+    const Snapshot legacy{true,true,start,false,0,0,false,false,true};
+    active.restore(legacy,1000,true,
+        static_cast<std::uint64_t>(start+30U)*60U);
     assert(active.phase(1000)==Phase::Cooldown);
-    assert(active.phase(1000+49*60000)==Phase::Cooldown);
-    assert(active.phase(1000+50*60000)==Phase::Available);
+    assert(active.phase(1000+49U*60000U)==Phase::Cooldown);
+    assert(active.phase(1000+50U*60000U)==Phase::Available);
     Guard expired;
-    expired.restore({true,true,start,false},1000,true,start+80);
+    expired.restore(legacy,1000,true,
+        static_cast<std::uint64_t>(start+80U)*60U);
     assert(expired.phase(1000)==Phase::Available);
     assert(expired.pending_clear());
     Guard uncertain;
-    uncertain.restore({true,false,0,false},1000,false,0);
+    uncertain.restore({true,false,0,false,0,0,false,false,true},1000,false,0);
     assert(uncertain.phase(1000)==Phase::Cooldown);
     assert(uncertain.phase(1000+Guard::kBreakMs)==Phase::Available);
-    // Intentional accepted limitation: if restarted before fallback expiry,
-    // an untrusted active persisted cycle can start another 60m fallback.
 }
