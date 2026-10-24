@@ -83,7 +83,7 @@ calendar_begin_method = (
 
 # Assert retained editor/RTC code and affected returns, not just labels.
 editor = section(
-    "    if (screen_ == Screen::ClockSetDateDay",
+    "    if (screen_ == Screen::ClockSetDateDay\n        || screen_ == Screen::ClockSetDateMonth",
     "\n    if (screen_ == Screen::ClockDateSetFailed) {",
 )
 assert "clock_service_.set_date(requested)" in editor
