@@ -1402,7 +1402,7 @@ Action Launcher::update(const board::InputState& input)
             screen_ = Screen::Settings;
             break;
         case 5:
-            confirmation_selection_ = 1;
+            confirmation_selection_ = 0;
             screen_ = Screen::ShutdownConfirm;
             break;
         default:
