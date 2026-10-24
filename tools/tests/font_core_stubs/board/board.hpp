@@ -31,6 +31,7 @@ public:
     std::string reader_page;
     std::string reader_side;
     std::string reader_m5;
+    std::string quiz_header;
     void clear_screen() {
         ++clear_calls;
         marker_y = -1;
@@ -41,6 +42,7 @@ public:
         reader_page.clear();
         reader_side.clear();
         reader_m5.clear();
+        quiz_header.clear();
     }
     void draw_line(std::int16_t x0, std::int16_t y0,
         std::int16_t x1, std::int16_t y1, DisplayColor) {
@@ -70,6 +72,7 @@ public:
         if (x == 14 && y == 121) footer_text = text;
         if (x == 176 && y == 4) list_position = text;
         if (x == 181 && y == 2) reader_counter = text;
+        if (x == 8 && y == 2) quiz_header = text;
         if (x == 5 && y == 123) reader_page = text;
         if (x == 49 && y == 123) reader_side = text;
         if (x == 133 && y == 123) reader_m5 = text;
