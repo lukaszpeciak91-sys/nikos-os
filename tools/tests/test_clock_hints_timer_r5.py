@@ -51,7 +51,7 @@ assert sum(advances[c] for c in "M5 > | SIDE < | SIDE DŁ. WRÓĆ") > 224
 expected = (
     ("M5 START", 63, 18, "Accent"),
     ("SIDE +CZAS", 82, 18, "SecondaryText"),
-    ("SIDE DŁ. WRÓĆ", 101, 16, "SecondaryText"),
+    ("SIDE DŁ. WRÓĆ", 101, 19, "SecondaryText"),
 )
 for label, y, height, color in expected:
     assert re.search(
@@ -87,6 +87,12 @@ for label, y, height, _ in expected:
     assert y + height <= 135
     assert all(ch in mapped for ch in label)
     assert sum(mapped[ch] for ch in label) * 2 <= 196, label
+
+# The Polish hint must reach the existing UTF-8 renderer (minimum 19px high).
+# Its width/position/color/text size remain the same as the original third row.
+main_source = (ROOT / "main/app_main.cpp").read_text(encoding="utf-8")
+assert "if (size <= 1 || h < 19) return false;" in main_source
+assert expected[-1][2] >= 19
 
 # Only the displayed third action is renamed; other menu items remain.
 assert re.search(
