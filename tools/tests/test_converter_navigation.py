@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile the production Converter UI and check R3 navigation on host."""
+"""Compile production Converter v0.2 UI and exercise full navigation on host."""
 from pathlib import Path
 import shutil
 import subprocess
@@ -24,4 +24,4 @@ with tempfile.TemporaryDirectory() as tmp:
     ], check=True)
     subprocess.run([str(binary)], check=True)
 
-print("Converter R3 navigation, cancel/commit, invalid edit, suspend/resume PASS")
+print("Converter v0.2 source/destination, explicit save, cancel, validation, suspend/resume PASS")
