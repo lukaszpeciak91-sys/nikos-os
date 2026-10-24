@@ -67,6 +67,15 @@ for x,y,w,ht in [(12,3,216,19),(0,34,240,24),
                  (71,87,98,25),(12,115,216,19),
                  (12,119,218,16),(16,83,208,24)]:
     assert x >= 0 and y >= 0 and x+w <= 240 and y+ht <= 135
+# All context-sensitive footer messages fit native Font0 (6px/character).
+for hint in ("M5 WYBIERZ  SIDE DALEJ",
+             "M5 OK  SIDE JEDN.  DL ANULUJ",
+             "SIDE +1  M5 DALEJ  DL ANULUJ",
+             "M5 ZAPISZ  SIDE POPRAW  DL ANULUJ"):
+    assert hint in cpp
+    assert hint.isascii()
+    assert len(hint) * 6 <= 218, hint
+
 assert "const std::uint8_t first_digit = editor_.temperature ? 1U : 0U;" in cpp
 assert "editor_.character_index()" in cpp
 assert "editor_.text(edit)" in cpp
