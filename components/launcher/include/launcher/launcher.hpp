@@ -93,6 +93,7 @@ private:
         Entertainment,
         Games,
         Clock,
+        ClockDateConfirm,
         TimerSetup,
         TimerActive,
         Stopwatch,
@@ -145,6 +146,7 @@ private:
     void render_clock_editor(bool editing_hour);
     void render_clock_set_failed();
     void render_clock_needs_date();
+    void render_date_confirm();
     void render_date_editor();
     void render_date_set_failed();
     void render_date_needs_time();
@@ -191,6 +193,7 @@ private:
     std::uint8_t entertainment_selection_ = 0;
     std::uint8_t games_selection_ = 0;
     std::uint8_t clock_selection_ = 0;
+    Screen date_confirm_origin_ = Screen::Clock;
     std::uint8_t world_city_ = 0;
     bool world_rendered_valid_ = false;
     std::uint32_t world_last_sample_ms_ = 0;

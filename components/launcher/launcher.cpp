@@ -26,7 +26,7 @@ constexpr std::array<Entry, 6> kEntries = {{
 constexpr std::size_t kVisibleLauncherRows = 4;
 constexpr std::uint8_t kClockMenuItemCount = 7;
 constexpr std::uint8_t kClockVisibleRows = 2;
-constexpr std::uint8_t kClockTimerIndex = 3;
+constexpr std::uint8_t kClockTimerIndex = 1;
 constexpr std::int16_t kClockMenuFirstY = 57;
 constexpr std::int16_t kClockMenuRowHeight = 27;
 static_assert(((6U + 31U - 1U) / 7U) == 5U);
@@ -676,25 +676,27 @@ Action Launcher::update(const board::InputState& input)
 
         if (input.primary_short) {
             if (clock_selection_ == 0U) {
-                const clock::Reading reading = clock_service_.read();
-                edit_hour_ = reading.valid ? reading.time.hour : 0U;
-                edit_minute_ = reading.valid ? reading.time.minute : 0U;
-                screen_ = Screen::ClockSetHour;
-            } else if (clock_selection_ == 1U) {
-                begin_date_editor();
-            } else if (clock_selection_ == 2U) {
                 begin_calendar();
-            } else if (clock_selection_ == 3U) {
+            } else if (clock_selection_ == 1U) {
                 timer_selection_ = 0;
                 screen_ = countdown_.state() == countdown::State::Idle
                     ? Screen::TimerSetup
                     : Screen::TimerActive;
-            } else if (clock_selection_ == 4U) {
+            } else if (clock_selection_ == 2U) {
                 reset_stopwatch_session();
                 screen_ = Screen::Stopwatch;
-            } else if (clock_selection_ == 5U) {
+            } else if (clock_selection_ == 3U) {
                 world_city_ = 0;
                 screen_ = Screen::WorldClock;
+            } else if (clock_selection_ == 4U) {
+                const clock::Reading reading = clock_service_.read();
+                edit_hour_ = reading.valid ? reading.time.hour : 0U;
+                edit_minute_ = reading.valid ? reading.time.minute : 0U;
+                screen_ = Screen::ClockSetHour;
+            } else if (clock_selection_ == 5U) {
+                date_confirm_origin_ = Screen::Clock;
+                confirmation_selection_ = 1U;
+                screen_ = Screen::ClockDateConfirm;
             } else {
                 screen_ = Screen::Main;
             }
@@ -704,9 +706,27 @@ Action Launcher::update(const board::InputState& input)
         return Action::None;
     }
 
+    if (screen_ == Screen::ClockDateConfirm) {
+        if (input.secondary_short) {
+            confirmation_selection_ ^= 1U;
+        } else if (input.secondary_long) {
+            screen_ = date_confirm_origin_;
+        } else if (input.primary_short) {
+            if (confirmation_selection_ == 0U) {
+                begin_date_editor();
+            } else {
+                screen_ = date_confirm_origin_;
+            }
+        } else {
+            return Action::None;
+        }
+        render();
+        return Action::None;
+    }
+
     if (screen_ == Screen::WorldClock) {
         if (input.secondary_long) {
-            clock_selection_ = 5U;
+            clock_selection_ = 3U;
             update_clock_viewport();
             screen_ = Screen::Clock;
             render();
@@ -723,7 +743,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::TimerSetup) {
         if (input.secondary_long) {
-            clock_selection_ = 3;
+            clock_selection_ = 1;
             screen_ = Screen::Clock;
             render();
             return Action::None;
@@ -753,7 +773,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_long) {
-            clock_selection_ = 3;
+            clock_selection_ = 1;
             screen_ = Screen::Clock;
             render();
             return Action::None;
@@ -783,7 +803,7 @@ Action Launcher::update(const board::InputState& input)
             screen_ = Screen::TimerSetup;
             render();
         } else {
-            clock_selection_ = 3;
+            clock_selection_ = 1;
             screen_ = Screen::Clock;
             render();
         }
@@ -874,7 +894,8 @@ Action Launcher::update(const board::InputState& input)
 
         if (clock_service_.set_time(edit_hour_, edit_minute_)) {
             update_clock_sample(now, true);
-            clock_selection_ = 0;
+            clock_selection_ = 4;
+            update_clock_viewport();
             screen_ = clock_service_.pending_local_date()
                 ? Screen::ClockNeedsDate : Screen::Clock;
         } else {
@@ -899,7 +920,7 @@ Action Launcher::update(const board::InputState& input)
         || screen_ == Screen::ClockSetDateMonth
         || screen_ == Screen::ClockSetDateYear) {
         if (input.secondary_long) {
-            clock_selection_ = 1;
+            clock_selection_ = 5;
             update_clock_viewport();
             screen_ = Screen::Clock;
             render();
@@ -947,7 +968,7 @@ Action Launcher::update(const board::InputState& input)
             const clock::DateSetResult result =
                 clock_service_.set_date(requested);
             if (result == clock::DateSetResult::Success) {
-                clock_selection_ = 1;
+                clock_selection_ = 5;
                 update_clock_viewport();
                 screen_ = Screen::Clock;
             } else if (result == clock::DateSetResult::TimeUntrusted) {
@@ -964,7 +985,7 @@ Action Launcher::update(const board::InputState& input)
         if (input.primary_short
             || input.secondary_short
             || input.secondary_long) {
-            clock_selection_ = 1;
+            clock_selection_ = 5;
             update_clock_viewport();
             screen_ = Screen::Clock;
             render();
@@ -976,7 +997,7 @@ Action Launcher::update(const board::InputState& input)
         if (input.primary_short
             || input.secondary_short
             || input.secondary_long) {
-            clock_selection_ = 1;
+            clock_selection_ = 5;
             update_clock_viewport();
             screen_ = Screen::Clock;
             render();
@@ -986,7 +1007,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::Calendar) {
         const auto return_to_clock = [this]() {
-            clock_selection_ = 2;
+            clock_selection_ = 0;
             update_clock_viewport();
             screen_ = Screen::Clock;
             render();
@@ -1015,7 +1036,9 @@ Action Launcher::update(const board::InputState& input)
 
         if (!calendar_initialized_) {
             if (calendar_action_selection_ == 0U) {
-                begin_date_editor();
+                date_confirm_origin_ = Screen::Calendar;
+                confirmation_selection_ = 1U;
+                screen_ = Screen::ClockDateConfirm;
                 render();
             } else {
                 return_to_clock();
@@ -1448,7 +1471,7 @@ void Launcher::reset_stopwatch_session()
 void Launcher::exit_stopwatch_to_clock()
 {
     reset_stopwatch_session();
-    clock_selection_ = 4;
+    clock_selection_ = 2;
     update_clock_viewport();
     screen_ = Screen::Clock;
     render();
@@ -1586,6 +1609,9 @@ void Launcher::render()
             break;
         case Screen::Clock:
             render_clock();
+            break;
+        case Screen::ClockDateConfirm:
+            render_date_confirm();
             break;
         case Screen::WorldClock:
             render_world_clock();
@@ -2016,8 +2042,8 @@ void Launcher::render_clock()
     board_.draw_text_region(14, 4, 212, 18, "ZEGAR", 2);
     render_clock_time_if_changed();
     constexpr const char* kItems[kClockMenuItemCount] = {
-        "USTAW CZAS", "USTAW DATE", "KALENDARZ", nullptr, "STOPER",
-        "ZEGAR ŚWIATOWY", "POWRÓT",
+        "KALENDARZ", nullptr, "STOPER", "ZEGAR ŚWIATOWY",
+        "USTAW CZAS", "USTAW DATĘ", "POWRÓT",
     };
     font_renderer_.select(font_core::Mode::PreRendered);
     font_renderer_.set_size(font_core::Size::Readable);
@@ -2447,6 +2473,36 @@ void Launcher::render_clock_needs_date()
     font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw("M5 / BOCZNY = POWRÓT",{10,112,220,19},
         board::DisplayColor::SecondaryText);
+}
+
+void Launcher::render_date_confirm()
+{
+    clear_shell(board_);
+
+    // Match the existing ShutdownConfirm layout and typography.
+    draw_pilot_text(18, 12, 204, 25, "ZMIENIĆ", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+    draw_pilot_text(18, 39, 204, 25, "DATĘ?", 2,
+        board::DisplayColor::PrimaryText, board::DisplayColor::Background);
+
+    constexpr const char* kChoices[2] = {"TAK", "NIE"};
+    for (std::uint8_t index = 0; index < 2; ++index) {
+        const bool selected = confirmation_selection_ == index;
+        const std::int16_t y = static_cast<std::int16_t>(67 + index * 26);
+        draw_pilot_text(32, y, 176, 25, kChoices[index], 2,
+            selected ? (index == 0 ? board::DisplayColor::Danger
+                                   : board::DisplayColor::PrimaryText)
+                     : board::DisplayColor::SecondaryText,
+            selected ? board::DisplayColor::Surface
+                     : board::DisplayColor::Background);
+        if (selected) {
+            board_.draw_text_region(18, y, 12, 22, ">", 2,
+                board::DisplayColor::Accent, board::DisplayColor::Background);
+        }
+    }
+    board_.draw_text_region(44, 121, 190, 12,
+        "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText, board::DisplayColor::Background);
 }
 
 void Launcher::render_date_editor()
