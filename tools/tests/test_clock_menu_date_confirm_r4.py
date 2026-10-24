@@ -64,7 +64,7 @@ viewport_method = (
     "void Harness::update_clock_viewport()"
     + section(
         "void Launcher::update_clock_viewport()",
-        "\nvoid Launcher::begin_date_editor()",
+        "\nvoid Launcher::return_from_date_editor(bool saved)",
     )
 )
 date_begin_method = (
