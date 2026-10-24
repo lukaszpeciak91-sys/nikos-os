@@ -41,6 +41,7 @@ assert "clock_selection_ == kClockTimerIndex" in timer_paint
 assert "kClockTimerIndex < clock_view_start_" in timer_paint
 assert "const auto index = static_cast<std::uint8_t>(clock_view_start_ + slot);" in CPP
 assert "ClockDateConfirm," in HPP
+assert "void return_from_date_editor(bool saved);" in HPP
 assert "Screen date_confirm_origin_ = Screen::Clock;" in HPP
 assert "void render_date_confirm();" in HPP
 
@@ -63,7 +64,7 @@ viewport_method = (
     "void Harness::update_clock_viewport()"
     + section(
         "void Launcher::update_clock_viewport()",
-        "\nvoid Launcher::begin_date_editor()",
+        "\nvoid Launcher::return_from_date_editor(bool saved)",
     )
 )
 date_begin_method = (
@@ -89,12 +90,13 @@ editor = section(
 assert "clock_service_.set_date(requested)" in editor
 assert "Screen::ClockSetDateMonth" in editor
 assert "Screen::ClockSetDateYear" in editor
-assert "clock_selection_ = 5;" in editor
-assert "clock_selection_ = 5;" in section(
+assert "return_from_date_editor(false);" in editor
+assert "return_from_date_editor(true);" in editor
+assert "return_from_date_editor(false);" in section(
     "    if (screen_ == Screen::ClockDateSetFailed)",
     "\n    if (screen_ == Screen::ClockDateNeedsTime)",
 )
-assert "clock_selection_ = 5;" in section(
+assert "return_from_date_editor(false);" in section(
     "    if (screen_ == Screen::ClockDateNeedsTime)",
     "\n    if (screen_ == Screen::Calendar)",
 )

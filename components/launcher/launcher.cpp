@@ -920,9 +920,7 @@ Action Launcher::update(const board::InputState& input)
         || screen_ == Screen::ClockSetDateMonth
         || screen_ == Screen::ClockSetDateYear) {
         if (input.secondary_long) {
-            clock_selection_ = 5;
-            update_clock_viewport();
-            screen_ = Screen::Clock;
+            return_from_date_editor(false);
             render();
             return Action::None;
         }
@@ -968,9 +966,7 @@ Action Launcher::update(const board::InputState& input)
             const clock::DateSetResult result =
                 clock_service_.set_date(requested);
             if (result == clock::DateSetResult::Success) {
-                clock_selection_ = 5;
-                update_clock_viewport();
-                screen_ = Screen::Clock;
+                return_from_date_editor(true);
             } else if (result == clock::DateSetResult::TimeUntrusted) {
                 screen_ = Screen::ClockDateNeedsTime;
             } else {
@@ -985,9 +981,7 @@ Action Launcher::update(const board::InputState& input)
         if (input.primary_short
             || input.secondary_short
             || input.secondary_long) {
-            clock_selection_ = 5;
-            update_clock_viewport();
-            screen_ = Screen::Clock;
+            return_from_date_editor(false);
             render();
         }
         return Action::None;
@@ -997,9 +991,7 @@ Action Launcher::update(const board::InputState& input)
         if (input.primary_short
             || input.secondary_short
             || input.secondary_long) {
-            clock_selection_ = 5;
-            update_clock_viewport();
-            screen_ = Screen::Clock;
+            return_from_date_editor(false);
             render();
         }
         return Action::None;
@@ -1494,6 +1486,21 @@ void Launcher::update_clock_viewport()
         kClockMenuItemCount - kClockVisibleRows;
     if (clock_view_start_ > max_start) {
         clock_view_start_ = max_start;
+    }
+}
+
+void Launcher::return_from_date_editor(bool saved)
+{
+    if (date_confirm_origin_ == Screen::Calendar) {
+        if (saved) {
+            begin_calendar(); // Refresh from the date just committed to RTC.
+        } else {
+            screen_ = Screen::Calendar;
+        }
+    } else {
+        clock_selection_ = 5;
+        update_clock_viewport();
+        screen_ = Screen::Clock;
     }
 }
 
