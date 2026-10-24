@@ -50,25 +50,46 @@ int main() {
         assert(std::strchr(kModels[i].description_pl, '\n') != nullptr);
     }
 
+    constexpr auto kListFooter = "M5 OTWÓRZ | SIDE DALEJ";
+    constexpr auto kCardFooter = "M5 NASTĘPNY | SIDE WRÓĆ";
     VwGarageApp app(board);
     app.begin();
     assert(board.bounds_ok && board.marker_y == 29);
-    app.update(m5_short());  // First catalogue card.
+    assert(board.footer_text == kListFooter);
+
+    InputState power{};
+    power.power_short = true;
+    assert(app.update(power) == VwGarageApp::UpdateResult::Running);
+    assert(board.footer_text == kListFooter);
+
+    app.update(m5_short());  // Open model 1.
     assert(board.bounds_ok && board.marker_y == -1);
-    app.update(m5_short());  // Same model: list viewport unchanged.
-    assert(board.marker_y == 29);
+    assert(board.footer_text == kCardFooter);
+    assert(app.update(power) == VwGarageApp::UpdateResult::Running);
+    assert(board.footer_text == kCardFooter);
+    app.update(side_short()); // Card -> list, preserve model 1.
+    assert(board.marker_y == 29 && board.footer_text == kListFooter);
+
     for (unsigned i = 1; i <= 24; ++i) {
-        app.update(side_short());
+        app.update(side_short());  // List selection: model 2 through 25.
         assert(board.bounds_ok);
         assert(board.marker_y == 29 + 22 * static_cast<int>(i < 4 ? i : 3));
+        assert(board.footer_text == kListFooter);
     }
-    app.update(m5_short());   // Last card (25/25).
-    app.update(side_short()); // Wrap to first card (01/25).
-    app.update(m5_short());   // Adjust viewport to show first model.
+    app.update(m5_short());   // Open model 25.
+    assert(board.marker_y == -1 && board.footer_text == kCardFooter);
+    app.update(side_long());  // Card -> list, preserve model 25.
+    assert(board.marker_y == 95 && board.footer_text == kListFooter);
+    app.update(m5_short());   // Reopen model 25.
+    app.update(m5_short());   // Card M5 short wraps 25 -> 1.
+    assert(board.bounds_ok && board.marker_y == -1);
+    assert(board.footer_text == kCardFooter);
+    app.update(side_short()); // Card -> list, now model 1.
     assert(board.bounds_ok && board.marker_y == 29);
-    app.update(m5_short());
+    assert(board.footer_text == kListFooter);
+    app.update(m5_short());   // Open model 1 again.
     app.update(side_long());  // Card -> list, no application exit.
-    assert(board.marker_y == 29);
+    assert(board.marker_y == 29 && board.footer_text == kListFooter);
     assert(app.update(side_long()) == VwGarageApp::UpdateResult::ExitRequested);
     app.end();
     assert(app.update(m5_short()) == VwGarageApp::UpdateResult::ExitRequested);
@@ -77,5 +98,6 @@ int main() {
     app.redraw();             // Overlay redraw must retain selection.
     assert(board.clear_calls == redraw_before + 1);
     assert(board.marker_y == 29 && board.bounds_ok);
+    assert(board.footer_text == kListFooter);
     std::puts("VW Garage catalogue, font and navigation host tests PASS");
 }
