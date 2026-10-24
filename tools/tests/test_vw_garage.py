@@ -49,7 +49,7 @@ assert 'low_battery_reserve_active()' in main
 font = (root / "components/board/polish_ui_font.cpp").read_text(encoding="utf-8")
 glyphs = font.split("const lgfx::GFXglyph kPolishUiGlyphs[] PROGMEM = {", 1)[1].split("};", 1)[0]
 ranges = font.split("const lgfx::EncodeRange kPolishUiRanges[] PROGMEM = {", 1)[1].split("};", 1)[0]
-advances = [int(match[1]) for match in re.findall(
+advances = [int(match[0]) for match in re.findall(
     r"\{\s*\d+,\s*\d+,\s*\d+,\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\}", glyphs)]
 widths = {}
 for lo, hi, offset in re.findall(
