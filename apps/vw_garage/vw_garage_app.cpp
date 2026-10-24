@@ -36,21 +36,22 @@ VwGarageApp::UpdateResult VwGarageApp::update(const board::InputState& input) {
         if (view_ == View::List) return UpdateResult::ExitRequested;
         return_to_list();
     } else if (input.secondary_short) {
-        selected_index_ = static_cast<std::uint8_t>(
-            (selected_index_ + 1U) % kModelCount);
         if (view_ == View::List) {
+            selected_index_ = static_cast<std::uint8_t>(
+                (selected_index_ + 1U) % kModelCount);
             ensure_selection_visible();
             render_list();
         } else {
-            render_card();
+            return_to_list();
         }
     } else if (input.primary_short) {
         if (view_ == View::List) {
             view_ = View::Card;
-            render_card();
         } else {
-            return_to_list();
+            selected_index_ = static_cast<std::uint8_t>(
+                (selected_index_ + 1U) % kModelCount);
         }
+        render_card();
     }
     return UpdateResult::Running;
 }
@@ -100,8 +101,8 @@ void VwGarageApp::render_list() {
             static_cast<std::int16_t>(width), 19
         }, board::DisplayColor::Accent, bg);
     }
-    board_.draw_text_region(12, 121, 218, 12,
-        "M5 KARTA  BOCZNY >  DL: WYJ", 1,
+    board_.draw_polish_ui_text_region(12, 121, 218, 12,
+        "M5 OTWÓRZ | SIDE DALEJ", 1,
         board::DisplayColor::SecondaryText, board::DisplayColor::Background);
 }
 void VwGarageApp::render_card() {
@@ -119,8 +120,8 @@ void VwGarageApp::render_card() {
         board::DisplayColor::SecondaryText, board::DisplayColor::Background);
     renderer_.draw(model.vehicle_type, {140, 53, 94, 19});
     renderer_.draw(model.description_pl, {12, 77, 216, 38});
-    board_.draw_text_region(12, 122, 218, 12,
-        "M5 LISTA  BOCZNY >  DL: COFNIJ", 1,
+    board_.draw_polish_ui_text_region(12, 122, 218, 12,
+        "M5 NASTĘPNY | SIDE WRÓĆ", 1,
         board::DisplayColor::SecondaryText, board::DisplayColor::Background);
 }
 }  // namespace nikos::vw_garage
