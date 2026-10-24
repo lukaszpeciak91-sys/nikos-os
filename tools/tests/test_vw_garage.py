@@ -44,6 +44,25 @@ assert 'vw_garage.update(input)' in main
 assert 'entertainment_guard.phase(loop_now_ms)' in main
 assert 'launcher.take_entertainment_launch()' in main
 assert 'low_battery_reserve_active()' in main
+# Use the existing 1x Polish UI font for the requested accented labels;
+# verify actual glyph advances against the unchanged 218 px footer bounds.
+font = (root / "components/board/polish_ui_font.cpp").read_text(encoding="utf-8")
+glyphs = font.split("const lgfx::GFXglyph kPolishUiGlyphs[] PROGMEM = {", 1)[1].split("};", 1)[0]
+ranges = font.split("const lgfx::EncodeRange kPolishUiRanges[] PROGMEM = {", 1)[1].split("};", 1)[0]
+advances = [int(match[1]) for match in re.findall(
+    r"\\{\\s*\\d+,\\s*\\d+,\\s*\\d+,\\s*(-?\\d+),\\s*(-?\\d+),\\s*(-?\\d+)\\s*\\}", glyphs)]
+widths = {}
+for lo, hi, offset in re.findall(
+        r"\\{\\s*0x([0-9A-F]+),\\s*0x([0-9A-F]+),\\s*(\\d+)\\s*\\}", ranges):
+    for cp in range(int(lo, 16), int(hi, 16) + 1):
+        widths[chr(cp)] = advances[int(offset) + cp - int(lo, 16)]
+for y, label in ((121, "M5 OTWÓRZ | SIDE DALEJ"),
+                 (122, "M5 NASTĘPNY | SIDE WRÓĆ")):
+    assert (f'board_.draw_polish_ui_text_region(12, {y}, 218, 12,\\n'
+            f'        "{label}", 1,') in app
+    assert all(ch in widths for ch in label)
+    assert sum(widths[ch] for ch in label) <= 218
+
 for banned in ("http://", "https://", "esp_http_client", "wifi_start",
                "nvs_set", "malloc(", "new ", "std::vector", "std::string"):
     assert banned not in app and banned not in catalogue, banned
