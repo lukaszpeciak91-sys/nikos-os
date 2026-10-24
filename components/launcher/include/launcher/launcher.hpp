@@ -128,6 +128,7 @@ private:
     void reset_stopwatch_session();
     void exit_stopwatch_to_clock();
     void update_clock_viewport();
+    void return_from_date_editor(bool saved);
     void begin_date_editor();
     void clamp_edit_date_day();
     void begin_calendar();
