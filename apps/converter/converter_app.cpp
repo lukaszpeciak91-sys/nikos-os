@@ -17,7 +17,13 @@ ConverterApp::Result ConverterApp::update(const board::InputState& input){
     if(suspended_)return Result::Running;
     if(input.secondary_long){
         if(screen_==Screen::Categories)return Result::ExitRequested;
-        screen_=Screen::Categories;invalid_temperature_=false;render();return Result::Running;
+        if(screen_==Screen::Editing){
+            screen_=Screen::Conversion;
+            editor_=Editor{}; // Discard unconfirmed digits without changing base_.
+        }else{
+            screen_=Screen::Categories;
+        }
+        invalid_temperature_=false;render();return Result::Running;
     }
     if(screen_==Screen::Categories){
         if(input.secondary_short){selection_=static_cast<std::uint8_t>((selection_+1)%5);render();}
