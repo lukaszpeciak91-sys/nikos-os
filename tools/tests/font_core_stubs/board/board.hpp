@@ -24,7 +24,8 @@ public:
     bool bounds_ok = true;
     int marker_y = -1;
     int clear_calls = 0;
-    void clear_screen() { ++clear_calls; marker_y = -1; }
+    std::string footer_text;
+    void clear_screen() { ++clear_calls; marker_y = -1; footer_text.clear(); }
     void draw_line(std::int16_t x0, std::int16_t y0,
         std::int16_t x1, std::int16_t y1, DisplayColor) {
         bounds_ok = bounds_ok && x0 >= 0 && x1 < 240
@@ -48,6 +49,13 @@ public:
         bounds_ok = bounds_ok && x >= 0 && y >= 0
             && w > 0 && h > 0 && x + w <= 240 && y + h <= 135;
         ++text_calls;
+    }
+    void draw_polish_ui_text_region(std::int16_t x, std::int16_t y,
+                                   std::int16_t w, std::int16_t h,
+                                   const char* text, std::uint8_t size,
+                                   DisplayColor fg, DisplayColor bg) {
+        draw_text_region(x, y, w, h, text, size, fg, bg);
+        if (y >= 120) footer_text = text;
     }
 };
 }
