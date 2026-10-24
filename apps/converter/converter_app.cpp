@@ -30,11 +30,12 @@ void ConverterApp::redraw()
 }
 
 void ConverterApp::draw(const char* text, std::int16_t x, std::int16_t y,
-                        std::int16_t w, board::DisplayColor color)
+                        std::int16_t w, board::DisplayColor color,
+                        board::DisplayColor background)
 {
     font_.select(font_core::Mode::PreRendered);
     font_.set_size(font_core::Size::Compact);
-    font_.draw(text, {x, y, w, 19}, color);
+    font_.draw(text, {x, y, w, 19}, color, background);
 }
 
 void ConverterApp::draw_fitted(const char* text, std::int16_t x,
@@ -235,7 +236,8 @@ void ConverterApp::render_conversion()
     focus_box(12, 22, 216, 26, focus_ == Focus::Value);
     const auto input_background = focus_ == Focus::Value
         ? board::DisplayColor::Surface : board::DisplayColor::Background;
-    draw("WARTOŚĆ", 20, 26, 100, board::DisplayColor::SecondaryText);
+    draw("WARTOŚĆ", 20, 26, 100, board::DisplayColor::SecondaryText,
+        input_background);
     char number[24]{};
     format(input_value_, number);
     draw_fitted(number, 123, 23, 101,
@@ -243,10 +245,16 @@ void ConverterApp::render_conversion()
 
     focus_box(12, 49, 103, 24, focus_ == Focus::From);
     focus_box(120, 49, 108, 24, focus_ == Focus::To);
-    draw("Z", 20, 52, 21, board::DisplayColor::SecondaryText);
-    draw(units(category_)[from_unit_].label, 45, 52, 68);
-    draw("NA", 128, 52, 35, board::DisplayColor::SecondaryText);
-    draw(units(category_)[to_unit_].label, 164, 52, 61);
+    const auto from_background = focus_ == Focus::From
+        ? board::DisplayColor::Surface : board::DisplayColor::Background;
+    const auto to_background = focus_ == Focus::To
+        ? board::DisplayColor::Surface : board::DisplayColor::Background;
+    draw("Z", 20, 52, 21, board::DisplayColor::SecondaryText, from_background);
+    draw(units(category_)[from_unit_].label, 45, 52, 68,
+        board::DisplayColor::PrimaryText, from_background);
+    draw("NA", 128, 52, 35, board::DisplayColor::SecondaryText, to_background);
+    draw(units(category_)[to_unit_].label, 164, 52, 61,
+        board::DisplayColor::PrimaryText, to_background);
 
     draw("WYNIK", 12, 74, 212, board::DisplayColor::SecondaryText);
     double result = 0;
@@ -340,7 +348,9 @@ void ConverterApp::render_editor()
     focus_box(71, 87, 98, 25, save_focus_);
     draw("ZAPISZ", 86, 90, 80,
         save_focus_ ? board::DisplayColor::PrimaryText
-                    : board::DisplayColor::SecondaryText);
+                    : board::DisplayColor::SecondaryText,
+        save_focus_ ? board::DisplayColor::Surface
+                    : board::DisplayColor::Background);
 
     if (invalid_temperature_) {
         draw("PONIŻEJ ZERA ABS.", 12, 115, 216,
