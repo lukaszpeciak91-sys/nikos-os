@@ -63,6 +63,7 @@ assert "void begin_date_editor();" in header
 cpp = r"""
 #include <cassert>
 #include <cstdint>
+#include <initializer_list>
 namespace nikos {
 namespace clock {
 struct Date {
