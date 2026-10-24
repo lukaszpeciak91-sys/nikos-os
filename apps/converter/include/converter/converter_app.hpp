@@ -22,7 +22,8 @@ private:
     void render_editor();
     void render_units();
     void draw(const char* text,std::int16_t x,std::int16_t y,std::int16_t w,
-        board::DisplayColor color=board::DisplayColor::PrimaryText,\n        board::DisplayColor background=board::DisplayColor::Background);
+        board::DisplayColor color=board::DisplayColor::PrimaryText,
+        board::DisplayColor background=board::DisplayColor::Background);
     void draw_fitted(const char* text,std::int16_t x,std::int16_t y,
         std::int16_t w,board::DisplayColor color,
         board::DisplayColor background=board::DisplayColor::Background);
