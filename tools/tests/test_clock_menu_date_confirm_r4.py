@@ -108,7 +108,7 @@ assert "clock_selection_ = 3U;" in section(
 )
 assert CPP.count("clock_selection_ = 1;") == 3  # TimerSetup + 2 TimerActive exits.
 assert "clock_selection_ = 4;" in section(
-    "    if (screen_ == Screen::ClockSetHour",
+    "    if (screen_ == Screen::ClockSetHour\n        || screen_ == Screen::ClockSetMinute) {",
     "\n    if (screen_ == Screen::ClockSetFailed",
 )
 assert "clock_selection_ = 0;" in calendar_handler
