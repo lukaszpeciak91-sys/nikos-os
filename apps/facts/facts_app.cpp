@@ -103,7 +103,8 @@ FactsApp::UpdateResult FactsApp::update(
         return UpdateResult::Running;
     }
 
-    if (input.secondary_long) {
+    // Reader uses the same return target for either SIDE press.
+    if (input.secondary_long && view_ != View::Reader) {
         if (view_ == View::MainMenu) {
             return UpdateResult::ExitRequested;
         }
@@ -161,7 +162,7 @@ FactsApp::UpdateResult FactsApp::update(
         return UpdateResult::Running;
     }
 
-    if (input.secondary_short) {
+    if (input.secondary_short || input.secondary_long) {
         if (random_mode_) {
             enter_main_menu();
         } else {
@@ -649,7 +650,7 @@ void FactsApp::render_main_menu()
         if (selected) draw_selection_marker(board_, 8, y, 24);
     }
     board_.draw_text_region(14, 121, 212, 12,
-        "M5 WYBIERZ | BOCZNY DALEJ", 1);
+        "M5 WYBIERZ | SIDE DALEJ", 1);
 }
 
 void FactsApp::render_title_list()
@@ -682,7 +683,7 @@ void FactsApp::render_title_list()
         y += height;
     }
     board_.draw_text_region(14, 121, 212, 12,
-        "M5 OTWORZ | BOCZNY DALEJ", 1);
+        "M5 OTWORZ | SIDE DALEJ", 1);
 }
 
 void FactsApp::render_reader()
@@ -784,6 +785,12 @@ void FactsApp::render_reader()
         page_progress,
         1,
         board::DisplayColor::Accent,
+        board::DisplayColor::Background);
+    board_.draw_text_region(
+        49, 123, 78, 11,
+        random_mode_ ? "SIDE MENU" : "SIDE LISTA",
+        1,
+        board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
     board_.draw_text_region(
         133,
