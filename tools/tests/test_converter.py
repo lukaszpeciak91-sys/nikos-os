@@ -146,7 +146,7 @@ guard=main.split("bool is_guarded_entertainment(",1)[1].split("bool trusted_utc_
 assert "Converter" not in guard
 assert "entertainment_guard" not in app
 assert "Screen::Editing" in app and "editor_.increment()" in app
-assert "screen_=Screen::Categories" in app
+assert "screen_ = Screen::Categories" in app
 print("Converter production logic and routing guards PASS")
 
 assert "font_.advance(" in app
