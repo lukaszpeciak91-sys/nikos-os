@@ -2211,7 +2211,7 @@ void Launcher::render_timer_setup()
         22,
         101,
         196,
-        16,
+        19,
         "SIDE DŁ. WRÓĆ",
         2,
         board::DisplayColor::SecondaryText,
