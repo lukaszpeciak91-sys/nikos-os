@@ -2140,8 +2140,21 @@ void Launcher::render_world_clock_if_changed(bool force)
     font_renderer_.set_size(font_core::Size::Compact);
     font_renderer_.draw(position,{196,6,42,18},
         board::DisplayColor::Accent);
-    font_renderer_.draw("M5 >  BOCZNY <  DLUGO POWROT",
-        {8,116,224,18},board::DisplayColor::SecondaryText);
+    // "M5 > | SIDE < | SIDE DŁ. WRÓĆ" measures 250 px at Compact size.
+    // Tighten only word gaps; keep the same glyphs, font size and footer area.
+    constexpr const char* kHintParts[] = {
+        "M5", ">", "|", "SIDE", "<", "|", "SIDE", "DŁ.", "WRÓĆ",
+    };
+    constexpr std::int16_t kHintGaps[] = {3, 3, 3, 3, 3, 3, 2, 2};
+    std::int16_t hint_x = 8;
+    for (std::size_t i = 0; i < std::size(kHintParts); ++i) {
+        const auto width = static_cast<std::int16_t>(
+            font_renderer_.measure(kHintParts[i], 224, 19).width_px);
+        font_renderer_.draw(kHintParts[i], {hint_x, 116, width, 19},
+            board::DisplayColor::SecondaryText);
+        hint_x = static_cast<std::int16_t>(
+            hint_x + width + (i < std::size(kHintGaps) ? kHintGaps[i] : 0));
+    }
 }
 
 void Launcher::render_timer_setup()
@@ -2189,7 +2202,7 @@ void Launcher::render_timer_setup()
         82,
         196,
         18,
-        "BOCZNY +CZAS",
+        "SIDE +CZAS",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2198,18 +2211,8 @@ void Launcher::render_timer_setup()
         22,
         101,
         196,
-        16,
-        "BOCZNY DLUGO",
-        2,
-        board::DisplayColor::SecondaryText,
-        board::DisplayColor::Background);
-
-    board_.draw_text_region(
-        22,
-        118,
-        196,
-        16,
-        "= POWROT",
+        19,
+        "SIDE DŁ. WRÓĆ",
         2,
         board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
@@ -2239,7 +2242,7 @@ void Launcher::render_timer_active()
     const char* actions[3] = {
         primary_action,
         "RESETUJ",
-        "POWRÓT",
+        "W TLE",
     };
 
     for (std::uint8_t index = 0; index < 3; ++index) {
