@@ -17,28 +17,27 @@ assert 'font_.draw(label' in coin
 assert "esp_random()" in coin
 assert "state_.tick(now)" in coin
 assert "font_.set_size(font_core::Size::Readable)" in converter
-assert "draw_value(line,29,board::DisplayColor::PrimaryText,true)" in converter
-assert "draw_value(text,59+row*27,board::DisplayColor::SecondaryText,false)" in converter
-assert "cursor_width,4,board::DisplayColor::Accent" in converter
-assert "const char focused[]" in converter
+assert "focus_box(12, 22, 216, 26, focus_ == Focus::Value)" in converter
+assert "focus_box(12, 49, 103, 24, focus_ == Focus::From)" in converter
+assert "focus_box(120, 49, 108, 24, focus_ == Focus::To)" in converter
+assert '"WARTOŚĆ"' in converter and '"WYNIK"' in converter
+assert "draw_fitted(result_text, 17, 94, 210" in converter
+assert "from_base(category_, to_unit_, base_, result)" in converter
+assert "font_.measure(text, w, 24)" in converter
+assert "font_.measure(text, w, 19)" in converter
+assert "font_.set_size(font_core::Size::Compact)" in converter
+assert "const char focused[]" not in converter
+assert "font_.advance(" in converter
 assert "editor_.character_index()" in converter
-assert "editor_.increment()" in converter
-assert "to_base(category_,unit_,editor_.value()" in converter
-assert "ZA DUŻA WARTOŚĆ" in converter
-assert "PONIŻEJ ZERA ABS." in converter
-print("Coin/Converter visual-only source contract PASS")
+assert "save_focus_ ? board::DisplayColor::Surface" in converter
+assert '"ZAPISZ"' in converter
+assert "board::DisplayColor::Accent" in converter
+assert '"PONIŻEJ ZERA ABS."' in converter
+print("Coin/Converter v0.2 visual styling and single-result layout PASS")
 
 board_h=(root/"components/board/include/board/board.hpp").read_text(encoding="utf-8")
 board_cpp=(root/"components/board/board.cpp").read_text(encoding="utf-8")
 assert "CoinGold," in board_h
 assert "kCoinGoldRgb565 = 0xFDC8" in board_cpp
 assert "return noir ? palette.accent : kCoinGoldRgb565;" in board_cpp
-assert "case DisplayColor::Attention:" in board_cpp  # Existing warning stays unchanged
-assert "board_.fill_rect(12, 27, 216, 29, background);" in converter
-assert "board_.fill_rect(12, 27, 3, 29, board::DisplayColor::Accent);" in converter
-assert "const std::int16_t x = primary ? 20 : 12;" in converter
-assert "font_.measure(text, width, 24).fits" in converter
-assert "font_.set_size(font_core::Size::Readable);" in converter
-assert "font_.set_size(font_core::Size::Compact);" in converter
-assert "draw_value(text,59+row*27,board::DisplayColor::SecondaryText,false);" in converter
-assert "draw_value(line,29,board::DisplayColor::PrimaryText,true);" in converter
+assert "case DisplayColor::Attention:" in board_cpp
