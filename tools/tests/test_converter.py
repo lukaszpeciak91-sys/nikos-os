@@ -146,20 +146,19 @@ guard=main.split("bool is_guarded_entertainment(",1)[1].split("bool trusted_utc_
 assert "Converter" not in guard
 assert "entertainment_guard" not in app
 assert "Screen::Editing" in app and "editor_.increment()" in app
-assert "screen_=Screen::Categories" in app
+assert "screen_ = Screen::Categories" in app
 print("Converter production logic and routing guards PASS")
 
 assert "font_.advance(" in app
 assert "editor_.character_index()" in app
 assert "editor_.text(edit)" in app
-assert 'invalid_temperature_=true;editor_.cursor=0;' in app
+assert "invalid_temperature_ = true;" in app
 assert '"PONIŻEJ ZERA ABS."' in app
-assert "invalid_temperature_=false;render();return Result::Running;" in app
-assert "if(screen_==Screen::Editing)" in app
-assert "SIDE DŁUGO: ANULUJ" in app
-
-assert "editable_value(category_,value)" in app
-assert '"ZA DUŻA WARTOŚĆ"' in app
-assert "editable_value(category_,input)" in app
-assert "editor_.begin(value,category_==Category::Temperature)" in app
-assert "unit_=static_cast<std::uint8_t>((unit_+1)%count(category_))" in app
+assert "if (screen_ == Screen::Editing)" in app
+assert "save_focus_ = true;" in app and 'draw("ZAPISZ"' in app
+assert "editor_.begin(input_value_, category_ == Category::Temperature)" in app
+assert "editable_value(category_, input_value_)" in app
+assert "candidate_unit_ = static_cast<std::uint8_t>(" in app
+assert "input_value_ = entered;" in app
+assert "to_base(category_, candidate_unit_, input_value_, next_base)" in app
+assert "from_base(category_, to_unit_, base_, result)" in app
