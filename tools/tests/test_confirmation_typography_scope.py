@@ -37,4 +37,22 @@ assert "*ctx.active_screen == RuntimeState::Communicator" in main
 assert "*ctx.active_screen == RuntimeState::Flashlight" in main
 assert "ctx.charging && ctx.charging->active" in main
 assert "ctx.launcher->showing_communicator_ui()" in main
+
+# Shutdown confirmation defaults to TAK; other confirmations are unchanged.
+shutdown_entry = re.search(
+    r"case 5:\s*confirmation_selection_ = (\d+);\s*"
+    r"screen_ = Screen::ShutdownConfirm;", launcher
+)
+assert shutdown_entry and shutdown_entry.group(1) == "0"
+shutdown_controls = launcher.split(
+    "if (screen_ == Screen::ShutdownConfirm) {", 1
+)[1].split("void Launcher::update_battery_sample(", 1)[0]
+assert "confirmation_selection_ ^= 1U;" in shutdown_controls
+assert "if (confirmation_selection_ == 0U)" in shutdown_controls
+assert "return Action::ShutdownRequested;" in shutdown_controls
+assert "if (input.secondary_long)" in shutdown_controls
+assert "screen_ = Screen::Main;" in shutdown_controls
+assert "confirmation_selection_ = 1U;\n                screen_ = Screen::ClockDateConfirm;" in launcher
+assert "confirmation_selection_ = 1;\n            screen_ = Screen::DisableCommunicator;" in launcher
+
 print("Confirmation-only typography bounds and glyph checks PASS")
