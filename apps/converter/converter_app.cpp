@@ -302,7 +302,7 @@ void ConverterApp::render_units()
             board::DisplayColor::Attention);
     } else {
         board_.draw_text_region(12, 119, 218, 16,
-            "M5 WYBIERZ  SIDE DALEJ", 1);
+            "M5 OK  SIDE JEDN.  DL ANULUJ", 1);
     }
 }
 
@@ -357,7 +357,8 @@ void ConverterApp::render_editor()
             board::DisplayColor::Attention);
     } else {
         board_.draw_text_region(12, 119, 218, 16,
-            "SIDE +1  M5 DALEJ", 1);
+            save_focus_ ? "M5 ZAPISZ  SIDE POPRAW  DL ANULUJ"
+                        : "SIDE +1  M5 DALEJ  DL ANULUJ", 1);
     }
 }
 }
