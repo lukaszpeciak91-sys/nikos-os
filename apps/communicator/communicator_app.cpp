@@ -638,6 +638,9 @@ void CommunicatorApp::handle_options_input(
             preference_save_failed_ = true;
             radio_preference_inconsistent_ = true;
             ESP_LOGE(kTag, "Radio/NVS preference mismatch after failed mode change");
+        } else {
+            // A previous unresolved mismatch is now reconciled in NVS.
+            radio_preference_inconsistent_ = false;
         }
     } else {
         radio_preference_inconsistent_ = false;

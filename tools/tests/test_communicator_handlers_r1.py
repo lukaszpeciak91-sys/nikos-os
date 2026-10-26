@@ -293,6 +293,19 @@ int main(){
     ui.handle_options_input(side()); // Navigating cannot silently erase warning.
     assert(ui.radio_preference_inconsistent_);
     assert(ui.footer=="RADIO/NVS NIESPOJNE");
+
+    // A later failed hardware transition with successful compensation
+    // reconciles an older persisted mismatch; clear the stale warning.
+    ui.selected_options_index_=1;
+    store.fail_radio_at=0; store.radio_saves=0;
+    messaging.mode_calls=0; messaging.fail_mode_at=1;
+    events.clear();
+    ui.handle_options_input(m5());
+    assert((events==std::vector<std::string>{"nvs_radio","radio","nvs_radio"}));
+    assert(messaging.mode==Mode::Normal && store.mode==0);
+    assert(ui.radio_mode_change_failed_ && !ui.radio_preference_inconsistent_);
+    assert(ui.footer=="NIE UDALO SIE");
+
     // Explicit user retry succeeds, restoring consistent effective/durable mode.
     ui.selected_options_index_=1;
     store.fail_radio_at=0; store.radio_saves=0;
