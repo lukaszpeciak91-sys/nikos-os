@@ -117,7 +117,9 @@ int main(){
    assert(s.load_brightness()==settings::Brightness::Medium);
    assert(s.load_signal_sound()==settings::SignalSound::Gentle);
   }
-  mock::fail_get=false;mock::fail_set=mode==2;mock::fail_commit=mode==3;
+  mock::fail_get=false;
+  if(mode==1) continue; // Read failure is independent from write/commit.
+  mock::fail_set=mode==2;mock::fail_commit=mode==3;
   assert(!s.save_theme(ui_theme::Theme::Matrix));
   assert(!s.save_orientation(settings::Orientation::Right));
   assert(!s.save_brightness(settings::Brightness::Low));
