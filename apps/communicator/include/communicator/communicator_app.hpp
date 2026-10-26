@@ -149,6 +149,8 @@ private:
     bool options_active_ = false;
     bool radio_mode_change_failed_ = false;
     bool preference_save_failed_ = false;
+    // Sticky until a successful explicit radio change or reboot.
+    bool radio_preference_inconsistent_ = false;
     State state_ = State::Main;
 
     std::uint8_t selected_main_index_ = 0;

@@ -620,16 +620,27 @@ void CommunicatorApp::handle_options_input(
     const radio::Mode target = current == radio::Mode::Normal
         ? radio::Mode::Lr : radio::Mode::Normal;
 
-    radio_mode_change_failed_ = !messaging_.set_radio_mode(target);
+    // NVS first: a failed write must never change radio/peer/delivery state.
     preference_save_failed_ = false;
-    if (!radio_mode_change_failed_
-        && !preferences_store_.save_radio_mode(
+    radio_mode_change_failed_ = false;
+    if (!preferences_store_.save_radio_mode(
             static_cast<std::uint8_t>(target))) {
         preference_save_failed_ = true;
-        // Keep active radio and durable preference aligned on write failure.
-        if (!messaging_.set_radio_mode(current)) {
-            radio_mode_change_failed_ = true;
+        render_options();
+        return;
+    }
+
+    if (!messaging_.set_radio_mode(target)) {
+        radio_mode_change_failed_ = true;
+        // One bounded compensating NVS write; no additional radio transition.
+        if (!preferences_store_.save_radio_mode(
+                static_cast<std::uint8_t>(current))) {
+            preference_save_failed_ = true;
+            radio_preference_inconsistent_ = true;
+            ESP_LOGE(kTag, "Radio/NVS preference mismatch after failed mode change");
         }
+    } else {
+        radio_preference_inconsistent_ = false;
     }
     render_options();
 }
@@ -1593,12 +1604,13 @@ void CommunicatorApp::render_options()
         118,
         212,
         13,
-        preference_save_failed_ ? "NIE ZAPISANO"
+        radio_preference_inconsistent_ ? "RADIO/NVS NIESPOJNE"
+            : preference_save_failed_ ? "NIE ZAPISANO"
             : radio_mode_change_failed_ ? "NIE UDALO SIE"
             : "M5 ZMIEN | BOCZNY DALEJ",
         1,
-        (radio_mode_change_failed_ || preference_save_failed_)
-            ? board::DisplayColor::Danger
+        (radio_preference_inconsistent_ || radio_mode_change_failed_
+            || preference_save_failed_) ? board::DisplayColor::Danger
             : board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 

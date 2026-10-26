@@ -28,7 +28,9 @@ assert "settings_.communicator_view = next;" in cpp
 assert "preferences_store_.save_view(" in cpp
 assert "preferences_store_.save_radio_mode(" in cpp
 assert "preference_save_failed_ = true;" in cpp
-assert "messaging_.set_radio_mode(current)" in cpp  # rollback on failed NVS commit
+assert "messaging_.set_radio_mode(current)" not in cpp  # NVS-first, no radio rollback
+assert "radio_preference_inconsistent_" in cpp
+assert '"RADIO/NVS NIESPOJNE"' in cpp
 assert "selected_main_index_ = kMainSignalIndex;" in cpp
 assert "bool CommunicatorApp::process_incoming()" in cpp
 assert "drain_incoming()" in cpp
