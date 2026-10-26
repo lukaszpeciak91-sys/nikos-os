@@ -15,6 +15,22 @@ constexpr char kOrientKey[] = "ui_orient";  // 0..1
 constexpr char kBrightKey[] = "ui_bright";  // 0..2; default 1
 constexpr char kMelodyKey[] = "sig_tune";   // 0..2
 
+// Guard the NVS wire values against accidental enum reordering.
+static_assert(static_cast<std::uint8_t>(nikos::ui_theme::Theme::Nikos) == 0U);
+static_assert(static_cast<std::uint8_t>(nikos::ui_theme::Theme::Bursztyn) == 1U);
+static_assert(static_cast<std::uint8_t>(nikos::ui_theme::Theme::Matrix) == 2U);
+static_assert(static_cast<std::uint8_t>(nikos::ui_theme::Theme::Lava) == 3U);
+static_assert(static_cast<std::uint8_t>(nikos::ui_theme::Theme::Noir) == 4U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::Orientation::Right) == 0U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::Orientation::Left) == 1U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::Brightness::Low) == 0U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::Brightness::Medium) == 1U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::Brightness::High) == 2U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::SignalSound::Gentle) == 0U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::SignalSound::Classic) == 1U);
+static_assert(static_cast<std::uint8_t>(nikos::settings::SignalSound::Pager) == 2U);
+
+
 std::uint8_t load(const char* key, std::uint8_t fallback, std::uint8_t maximum)
 {
     nvs_handle_t handle = 0;
