@@ -87,12 +87,14 @@ CommunicatorApp::CommunicatorApp(
     power::DisplayLifecycle& display_lifecycle,
     signal_sound::Player& signal_sound,
     settings::State& settings,
+    storage::CommunicatorPreferencesStore& preferences_store,
     const char* peer_label)
     : board_(board),
       messaging_(messaging),
       display_lifecycle_(display_lifecycle),
       signal_sound_(signal_sound),
       settings_(settings),
+      preferences_store_(preferences_store),
       peer_label_(peer_label)
 {
 }
@@ -101,6 +103,10 @@ void CommunicatorApp::begin()
 {
     active_ = true;
     foreground_exit_requested_ = false;
+    if (state_ == State::Main && !options_active_
+        && settings_.communicator_view == settings::CommunicatorView::SignalOnly) {
+        selected_main_index_ = kMainSignalIndex;
+    }
     if (!signal_alert_active_) {
         render_current();
     }
@@ -145,9 +151,11 @@ void CommunicatorApp::reset_session()
     foreground_exit_requested_ = false;
     options_active_ = false;
     radio_mode_change_failed_ = false;
+    preference_save_failed_ = false;
     state_ = State::Main;
 
-    selected_main_index_ = 0;
+    selected_main_index_ = settings_.communicator_view == settings::CommunicatorView::SignalOnly
+        ? kMainSignalIndex : 0U;
     selected_options_index_ = 0;
     selected_response_index_ = 0;
 
@@ -521,8 +529,15 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
     }
 
     if (input.secondary_short) {
-        selected_main_index_ = static_cast<std::uint8_t>(
-            (selected_main_index_ + 1U) % kMainChoiceCount);
+        if (settings_.communicator_view == settings::CommunicatorView::SignalOnly) {
+            selected_main_index_ = selected_main_index_ < kMainSignalIndex
+                || selected_main_index_ >= kMainReturnIndex
+                ? kMainSignalIndex
+                : static_cast<std::uint8_t>(selected_main_index_ + 1U);
+        } else {
+            selected_main_index_ = static_cast<std::uint8_t>(
+                (selected_main_index_ + 1U) % kMainChoiceCount);
+        }
         render_main();
         return;
     }
@@ -535,6 +550,7 @@ void CommunicatorApp::handle_main_input(const board::InputState& input)
         options_active_ = true;
         selected_options_index_ = 0;
         radio_mode_change_failed_ = false;
+        preference_save_failed_ = false;
         render_options();
         return;
     }
@@ -568,43 +584,67 @@ void CommunicatorApp::handle_options_input(
         selected_options_index_ =
             static_cast<std::uint8_t>((selected_options_index_ + 1U) % 3U);
         radio_mode_change_failed_ = false;
+        preference_save_failed_ = false;
         render_options();
         return;
     }
 
-    if (!input.primary_short) {
-        return;
-    }
+    if (!input.primary_short) return;
 
     if (selected_options_index_ == 2U) {
         options_active_ = false;
         radio_mode_change_failed_ = false;
+        preference_save_failed_ = false;
         render_main();
         return;
     }
 
     if (selected_options_index_ == 0U) {
-        settings_.communicator_view =
-            settings_.communicator_view == settings::CommunicatorView::List
-            ? settings::CommunicatorView::Single
-            : settings::CommunicatorView::List;
+        const auto next = static_cast<settings::CommunicatorView>(
+            (static_cast<std::uint8_t>(settings_.communicator_view) + 1U) % 3U);
+        // Do not present a changed value unless NVS committed it.
+        preference_save_failed_ = !preferences_store_.save_view(
+            static_cast<std::uint8_t>(next));
+        if (!preference_save_failed_) {
+            settings_.communicator_view = next;
+            if (next == settings::CommunicatorView::SignalOnly) {
+                selected_main_index_ = kMainSignalIndex;
+            }
+        }
         radio_mode_change_failed_ = false;
         render_options();
         return;
     }
 
     const radio::Mode current = messaging_.radio_mode();
-    const radio::Mode target =
-        current == radio::Mode::Normal
-            ? radio::Mode::Lr
-            : radio::Mode::Normal;
+    const radio::Mode target = current == radio::Mode::Normal
+        ? radio::Mode::Lr : radio::Mode::Normal;
 
-    if (messaging_.set_radio_mode(target)) {
-        radio_mode_change_failed_ = false;
-    } else {
-        radio_mode_change_failed_ = true;
+    // NVS first: a failed write must never change radio/peer/delivery state.
+    preference_save_failed_ = false;
+    radio_mode_change_failed_ = false;
+    if (!preferences_store_.save_radio_mode(
+            static_cast<std::uint8_t>(target))) {
+        preference_save_failed_ = true;
+        render_options();
+        return;
     }
 
+    if (!messaging_.set_radio_mode(target)) {
+        radio_mode_change_failed_ = true;
+        // One bounded compensating NVS write; no additional radio transition.
+        if (!preferences_store_.save_radio_mode(
+                static_cast<std::uint8_t>(current))) {
+            preference_save_failed_ = true;
+            radio_preference_inconsistent_ = true;
+            ESP_LOGE(kTag, "Radio/NVS preference mismatch after failed mode change");
+        } else {
+            // A previous unresolved mismatch is now reconciled in NVS.
+            radio_preference_inconsistent_ = false;
+        }
+    } else {
+        radio_preference_inconsistent_ = false;
+    }
     render_options();
 }
 
@@ -620,6 +660,8 @@ void CommunicatorApp::handle_incoming_preset_input(
 
     if (input.secondary_short) {
         state_ = State::Main;
+        if (settings_.communicator_view == settings::CommunicatorView::SignalOnly)
+            selected_main_index_ = kMainSignalIndex;
         if (!charging_incoming_mode_) {
             render_main();
         }
@@ -646,6 +688,8 @@ void CommunicatorApp::handle_incoming_response_input(
 {
     if (input.primary_short || input.secondary_short) {
         state_ = State::Main;
+        if (settings_.communicator_view == settings::CommunicatorView::SignalOnly)
+            selected_main_index_ = kMainSignalIndex;
         if (!charging_incoming_mode_) {
             render_main();
         }
@@ -672,6 +716,8 @@ void CommunicatorApp::handle_wait_decision_input(
     }
 
     state_ = State::Main;
+    if (settings_.communicator_view == settings::CommunicatorView::SignalOnly)
+        selected_main_index_ = kMainSignalIndex;
     if (!charging_incoming_mode_) {
         render_main();
     }
@@ -727,6 +773,8 @@ bool CommunicatorApp::send_selected_response()
 
     track_latest_send();
     state_ = State::Main;
+    if (settings_.communicator_view == settings::CommunicatorView::SignalOnly)
+        selected_main_index_ = kMainSignalIndex;
     if (!charging_incoming_mode_) {
         render_main();
     }
@@ -743,6 +791,8 @@ bool CommunicatorApp::send_wait_followup()
 
     track_latest_send();
     state_ = State::Main;
+    if (settings_.communicator_view == settings::CommunicatorView::SignalOnly)
+        selected_main_index_ = kMainSignalIndex;
     if (!charging_incoming_mode_) {
         render_main();
     }
@@ -890,11 +940,73 @@ void CommunicatorApp::render_current()
 
 void CommunicatorApp::render_main()
 {
-    if (settings_.communicator_view == settings::CommunicatorView::List) {
+    if (settings_.communicator_view == settings::CommunicatorView::SignalOnly) {
+        render_main_signal_only();
+    } else if (settings_.communicator_view == settings::CommunicatorView::List) {
         render_main_list();
     } else {
         render_main_single();
     }
+}
+
+void CommunicatorApp::render_main_signal_only()
+{
+    signal_unavailable_feedback_ = false;
+    clear_screen();
+    draw_header("KOMUNIKATOR");
+
+    const bool peer_known = messaging_.peer_known();
+    const bool reachable = messaging_.peer_reachable();
+    const std::uint8_t bars = signal_bars();
+
+    board_.draw_text_region(10, 22, 82, 11, peer_label_, 1,
+        board::DisplayColor::SecondaryText, board::DisplayColor::Background);
+    board_.draw_text_region(94, 22, 96, 11,
+        !peer_known ? "SZUKAM..." : (reachable ? "DOSTEPNY" : "GOTOWY"),
+        1, reachable ? board::DisplayColor::StatusActive
+                     : board::DisplayColor::SecondaryText,
+        board::DisplayColor::Background);
+    draw_signal_bars(bars, reachable);
+    board_.draw_line(8, 34, 231, 34, board::DisplayColor::SecondaryText);
+
+    // Three vertically stacked actions. The selected action remains part of
+    // the existing send/option/return navigation, not a new messaging state.
+    const bool signal_selected = selected_main_index_ == kMainSignalIndex;
+    const auto signal_bg = signal_selected
+        ? board::DisplayColor::Surface : board::DisplayColor::Background;
+    board_.draw_text_region(8, 38, 224, 39, "", 1,
+        board::DisplayColor::Attention, signal_bg);
+    board_.draw_text_region(24, 43, 200, 30, "SYGNAL", 3,
+        board::DisplayColor::Attention, signal_bg);
+    if (signal_selected)
+        draw_selection_marker(board_, 8, 39, 37, board::DisplayColor::Attention);
+
+    constexpr std::uint8_t kActionIndices[] = {
+        kMainOptionsIndex, kMainReturnIndex,
+    };
+    constexpr const char* kLabels[] = {"OPCJE", "POWROT"};
+    for (std::uint8_t row = 0; row < 2U; ++row) {
+        const auto y = static_cast<std::int16_t>(80 + row * 21);
+        const bool selected = selected_main_index_ == kActionIndices[row];
+        const auto bg = selected ? board::DisplayColor::Surface
+                                 : board::DisplayColor::Background;
+        const auto fg = row == 0 ? board::DisplayColor::PrimaryText
+                                 : board::DisplayColor::SecondaryText;
+        board_.draw_text_region(8, y, 224, 20, "", 1, fg, bg);
+        board_.draw_text_region(24, static_cast<std::int16_t>(y + 1), 198, 18,
+            kLabels[row], 2,
+            selected ? board::DisplayColor::PrimaryText : fg, bg);
+        if (selected) draw_selection_marker(board_, 8, y, 20);
+    }
+
+    board_.draw_text_region(10, 123, 222, 10,
+        "M5 WYBIERZ  BOCZNY DALEJ", 1,
+        board::DisplayColor::SecondaryText, board::DisplayColor::Background);
+    rendered_peer_state_valid_ = true;
+    rendered_peer_known_ = peer_known;
+    rendered_peer_reachable_ = reachable;
+    rendered_signal_bars_ = bars;
+    render_delivery_feedback();
 }
 
 void CommunicatorApp::render_main_list()
@@ -1392,7 +1504,8 @@ void CommunicatorApp::render_options()
     const char* view_text =
         settings_.communicator_view == settings::CommunicatorView::List
             ? "LISTA"
-            : "POJEDYNCZO";
+            : settings_.communicator_view == settings::CommunicatorView::Single
+                ? "POJEDYNCZO" : "TYLKO SYGNAL";
     const char* mode_text =
         messaging_.radio_mode() == radio::Mode::Lr
             ? "LR"
@@ -1416,7 +1529,7 @@ void CommunicatorApp::render_options()
         24,
         208,
         11,
-        "WIDOK WIADOMOSCI",
+        "WIDOK KOMUNIKATORA",
         1,
         view_selected
             ? board::DisplayColor::PrimaryText
@@ -1494,12 +1607,13 @@ void CommunicatorApp::render_options()
         118,
         212,
         13,
-        radio_mode_change_failed_
-            ? "NIE UDALO SIE"
+        radio_preference_inconsistent_ ? "RADIO/NVS NIESPOJNE"
+            : preference_save_failed_ ? "NIE ZAPISANO"
+            : radio_mode_change_failed_ ? "NIE UDALO SIE"
             : "M5 ZMIEN | BOCZNY DALEJ",
         1,
-        radio_mode_change_failed_
-            ? board::DisplayColor::Danger
+        (radio_preference_inconsistent_ || radio_mode_change_failed_
+            || preference_save_failed_) ? board::DisplayColor::Danger
             : board::DisplayColor::SecondaryText,
         board::DisplayColor::Background);
 

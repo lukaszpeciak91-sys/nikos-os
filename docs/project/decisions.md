@@ -167,7 +167,7 @@ Communicator exposes one minimal radio option:
 
 The option is applied through `messaging::Service`, never directly from Communicator UI to `radio`.
 
-Default after full boot is STANDARD. The selection is volatile and is not persisted in NVS. It survives foreground Communicator exit/re-entry, RadioLab pause/resume, and Communicator OFF -> ON within the same OS boot.
+**Original policy (before Communicator v0.3):** Default after full boot was STANDARD. The selection was volatile and was not persisted in NVS. It survived foreground Communicator exit/re-entry, RadioLab pause/resume, and Communicator OFF -> ON within the same OS boot.
 
 A successful change uses the existing `RadioService::set_mode()` path without restarting the messaging transport. It updates the messaging mode configuration, clears learned peer registration/reachability/RSSI, and forces fresh PRESENCE discovery while preserving:
 - current foreground/background RX profile and schedule;
@@ -178,6 +178,8 @@ A successful change uses the existing `RadioService::set_mode()` path without re
 - outstanding logical message and MessageId.
 
 **Rationale:** This allows controlled STANDARD-vs-LR validation under the real duty-cycled Communicator policy while holding messaging timing and delivery semantics constant.
+
+**Amendment — Communicator v0.3:** The STANDARD/LR preference is now stored per device in the existing NVS `nikos` namespace under `comm_radio`; missing/invalid values safely default to STANDARD. It is restored to `messaging::Service` before any explicit Communicator enable and does not boot-start messaging. Only user-selected changes write NVS, before applying a radio transition. Failed persistence makes no radio change. After a successful write followed by a failed radio transition, one bounded compensating NVS write attempts to restore the previous preference. Failed compensation is explicitly reported as a radio/NVS inconsistency (no atomicity guarantee or silent success), and the warning remains visible in Options until a successful explicit radio change, a later successful NVS compensation that reconciles the modes, or reboot. The service continues to own peer discovery and delivery; its enabled/disabled state remains session-scoped and is never persisted.
 
 
 ## D-016 — SYGNAŁ sound selection is volatile and shares one player
@@ -590,7 +592,7 @@ An effective RX-profile transition failure is not accepted as steady state. Whil
 
 **Status:** Accepted for hardware validation
 
-Communicator adds one boot-scoped preference to the existing `settings::State`:
+**Original v0.1 policy:** Communicator added one boot-scoped preference to `settings::State`:
 
 - `List` / LISTA — default;
 - `Single` / POJEDYNCZO — the retained existing single-card main presentation.
@@ -603,9 +605,11 @@ Outgoing response/decision screens use a common selectable-row grammar. WaitDeci
 
 `ResponseId::YesComing` and all protocol numeric values remain unchanged. A context-aware display helper renders YesComing as `TAK` only for `MASZ CZAS?`; WALK and any other preset using the same ResponseId retain the existing wording.
 
-No NVS/persistence, messaging/protocol/radio change, duplicate Communicator state machine, generic menu framework or widget system is introduced.
+**Original v0.1 scope:** No NVS/persistence, messaging/protocol/radio change, duplicate Communicator state machine, generic menu framework or widget system was introduced.
 
 **Rationale:** Real-device feedback favors a glanceable list for normal sends while preserving the proven single-card option and the established two-button interaction model.
+
+**Amendment — Communicator v0.3:** A third `SignalOnly` (`TYLKO SYGNAL`) main presentation offers the prominent SYGNAL action above OPCJE and POWROT, retaining existing incoming message/reply/RING semantics. `List`, `Single`, and `SignalOnly` are stored as a per-device NVS preference under `nikos/comm_view`; on restart, the last valid selection is restored, with missing/invalid values defaulting to LISTA. Successful NVS commit precedes the in-memory view change; a failed save leaves the effective view unchanged and displays an error. The radio preference persistence is described in the D-015 amendment. Communicator ON/OFF remains session-only; neither preference activates messaging on boot. The prior rationale and shared send/response state machine remain unchanged.
 
 ## D-039 — Charging Mode is a VBUS-owned local-use lock with incoming priority
 

@@ -9,5 +9,6 @@ idf_component_register(
         messaging
         power
         settings
+        storage
         signal_sound
 )

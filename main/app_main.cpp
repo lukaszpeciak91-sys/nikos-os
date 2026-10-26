@@ -23,6 +23,7 @@
 #include "coin_flip/coin_flip_app.hpp"
 #include "space_defender/space_defender_app.hpp"
 #include "storage/auto_power_off_store.hpp"
+#include "storage/communicator_preferences_store.hpp"
 #include "storage/signal_volume_store.hpp"
 #include "storage/rtc_date_configured_store.hpp"
 
@@ -1155,16 +1156,24 @@ extern "C" void app_main(void)
     settings.auto_power_off_enabled =
         auto_power_off_store.load_enabled();
 
+    nikos::storage::CommunicatorPreferencesStore communicator_preferences;
+    settings.communicator_view = static_cast<nikos::settings::CommunicatorView>(
+        communicator_preferences.load_view());
+
     std::uint8_t persisted_signal_volume_level = settings.signal_volume_level;
 
     nikos::radio::RadioService radio;
     nikos::messaging::Service messaging(radio);
+    // Configure the next Communicator enable without auto-starting the radio.
+    (void)messaging.set_radio_mode(static_cast<nikos::radio::Mode>(
+        communicator_preferences.load_radio_mode()));
     nikos::communicator::CommunicatorApp communicator(
         board,
         messaging,
         display_lifecycle,
         signal_sound,
         settings,
+        communicator_preferences,
         "DRUGI M5");
     nikos::radiolab::RadioLabApp radiolab(board, radio);
     nikos::power_diag::PowerDiagSession power_diag_session;
