@@ -128,7 +128,7 @@ struct Harness {
         rendered_peer_reachable_=false;
     std::uint8_t rendered_signal_bars_=0;
     int main_renders=0, option_renders=0, ring_feedback=0, fake_responses=0;
-    std::string footer;
+    std::string footer{};
     void render_current(){ render_main(); }
     void render_main(){ ++main_renders; }
     void render_options(){
