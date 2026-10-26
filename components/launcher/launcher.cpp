@@ -1067,6 +1067,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.primary_short) {
+            settings_save_failed_ = false;
             if (settings_selection_ == 0U) {
                 signal_sound_selection_ =
                     signal_sound_index(settings_.signal_sound);
@@ -1183,6 +1184,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_short) {
+            settings_save_failed_ = false;
             signal_sound_selection_ =
                 static_cast<std::uint8_t>((signal_sound_selection_ + 1U) % 4U);
             render();
@@ -1201,10 +1203,19 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         }
 
-        settings_.signal_sound =
+        const settings::SignalSound requested =
             signal_sound_from_index(signal_sound_selection_);
-        signal_sound_.stop();
-        signal_sound_.play_selected();
+        if (requested != settings_.signal_sound
+            && !ui_preferences_store_.save_signal_sound(requested)) {
+            signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
+            settings_save_failed_ = true;
+            signal_sound_.stop();
+        } else {
+            settings_save_failed_ = false;
+            settings_.signal_sound = requested;
+            signal_sound_.stop();
+            signal_sound_.play_selected();
+        }
         render();
         return Action::None;
     }
@@ -1218,6 +1229,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_short) {
+            settings_save_failed_ = false;
             brightness_selection_ =
                 static_cast<std::uint8_t>(
                     (brightness_selection_ + 1U) % 4U);
@@ -1236,8 +1248,21 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         }
 
-        settings_.brightness =
+        const settings::Brightness requested =
             brightness_from_index(brightness_selection_);
+        if (requested != settings_.brightness
+            && !ui_preferences_store_.save_brightness(requested)) {
+            brightness_selection_ = brightness_index(settings_.brightness);
+            settings_save_failed_ = true;
+            render();
+            return Action::None;
+        }
+        settings_save_failed_ = false;
+        if (requested == settings_.brightness) {
+            render();
+            return Action::None;
+        }
+        settings_.brightness = requested;
         render();
         return Action::BrightnessChanged;
     }
@@ -1251,6 +1276,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_short) {
+            settings_save_failed_ = false;
             theme_selection_ =
                 static_cast<std::uint8_t>((theme_selection_ + 1U) % 6U);
             render();
@@ -1268,8 +1294,16 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         }
 
-        settings_.theme = theme_from_index(theme_selection_);
-        board_.set_theme(settings_.theme);
+        const ui_theme::Theme requested = theme_from_index(theme_selection_);
+        if (requested != settings_.theme
+            && !ui_preferences_store_.save_theme(requested)) {
+            theme_selection_ = theme_index(settings_.theme);
+            settings_save_failed_ = true;
+        } else {
+            settings_save_failed_ = false;
+            settings_.theme = requested;
+            board_.set_theme(settings_.theme);
+        }
         render();
         return Action::None;
     }
@@ -1283,6 +1317,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (input.secondary_short) {
+            settings_save_failed_ = false;
             orientation_selection_ =
                 static_cast<std::uint8_t>((orientation_selection_ + 1U) % 3U);
             render();
@@ -1300,10 +1335,18 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         }
 
-        settings_.orientation =
+        const settings::Orientation requested =
             orientation_from_index(orientation_selection_);
-        board_.set_display_orientation(
-            board_orientation(settings_.orientation));
+        if (requested != settings_.orientation
+            && !ui_preferences_store_.save_orientation(requested)) {
+            orientation_selection_ = orientation_index(settings_.orientation);
+            settings_save_failed_ = true;
+        } else {
+            settings_save_failed_ = false;
+            settings_.orientation = requested;
+            board_.set_display_orientation(
+                board_orientation(settings_.orientation));
+        }
         render();
         return Action::None;
     }
@@ -3166,8 +3209,9 @@ void Launcher::render_signal_sound()
         4U, signal_sound_selection_, 35, 3,
         184, signal_sound_index(settings_.signal_sound));
     board_.draw_text_region(14, 116, 212, 14,
-        "M5 WYBIERZ | BOCZNY DALEJ", 1,
-        board::DisplayColor::SecondaryText);
+        settings_save_failed_ ? "NIE ZAPISANO" : "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        settings_save_failed_ ? board::DisplayColor::Danger
+                              : board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_brightness()
@@ -3179,8 +3223,9 @@ void Launcher::render_brightness()
         4U, brightness_selection_, 35, 3,
         184, brightness_index(settings_.brightness));
     board_.draw_text_region(14, 116, 212, 14,
-        "M5 WYBIERZ | BOCZNY DALEJ", 1,
-        board::DisplayColor::SecondaryText);
+        settings_save_failed_ ? "NIE ZAPISANO" : "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        settings_save_failed_ ? board::DisplayColor::Danger
+                              : board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_theme()
@@ -3192,8 +3237,9 @@ void Launcher::render_theme()
         6U, theme_selection_, 35, 3,
         184, theme_index(settings_.theme));
     board_.draw_text_region(14, 116, 212, 14,
-        "M5 WYBIERZ | BOCZNY DALEJ", 1,
-        board::DisplayColor::SecondaryText);
+        settings_save_failed_ ? "NIE ZAPISANO" : "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        settings_save_failed_ ? board::DisplayColor::Danger
+                              : board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_orientation()
@@ -3205,8 +3251,9 @@ void Launcher::render_orientation()
         3U, orientation_selection_, 35, 3,
         184, orientation_index(settings_.orientation));
     board_.draw_text_region(14, 116, 212, 14,
-        "M5 WYBIERZ | BOCZNY DALEJ", 1,
-        board::DisplayColor::SecondaryText);
+        settings_save_failed_ ? "NIE ZAPISANO" : "M5 WYBIERZ | BOCZNY DALEJ", 1,
+        settings_save_failed_ ? board::DisplayColor::Danger
+                              : board::DisplayColor::SecondaryText);
 }
 
 void Launcher::render_auto_power_off()

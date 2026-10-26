@@ -25,6 +25,7 @@
 #include "storage/auto_power_off_store.hpp"
 #include "storage/communicator_preferences_store.hpp"
 #include "storage/signal_volume_store.hpp"
+#include "storage/ui_preferences_store.hpp"
 #include "storage/rtc_date_configured_store.hpp"
 
 #include "esp_err.h"
@@ -1147,6 +1148,22 @@ extern "C" void app_main(void)
     std::uint32_t entertainment_rtc_sample_ms = now_ms();
     bool entertainment_clock_trusted = boot_clock_trusted;
     std::uint64_t entertainment_utc_s = boot_utc_s;
+
+    // The startup splash deliberately keeps the safe default palette and
+    // rotation; restore durable preferences after NVS initialization and
+    // before the first normal Launcher or Charging Lock presentation.
+    nikos::storage::UiPreferencesStore ui_preferences_store;
+    settings.theme = ui_preferences_store.load_theme();
+    settings.orientation = ui_preferences_store.load_orientation();
+    settings.brightness = ui_preferences_store.load_brightness();
+    settings.signal_sound = ui_preferences_store.load_signal_sound();
+    board.set_theme(settings.theme);
+    board.set_display_orientation(
+        settings.orientation == nikos::settings::Orientation::Left
+            ? nikos::board::DisplayOrientation::Left
+            : nikos::board::DisplayOrientation::Right);
+    apply_effective_brightness_profile(
+        display_lifecycle, settings, battery_guard.low_battery_reserve_active());
 
     nikos::storage::SignalVolumeStore signal_volume_store;
     settings.signal_volume_level = signal_volume_store.load_level();

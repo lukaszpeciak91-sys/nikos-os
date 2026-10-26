@@ -9,6 +9,7 @@
 #include "countdown/countdown_service.hpp"
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
+#include "storage/ui_preferences_store.hpp"
 
 namespace nikos::launcher {
 
@@ -185,6 +186,7 @@ private:
     countdown::Service& countdown_;
     settings::State& settings_;
     signal_sound::Player& signal_sound_;
+    storage::UiPreferencesStore ui_preferences_store_;
     Screen screen_ = Screen::Main;
     CommunicatorStatus communicator_status_ = CommunicatorStatus::Off;
     CommunicatorDeliveryStatus communicator_delivery_status_ =
@@ -220,6 +222,7 @@ private:
     std::uint8_t settings_selection_ = 0;
     std::uint8_t about_page_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
+    bool settings_save_failed_ = false;
     std::uint8_t sound_menu_selection_ = 0;
     std::uint8_t signal_volume_selection_ = 4;
     std::uint8_t brightness_selection_ = 0;

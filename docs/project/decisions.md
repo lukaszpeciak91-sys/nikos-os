@@ -193,6 +193,8 @@ The selected value lives in a small composition-owned `settings::State` and is o
 - `Classic` / `Klasyczny`;
 - `Pager`.
 
+**Settings Persistence v0.1 amendment:** The melody is now saved per device as a validated `uint8` (`nikos/sig_tune`, 0=Gentle, 1=Classic, 2=Pager). It is restored after NVS initialization; missing, corrupt, or unreadable data defaults to Gentle. M5 confirmation saves before applying the runtime selection and preview, and a failed save leaves the last selected melody effective and shows NIE ZAPISANO. Signal volume remains an independent preference with separate storage. The original boot-scoped policy above describes the prior release.
+
 The setting is volatile for the current OS boot and is not persisted in NVS.
 
 A small non-blocking `signal_sound::Player` owns the three fixed product patterns. Both Settings preview and received Communicator RING/`SYGNAŁ` playback use the same player and the same definitions. The player is advanced from the normal main loop and delegates actual buzzer hardware calls to `board`.
@@ -213,6 +215,8 @@ Settings v2 extends the existing composition-owned `settings::State` with one ty
 - `Matrix`;
 - `Lava`;
 - `Noir`.
+
+**Settings Persistence v0.1 amendment:** The theme is now saved as a validated `uint8` (`nikos/ui_theme`, 0..4 in the existing palette order). Missing, corrupt, or unreadable data selects Nikos. The first normal Launcher screen uses the restored theme. The early splash remains the existing default theme to preserve boot order; restore occurs after NVS initialization. Only successful M5 confirmation commits and changes the Board palette; failed persistence leaves the previous theme and selection intact with NIE ZAPISANO. RGB565 palette values and rendering are unchanged. The original policy above remains historical.
 
 The selection is volatile for the current OS boot and is not persisted in NVS.
 
@@ -391,7 +395,9 @@ This clock capability stores the local wall-clock time entered by the user. Date
 
 Settings exposes `PRAWA` and `LEWA` as a volatile display-orientation preference. Right is the boot default. `board` keeps the M5GFX mapping local: Right selects rotation 1 and Left selects rotation 3. Both rotations retain the normal logical 240×135 landscape drawing surface, so Launcher, Communicator, RadioLab, Clock, Clock Glance, and other normal screens inherit the selected orientation without per-screen branches.
 
-Changing the preference applies it immediately and redraws the complete Orientation screen. It is independent of the active theme and uses the same semantic display colors. No persistence is introduced, so reboot restores Right.
+Changing the preference applies it immediately and redraws the complete Orientation screen. It is independent of the active theme and uses the same semantic display colors. **Settings Persistence v0.1 amendment:** Orientation is now saved per device as a validated `uint8` (`nikos/ui_orient`, 0=Right, 1=Left), defaulting Right on absent/invalid/unreadable data. Restoration after NVS initialization uses the existing Board rotation mapping before the normal Launcher screen; the early splash retains Right. M5 commits before any Board rotation; failure leaves the old rotation and selection intact with NIE ZAPISANO. The logical 240x135 coordinates and button mapping remain unchanged.
+
+No persistence is introduced, so reboot restores Right.
 
 This setting rotates only the display. Physical M5 / BtnA remains the primary action and physical side / BtnB remains the secondary action; user-facing `M5` and `BOCZNY` terminology and all interaction semantics remain unchanged.
 
@@ -559,7 +565,9 @@ Medium 96/24 is the new boot default. The exact three profile mappings are centr
 
 `power::DisplayLifecycle` remains the sole semantic lifecycle owner for Active / Dimmed / DisplayOff and contains no brightness-level policy or numeric brightness constants. Clock Glance inherits the normal Board Active brightness through the existing wake path.
 
-The brightness preference is volatile and returns to Medium after reboot. No NVS, Preferences, flash persistence, slider, brightness service, or raw 0..255 user control is introduced.
+**Original policy:** The brightness preference was volatile and returned to Medium after reboot. It originally introduced no NVS persistence, slider, brightness service, or raw 0..255 control.
+
+**Settings Persistence v0.1 amendment:** The semantic preference is now persisted as validated `uint8` (`nikos/ui_bright`, 0=Low, 1=Medium, 2=High) with Medium as fallback. Confirmation writes only a changed choice before updating `settings::State`, and requests the existing app_main `BrightnessChanged` effective-profile application only on success. Failed save leaves the effective brightness and menu selection untouched, with NIE ZAPISANO. On boot restoration after NVS initialization applies the selected profile through DisplayLifecycle, respecting its Active/Dimmed/DisplayOff state. No new brightness control was introduced.
 
 Hardware validation will compare PowerDiag battery current and LCD ON time at Active brightness 72, 96, and 128 under otherwise similar runtime/radio conditions.
 
@@ -672,7 +680,7 @@ No generic light-control framework, display override manager, PMU telemetry, tim
 
 BatteryGuard owns the low-battery Reserve state using its existing battery policy thresholds: enter at <=20%, remain active through the hysteresis range, and recover only above 25% or when charging is detected. No duplicate reserve thresholds are introduced elsewhere.
 
-Settings remains the owner of the boot-scoped brightness preference. Launcher changes only that preference and reports the change to composition. `app_main` resolves the effective normal display profile from Settings plus BatteryGuard Reserve and applies it through DisplayLifecycle. DisplayLifecycle keeps its current semantic state authoritative: Active receives the effective Active level, Dimmed receives the effective Dimmed level, and DisplayOff remains physically off. Board stores the profile values but does not infer lifecycle state.
+**Settings Persistence v0.1 amendment:** Settings now owns a durable *preferred* brightness value; BatteryGuard Reserve still caps the effective brightness to Low without modifying or rewriting that preference. The rest of this decision is unchanged. Launcher changes only that preference and reports the change to composition. `app_main` resolves the effective normal display profile from Settings plus BatteryGuard Reserve and applies it through DisplayLifecycle. DisplayLifecycle keeps its current semantic state authoritative: Active receives the effective Active level, Dimmed receives the effective Dimmed level, and DisplayOff remains physically off. Board stores the profile values but does not infer lifecycle state.
 
 The effective profile resolves to the existing Low profile (72 Active / 18 Dimmed) while Reserve is active, without mutating the selected preference. A brightness change made in Settings during Reserve therefore updates the preference but cannot bypass Reserve; the newly selected profile becomes effective when Reserve clears.
 
