@@ -7,6 +7,7 @@
 #include "messaging/messaging_service.hpp"
 #include "power/display_lifecycle.hpp"
 #include "settings/settings.hpp"
+#include "storage/communicator_preferences_store.hpp"
 #include "signal_sound/signal_sound_player.hpp"
 
 namespace nikos::communicator {
@@ -31,6 +32,7 @@ public:
         power::DisplayLifecycle& display_lifecycle,
         signal_sound::Player& signal_sound,
         settings::State& settings,
+        storage::CommunicatorPreferencesStore& preferences_store,
         const char* peer_label);
 
     void begin();
@@ -113,6 +115,7 @@ private:
     void render_main();
     void render_main_list();
     void render_main_single();
+    void render_main_signal_only();
     void render_options();
     void render_main_if_status_changed();
     void render_incoming_preset();
@@ -138,12 +141,14 @@ private:
     power::DisplayLifecycle& display_lifecycle_;
     signal_sound::Player& signal_sound_;
     settings::State& settings_;
+    storage::CommunicatorPreferencesStore& preferences_store_;
     const char* peer_label_;
 
     bool active_ = false;
     bool foreground_exit_requested_ = false;
     bool options_active_ = false;
     bool radio_mode_change_failed_ = false;
+    bool preference_save_failed_ = false;
     State state_ = State::Main;
 
     std::uint8_t selected_main_index_ = 0;

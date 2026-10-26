@@ -26,6 +26,7 @@ enum class Brightness : std::uint8_t {
 enum class CommunicatorView : std::uint8_t {
     List,
     Single,
+    SignalOnly,
 };
 
 struct BrightnessProfile {
