@@ -164,6 +164,8 @@ test_end=r"""
  assert(ui_preferences_store.writes==1 && launcher.footer=="OK");
  process(launcher.update(m5));
  assert(ui_preferences_store.writes==1);
+ launcher.update(side); // Normal cursor navigation does not write or keep an old error.
+ assert(!launcher.settings_save_failed_ && ui_preferences_store.writes==1);
  // Failed theme keeps the committed runtime/Board and resets the focus.
  ui_preferences_store.fail=true;
  launcher.theme_selection_=2;
