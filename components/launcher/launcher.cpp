@@ -451,6 +451,52 @@ void Launcher::restore_signal_volume_preference(std::uint8_t level)
     render();
 }
 
+
+settings::Brightness Launcher::requested_brightness() const
+{
+    return brightness_from_index(brightness_selection_);
+}
+
+ui_theme::Theme Launcher::requested_theme() const
+{
+    return theme_from_index(theme_selection_);
+}
+
+settings::Orientation Launcher::requested_orientation() const
+{
+    return orientation_from_index(orientation_selection_);
+}
+
+settings::SignalSound Launcher::requested_signal_sound() const
+{
+    return signal_sound_from_index(signal_sound_selection_);
+}
+
+void Launcher::complete_preference_change(Action action, bool saved)
+{
+    settings_save_failed_ = !saved;
+    if (!saved) {
+        // The committed settings::State remains authoritative after NVS error.
+        switch (action) {
+            case Action::BrightnessChanged:
+                brightness_selection_ = brightness_index(settings_.brightness);
+                break;
+            case Action::ThemeChanged:
+                theme_selection_ = theme_index(settings_.theme);
+                break;
+            case Action::OrientationChanged:
+                orientation_selection_ = orientation_index(settings_.orientation);
+                break;
+            case Action::SignalSoundChanged:
+                signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
+                break;
+            default:
+                return;
+        }
+    }
+    render();
+}
+
 void Launcher::restore_auto_power_off_preference(bool enabled)
 {
     settings_.auto_power_off_enabled = enabled;
@@ -1135,6 +1181,7 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         } else if (input.primary_short) {
             if (sound_menu_selection_ == 0U) {
+                settings_save_failed_ = false;
                 signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
                 screen_ = Screen::SignalSound;
             } else if (sound_menu_selection_ == 1U) {
@@ -1177,6 +1224,7 @@ Action Launcher::update(const board::InputState& input)
 
     if (screen_ == Screen::SignalSound) {
         if (input.secondary_long) {
+            settings_save_failed_ = false;
             signal_sound_.stop();
             screen_ = Screen::SoundMenu;
             render();
@@ -1196,6 +1244,7 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (signal_sound_selection_ == 3U) {
+            settings_save_failed_ = false;
             signal_sound_.stop();
             sound_menu_selection_ = 0;
             screen_ = Screen::SoundMenu;
@@ -1203,25 +1252,12 @@ Action Launcher::update(const board::InputState& input)
             return Action::None;
         }
 
-        const settings::SignalSound requested =
-            signal_sound_from_index(signal_sound_selection_);
-        if (requested != settings_.signal_sound
-            && !ui_preferences_store_.save_signal_sound(requested)) {
-            signal_sound_selection_ = signal_sound_index(settings_.signal_sound);
-            settings_save_failed_ = true;
-            signal_sound_.stop();
-        } else {
-            settings_save_failed_ = false;
-            settings_.signal_sound = requested;
-            signal_sound_.stop();
-            signal_sound_.play_selected();
-        }
-        render();
-        return Action::None;
+        return Action::SignalSoundChanged;
     }
 
     if (screen_ == Screen::Brightness) {
         if (input.secondary_long) {
+            settings_save_failed_ = false;
             settings_selection_ = 1U;
             screen_ = Screen::Settings;
             render();
@@ -1242,33 +1278,19 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (brightness_selection_ == 3U) {
+            settings_save_failed_ = false;
             settings_selection_ = 1U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
         }
 
-        const settings::Brightness requested =
-            brightness_from_index(brightness_selection_);
-        if (requested != settings_.brightness
-            && !ui_preferences_store_.save_brightness(requested)) {
-            brightness_selection_ = brightness_index(settings_.brightness);
-            settings_save_failed_ = true;
-            render();
-            return Action::None;
-        }
-        settings_save_failed_ = false;
-        if (requested == settings_.brightness) {
-            render();
-            return Action::None;
-        }
-        settings_.brightness = requested;
-        render();
         return Action::BrightnessChanged;
     }
 
     if (screen_ == Screen::Theme) {
         if (input.secondary_long) {
+            settings_save_failed_ = false;
             settings_selection_ = 2U;
             screen_ = Screen::Settings;
             render();
@@ -1288,28 +1310,19 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (theme_selection_ == 5U) {
+            settings_save_failed_ = false;
             settings_selection_ = 2U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
         }
 
-        const ui_theme::Theme requested = theme_from_index(theme_selection_);
-        if (requested != settings_.theme
-            && !ui_preferences_store_.save_theme(requested)) {
-            theme_selection_ = theme_index(settings_.theme);
-            settings_save_failed_ = true;
-        } else {
-            settings_save_failed_ = false;
-            settings_.theme = requested;
-            board_.set_theme(settings_.theme);
-        }
-        render();
-        return Action::None;
+        return Action::ThemeChanged;
     }
 
     if (screen_ == Screen::Orientation) {
         if (input.secondary_long) {
+            settings_save_failed_ = false;
             settings_selection_ = 3U;
             screen_ = Screen::Settings;
             render();
@@ -1329,26 +1342,14 @@ Action Launcher::update(const board::InputState& input)
         }
 
         if (orientation_selection_ == 2U) {
+            settings_save_failed_ = false;
             settings_selection_ = 3U;
             screen_ = Screen::Settings;
             render();
             return Action::None;
         }
 
-        const settings::Orientation requested =
-            orientation_from_index(orientation_selection_);
-        if (requested != settings_.orientation
-            && !ui_preferences_store_.save_orientation(requested)) {
-            orientation_selection_ = orientation_index(settings_.orientation);
-            settings_save_failed_ = true;
-        } else {
-            settings_save_failed_ = false;
-            settings_.orientation = requested;
-            board_.set_display_orientation(
-                board_orientation(settings_.orientation));
-        }
-        render();
-        return Action::None;
+        return Action::OrientationChanged;
     }
 
     if (screen_ == Screen::AutoPowerOff) {

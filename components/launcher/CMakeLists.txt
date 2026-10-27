@@ -10,5 +10,4 @@ idf_component_register(
         freertos
         settings
         signal_sound
-        storage
 )

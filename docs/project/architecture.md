@@ -213,16 +213,20 @@ Stopwatch has no task, `app_main` service, alarm, sound, pending notification, p
 
 ### settings
 
-`settings::State` owns the current runtime preference state. It now contains six real preferences:
+`settings::State` owns the effective runtime preferences; `Launcher` owns only selection/navigation and returns bounded confirmation actions. `app_main` owns composition and synchronous persistence transactions, and `storage` alone accesses NVS. The existing user preferences are:
 
-- Communicator `SYGNAŁ` sound: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
-- Communicator main-message view: List / `LISTA` (default) or Single / `POJEDYNCZO`;
-- display brightness: Low / `NISKA` = 72/18, Medium / `SREDNIA` = 96/24 (default), or High / `WYSOKA` = 128/32 for Active/Dimmed;
+- Communicator `SYGNAŁ` melody: Gentle / `Łagodny` (default), Classic / `Klasyczny`, or Pager;
+- independently stored SYGNAŁ volume (0/25/50/75/100%, default 100%);
+- Communicator main view: List / `LISTA` (default), Single / `POJEDYNCZO`, SignalOnly / `TYLKO SYGNAŁ`;
+- Communicator radio preference: `STANDARD` (default) or `LR`;
+- display brightness: Low / `NISKA` = 72/18, Medium / `SREDNIA` = 96/24 (default), or High / `WYSOKA` = 128/32;
 - visual theme: Nikos (default), Bursztyn, Matrix, Lava, or Noir;
 - display orientation: Right / `PRAWA` (default) or Left / `LEWA`;
-- Auto Power-Off: enabled by default, persisted per device through the narrow storage component.
+- Auto Power-Off: enabled by default.
 
-The state is created by composition in `app_main` and is shared with the launcher Settings UI and the narrow consumers that need each typed value. Sound, view, brightness, theme, and orientation remain boot-scoped. Auto Power-Off is the single persistent Settings exception in v0.1: `storage::AutoPowerOffStore` loads/saves its per-device boolean, defaulting ON for a missing/invalid key. A failed save leaves the last successfully loaded/saved value authoritative and the Settings UI is rolled back to match it. No generic preferences framework or timestamp persistence is introduced.
+All eight listed preference families persist independently per device through narrow storage components. `storage::UiPreferencesStore` stores theme, orientation, brightness and melody as individually validated bytes using `ui_theme`, `ui_orient`, `ui_bright` and `sig_tune` within the existing `nikos` NVS namespace. Other stores retain their established keys and failure contracts; volume and melody remain separate. Missing, invalid or unreadable keys fall back independently to each preference's original default. `app_main` restores settings after NVS initialization and before the first normal Launcher presentation (the early splash intentionally retains default theme/orientation). M5 preference confirmation triggers a request: composition skips unchanged writes, persists changed values first, applies them through `settings::State` and Board/DisplayLifecycle/Player only after success, and notifies Launcher to redraw or roll back the selection with `NIE ZAPISANO` on failure.
+
+The persisted brightness is a preferred profile: BatteryGuard Reserve still caps effective Active/Dimmed levels; DisplayOff, Clock Glance, charging and Flashlight overrides remain governed by their existing owners. Communicator enabled/disabled remains **session-only** and never starts automatically at boot; saving a radio/view preference does not enable messaging. No generic settings manager, runtime polling, or automatic flash writes are introduced.
 
 ### ui_theme
 
@@ -234,7 +238,7 @@ Palette entries are stored as RGB565 and must reach M5GFX as a 16-bit color type
 
 The active palette is held by `board` and selected from `settings::State::theme`. No generic styling engine, per-screen palette, or runtime RGB editor is introduced.
 
-Display orientation is independent of the active palette. `board` owns the hardware mapping: Right uses M5GFX rotation 1 and Left uses rotation 3, while normal screens continue drawing in logical 240×135 coordinates and inherit the active Board orientation automatically. The logical button roles do not change: physical M5 / BtnA remains primary and physical side / BtnB remains secondary. Orientation is boot-scoped and returns to Right after reboot.
+Display orientation is independent of the active palette. `board` owns the hardware mapping: Right uses M5GFX rotation 1 and Left uses rotation 3, while normal screens continue drawing in logical 240×135 coordinates and inherit the active Board orientation automatically. The logical button roles do not change: physical M5 / BtnA remains primary and physical side / BtnB remains secondary. Orientation is persisted per device; only missing/invalid data defaults to Right after reboot.
 
 For the v0.1 physical-LCD readability pass, normal Launcher and Communicator product UI uses the native/default M5GFX `Font0` path through `board::draw_text_region()`. The small custom Polish-font experiment remains isolated behind its explicit helper but is not used by normal product UI because real-device testing showed unacceptable readability even for ASCII text when that small source font was scaled. Interactive v0.1 copy is temporarily ASCII-first and rewrites ambiguous words rather than mechanically removing diacritics. User-facing controls are named `M5` and `BOCZNY`; internal primary/secondary names remain implementation details. This is a hardware-driven readability choice, not a permanent localization architecture. Communicator wire semantics remain language-independent: stable PresetId/ResponseId values are transmitted, never display strings.
 
@@ -297,7 +301,7 @@ Communicator is a foreground UI over the session-scoped `messaging::Service`. En
 
 Communicator v0.1 uses a latest-wins, non-blocking pager model. Sending a preset, response, Wait follow-up, or SYGNAŁ does not create a modal delivery/conversation state. Human responses are optional independent messages. The UX retains only the newest valid received PresetMessage/PresetResponse; a newer one replaces an unanswered older one. The messaging queue remains only a small transport buffer, not an inbox/history. RING/SYGNAL is a separate attention overlay and does not erase the retained current user-message context.
 
-The physical 240×135 main send UI has two boot-scoped presentation modes over one shared selection/send state. `LISTA` is the default and shows a scrolling window of approximately three large send actions at once; the existing single-card presentation remains available as `POJEDYNCZO`. Main navigation remains five presets, the existing RING/SYGNAL send action, OPCJE, POWROT with secondary short = next and primary short = select. LISTA places SYGNAL after the presets in the same send-action list while OPCJE and POWROT remain fixed bottom controls.
+The physical 240×135 Communicator UI has three persisted presentations over one shared selection/send state: `LISTA` by default, the single-card `POJEDYNCZO`, and `TYLKO SYGNAŁ` with a prominent signal action above Options and Return. `LISTA` shows a scrolling window of approximately three large send actions at once. Main navigation remains five presets, the existing RING/SYGNAL send action, OPCJE, POWROT with secondary short = next and primary short = select. LISTA places SYGNAL after the presets in the same send-action list while OPCJE and POWROT remain fixed bottom controls.
 
 Delivery feedback still follows the latest logical MessageId/application-ACK state, but the Communicator UI also retains the originating main-action index so LISTA can associate WYSYLAM / DOSTARCZONO / NIE DOSTARCZONO with the action that was actually sent even if focus moves later.
 
@@ -425,7 +429,7 @@ PowerDiag is an ordinary foreground runtime for display purposes. DisplayOff sup
 - A new incoming logical message is application-ACKed/deduped only after the small messaging queue has retained it; foreground consumers consume it only after accepting it.
 - RSSI is receiver-side radio metadata and must not be treated as physical distance.
 - Communicator STANDARD/LR selection is session-scoped radio configuration owned by `messaging::Service`; it must not alter foreground/background RX schedules, presence cadence, retry timing, ACK/dedupe semantics, or logical MessageIds.
-- Settings signal-sound and visual-theme selections are boot-scoped volatile state owned by composition; neither is persisted in NVS.
+- Settings signal-sound and visual-theme preferences are runtime state owned by `settings::State`; composition coordinates their persistent NVS saves and restores. The early splash still uses the default theme.
 - Settings preview and received Communicator `SYGNAŁ` must use the same `signal_sound::Player` and fixed pattern definitions.
 - Applications request semantic display roles; theme-specific RGB565 values remain centralized in `ui_theme` and are resolved by `board`.
 - Theme accent is distinct from semantic status/attention/danger roles; Noir deliberately resolves those semantic roles to monochrome white/gray presentation.

@@ -8,7 +8,7 @@ import tempfile
 ROOT=Path(__file__).resolve().parents[2]
 SRC=(ROOT/"components/launcher/launcher.cpp").read_text(encoding="utf-8")
 APP=(ROOT/"main/app_main.cpp").read_text(encoding="utf-8")
-assert "storage::UiPreferencesStore ui_preferences_store_" in (ROOT/"components/launcher/include/launcher/launcher.hpp").read_text()
+assert "storage::UiPreferencesStore" not in (ROOT/"components/launcher/include/launcher/launcher.hpp").read_text()
 assert APP.index("if (!initialize_nvs())") < APP.index("settings.theme = ui_preferences_store.load_theme()")
 assert APP.index("settings.signal_sound = ui_preferences_store.load_signal_sound()") < APP.index("launcher.begin(communicator_status")
 assert "battery_guard.low_battery_reserve_active()" in APP
@@ -133,99 +133,6 @@ int main(){
  return 0;
 }
 """
-launcher_head=r"""
-#include <cassert>
-#include <cstdint>
-#include "settings/settings.hpp"
-namespace nikos::board{
- enum class DisplayOrientation{Right,Left};
- struct InputState{bool secondary_long=false,secondary_short=false,primary_short=false;};
- struct Board{
-  ui_theme::Theme theme=ui_theme::Theme::Nikos;DisplayOrientation orientation=DisplayOrientation::Right;
-  int theme_calls=0,orient_calls=0;
-  void set_theme(ui_theme::Theme v){theme=v;++theme_calls;}
-  void set_display_orientation(DisplayOrientation v){orientation=v;++orient_calls;}
- };
-}
-namespace nikos::signal_sound{
- struct Player{int stops=0,plays=0;void stop(){++stops;}void play_selected(){++plays;}};
-}
-namespace nikos::launcher{
-enum class Action{None,BrightnessChanged};
-enum class Screen{Settings,SoundMenu,SignalSound,Brightness,Theme,Orientation};
-struct FakeStore{
- bool fail=false;int writes=0;
- bool save_theme(ui_theme::Theme){++writes;return !fail;}
- bool save_orientation(settings::Orientation){++writes;return !fail;}
- bool save_brightness(settings::Brightness){++writes;return !fail;}
- bool save_signal_sound(settings::SignalSound){++writes;return !fail;}
-};
-struct Harness{
- settings::State& settings_;board::Board& board_;signal_sound::Player& signal_sound_;
- FakeStore& ui_preferences_store_;
- Screen screen_=Screen::Settings;
- std::uint8_t signal_sound_selection_=0,sound_menu_selection_=0,
- settings_selection_=0,brightness_selection_=0,theme_selection_=0,orientation_selection_=0;
- bool settings_save_failed_=false;
- int renders=0;void render(){++renders;}
- Action update(const board::InputState&);
-};
-}
-"""
-launcher_test=r"""
-using namespace nikos;
-int main(){
- settings::State settings;
- board::Board board;
- signal_sound::Player player;
- launcher::FakeStore store;
- launcher::Harness ui{settings,board,player,store};
- board::InputState m5{};m5.primary_short=true;
- board::InputState side{};side.secondary_short=true;
- ui.screen_=launcher::Screen::Theme;ui.theme_selection_=4;
- assert(ui.update(m5)==launcher::Action::None);
- assert(settings.theme==ui_theme::Theme::Noir && board.theme==ui_theme::Theme::Noir);
- int calls=store.writes;ui.update(m5);assert(store.writes==calls);
- store.fail=true;ui.theme_selection_=2;ui.update(m5);
- assert(settings.theme==ui_theme::Theme::Noir && ui.theme_selection_==4 && ui.settings_save_failed_);
- assert(board.theme==ui_theme::Theme::Noir);
- ui.update(side);assert(!ui.settings_save_failed_);
- store.fail=false;
- ui.screen_=launcher::Screen::Orientation;ui.orientation_selection_=1;
- ui.update(m5);assert(settings.orientation==settings::Orientation::Left);
- assert(board.orientation==board::DisplayOrientation::Left);
- calls=store.writes;ui.update(m5);assert(store.writes==calls);
- store.fail=true;ui.orientation_selection_=0;ui.update(m5);
- assert(settings.orientation==settings::Orientation::Left);
- assert(ui.orientation_selection_==1 && ui.settings_save_failed_);
- assert(board.orientation==board::DisplayOrientation::Left);
- store.fail=false;
- ui.screen_=launcher::Screen::Brightness;ui.brightness_selection_=0;
- assert(ui.update(m5)==launcher::Action::BrightnessChanged);
- assert(settings.brightness==settings::Brightness::Low);
- calls=store.writes;assert(ui.update(m5)==launcher::Action::None && store.writes==calls);
- store.fail=true;ui.brightness_selection_=2;
- assert(ui.update(m5)==launcher::Action::None);
- assert(settings.brightness==settings::Brightness::Low);
- assert(ui.brightness_selection_==0 && ui.settings_save_failed_);
- store.fail=false;ui.brightness_selection_=2;ui.update(m5);
- assert(settings.brightness==settings::Brightness::High);
- ui.screen_=launcher::Screen::SignalSound;ui.signal_sound_selection_=2;
- int prev=player.plays;ui.update(m5);
- assert(settings.signal_sound==settings::SignalSound::Pager && player.plays==prev+1);
- calls=store.writes;ui.update(m5);
- assert(store.writes==calls && player.plays==prev+2);
- store.fail=true;ui.signal_sound_selection_=1;ui.update(m5);
- assert(settings.signal_sound==settings::SignalSound::Pager);
- assert(ui.signal_sound_selection_==2 && ui.settings_save_failed_);
- assert(player.plays==prev+2);
- const auto low=settings::effective_brightness_profile(settings.brightness,true);
- assert(low.active==72 && low.dimmed==18);
- const auto high=settings::effective_brightness_profile(settings.brightness,false);
- assert(high.active==128 && high.dimmed==32);
- return 0;
-}
-"""
 compiler=shutil.which("g++") or shutil.which("clang++")
 assert compiler
 with tempfile.TemporaryDirectory() as td:
@@ -240,8 +147,4 @@ with tempfile.TemporaryDirectory() as td:
     (tmp/"store_test.cpp").write_text(store_test,encoding="utf-8")
     subprocess.run([*args,str(tmp/"store_test.cpp"),str(ROOT/"components/storage/ui_preferences_store.cpp"),"-o",str(tmp/"store")],check=True)
     subprocess.run([str(tmp/"store")],check=True)
-    handlers=launcher_head+"\n"+helpers+"\nnamespace nikos::launcher {\nAction Harness::update(const board::InputState& input){\n"+blocks+"\nreturn Action::None;\n}\n}\n"+launcher_test
-    (tmp/"launcher_test.cpp").write_text(handlers,encoding="utf-8")
-    subprocess.run([*args,str(tmp/"launcher_test.cpp"),str(ROOT/"components/settings/settings.cpp"),"-o",str(tmp/"launcher")],check=True)
-    subprocess.run([str(tmp/"launcher")],check=True)
-print("UI preference NVS, M5 production handlers, rollback and reserve PASS")
+print("UI preference NVS compatibility and boot-restoration contracts PASS")

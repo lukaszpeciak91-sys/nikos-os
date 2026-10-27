@@ -9,7 +9,6 @@
 #include "countdown/countdown_service.hpp"
 #include "settings/settings.hpp"
 #include "signal_sound/signal_sound_player.hpp"
-#include "storage/ui_preferences_store.hpp"
 
 namespace nikos::launcher {
 
@@ -30,6 +29,9 @@ enum class Action : std::uint8_t {
     OpenFacts,
     OpenVwGarage,
     BrightnessChanged,
+    ThemeChanged,
+    OrientationChanged,
+    SignalSoundChanged,
     SignalVolumeChanged,
     AutoPowerOffChanged,
     ShutdownRequested,
@@ -71,6 +73,12 @@ public:
         bool render_if_changed = true);
     void restore_auto_power_off_preference(bool enabled);
     void restore_signal_volume_preference(std::uint8_t level);
+    // Requested selections are not effective until composition confirms NVS.
+    settings::Brightness requested_brightness() const;
+    ui_theme::Theme requested_theme() const;
+    settings::Orientation requested_orientation() const;
+    settings::SignalSound requested_signal_sound() const;
+    void complete_preference_change(Action action, bool saved);
     void redraw();
     bool showing_communicator_ui() const;
     Action update(const board::InputState& input);
@@ -186,7 +194,6 @@ private:
     countdown::Service& countdown_;
     settings::State& settings_;
     signal_sound::Player& signal_sound_;
-    storage::UiPreferencesStore ui_preferences_store_;
     Screen screen_ = Screen::Main;
     CommunicatorStatus communicator_status_ = CommunicatorStatus::Off;
     CommunicatorDeliveryStatus communicator_delivery_status_ =
