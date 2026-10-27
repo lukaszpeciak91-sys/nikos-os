@@ -25,6 +25,7 @@
 #include "storage/auto_power_off_store.hpp"
 #include "storage/communicator_preferences_store.hpp"
 #include "storage/signal_volume_store.hpp"
+#include "storage/ui_preferences_store.hpp"
 #include "storage/rtc_date_configured_store.hpp"
 
 #include "esp_err.h"
@@ -1147,6 +1148,22 @@ extern "C" void app_main(void)
     std::uint32_t entertainment_rtc_sample_ms = now_ms();
     bool entertainment_clock_trusted = boot_clock_trusted;
     std::uint64_t entertainment_utc_s = boot_utc_s;
+
+    // The startup splash deliberately keeps the safe default palette and
+    // rotation; restore durable preferences after NVS initialization and
+    // before the first normal Launcher or Charging Lock presentation.
+    nikos::storage::UiPreferencesStore ui_preferences_store;
+    settings.theme = ui_preferences_store.load_theme();
+    settings.orientation = ui_preferences_store.load_orientation();
+    settings.brightness = ui_preferences_store.load_brightness();
+    settings.signal_sound = ui_preferences_store.load_signal_sound();
+    board.set_theme(settings.theme);
+    board.set_display_orientation(
+        settings.orientation == nikos::settings::Orientation::Left
+            ? nikos::board::DisplayOrientation::Left
+            : nikos::board::DisplayOrientation::Right);
+    apply_effective_brightness_profile(
+        display_lifecycle, settings, battery_guard.low_battery_reserve_active());
 
     nikos::storage::SignalVolumeStore signal_volume_store;
     settings.signal_volume_level = signal_volume_store.load_level();
@@ -2574,11 +2591,55 @@ extern "C" void app_main(void)
                         signal_sound.stop();
                         if (requested != 0) signal_sound.play_selected();
                     }
+                } else if (action == nikos::launcher::Action::SignalSoundChanged) {
+                    const auto requested = launcher.requested_signal_sound();
+                    const bool changed = requested != settings.signal_sound;
+                    const bool saved = !changed
+                        || ui_preferences_store.save_signal_sound(requested);
+                    if (saved) {
+                        settings.signal_sound = requested;
+                        signal_sound.stop();
+                        signal_sound.play_selected();
+                    } else {
+                        signal_sound.stop();
+                    }
+                    launcher.complete_preference_change(action, saved);
+                } else if (action == nikos::launcher::Action::ThemeChanged) {
+                    const auto requested = launcher.requested_theme();
+                    const bool changed = requested != settings.theme;
+                    const bool saved = !changed
+                        || ui_preferences_store.save_theme(requested);
+                    if (saved && changed) {
+                        settings.theme = requested;
+                        board.set_theme(settings.theme);
+                    }
+                    launcher.complete_preference_change(action, saved);
+                } else if (action == nikos::launcher::Action::OrientationChanged) {
+                    const auto requested = launcher.requested_orientation();
+                    const bool changed = requested != settings.orientation;
+                    const bool saved = !changed
+                        || ui_preferences_store.save_orientation(requested);
+                    if (saved && changed) {
+                        settings.orientation = requested;
+                        board.set_display_orientation(
+                            settings.orientation == nikos::settings::Orientation::Left
+                                ? nikos::board::DisplayOrientation::Left
+                                : nikos::board::DisplayOrientation::Right);
+                    }
+                    launcher.complete_preference_change(action, saved);
                 } else if (action == nikos::launcher::Action::BrightnessChanged) {
-                    apply_effective_brightness_profile(
-                        display_lifecycle,
-                        settings,
-                        battery_guard.low_battery_reserve_active());
+                    const auto requested = launcher.requested_brightness();
+                    const bool changed = requested != settings.brightness;
+                    const bool saved = !changed
+                        || ui_preferences_store.save_brightness(requested);
+                    if (saved && changed) {
+                        settings.brightness = requested;
+                        apply_effective_brightness_profile(
+                            display_lifecycle,
+                            settings,
+                            battery_guard.low_battery_reserve_active());
+                    }
+                    launcher.complete_preference_change(action, saved);
                 } else if (
                     action == nikos::launcher::Action::AutoPowerOffChanged) {
                     const bool requested_auto_power_off_enabled =

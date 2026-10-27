@@ -29,6 +29,9 @@ enum class Action : std::uint8_t {
     OpenFacts,
     OpenVwGarage,
     BrightnessChanged,
+    ThemeChanged,
+    OrientationChanged,
+    SignalSoundChanged,
     SignalVolumeChanged,
     AutoPowerOffChanged,
     ShutdownRequested,
@@ -70,6 +73,12 @@ public:
         bool render_if_changed = true);
     void restore_auto_power_off_preference(bool enabled);
     void restore_signal_volume_preference(std::uint8_t level);
+    // Requested selections are not effective until composition confirms NVS.
+    settings::Brightness requested_brightness() const;
+    ui_theme::Theme requested_theme() const;
+    settings::Orientation requested_orientation() const;
+    settings::SignalSound requested_signal_sound() const;
+    void complete_preference_change(Action action, bool saved);
     void redraw();
     bool showing_communicator_ui() const;
     Action update(const board::InputState& input);
@@ -220,6 +229,7 @@ private:
     std::uint8_t settings_selection_ = 0;
     std::uint8_t about_page_ = 0;
     std::uint8_t signal_sound_selection_ = 0;
+    bool settings_save_failed_ = false;
     std::uint8_t sound_menu_selection_ = 0;
     std::uint8_t signal_volume_selection_ = 4;
     std::uint8_t brightness_selection_ = 0;
